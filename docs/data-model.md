@@ -8,10 +8,11 @@ erDiagram
     SHELF ||--o{ SHELF_SLOT : has
     PRODUCT ||--o{ SHELF_SLOT : "stocked in"
     PRODUCT ||--o{ INVENTORY_EVENT : "tracked by"
-    SHELF ||--o{ INVENTORY_EVENT : "reports"
+    SHELF_SLOT ||--o{ INVENTORY_EVENT : "reports"
     CART_SESSION ||--o{ CART_ITEM : contains
     PRODUCT ||--o{ CART_ITEM : "scanned as"
     CART_SESSION ||--|| TRANSACTION : "settles into"
+    TRANSACTION ||--|| RECEIPT : "generates"
     CUSTOMER ||--o{ CART_SESSION : starts
 
     STORE {
@@ -22,12 +23,12 @@ erDiagram
     SHELF {
         string shelf_id PK
         string store_id FK
-        string sensor_type "weight | rfid | vision"
     }
     SHELF_SLOT {
         string slot_id PK
         string shelf_id FK
         string product_id FK
+        string sensor_type "entry_exit | rfid | vision"
         int expected_qty
     }
     PRODUCT {
@@ -39,9 +40,9 @@ erDiagram
     }
     INVENTORY_EVENT {
         string event_id PK
-        string shelf_id FK
+        string slot_id FK
         string product_id FK
-        string event_type "restock | weight_delta | sale_decrement"
+        string event_type "restock | slot_exit | slot_entry | sale_decrement"
         int qty_change
         datetime timestamp
     }
@@ -66,13 +67,23 @@ erDiagram
         string transaction_id PK
         string session_id FK
         decimal total_amount
+        string payment_method "mpesa | card"
         string payment_status
         datetime completed_at
+    }
+    RECEIPT {
+        string receipt_id PK
+        string transaction_id FK
+        string etims_invoice_number
+        string kra_status "pending | issued | failed"
+        datetime issued_at
     }
 ```
 
 ## Notes for implementation
 
-- `INVENTORY_EVENT` is the append-only ledger every stock change flows through — both the weight-sensor and barcode-restock paths write here, and the online storefront (Phase 2) reads current stock as a rollup of this table, not a separately maintained field.
-- `SHELF.sensor_type` is deliberately per-shelf, not global — lets the pilot store mix weight sensors on fast-moving items with barcode-only on others, without a schema change later.
+- `INVENTORY_EVENT` is the append-only ledger every stock change flows through — restock and entry/exit sensor events both write here, and the online storefront (Phase 2) reads current stock as a rollup of this table, not a separately maintained field.
+- `SHELF_SLOT.sensor_type` is per-slot, not per-shelf — this is what makes mixed shelves (multiple different SKUs, common in Kenyan supermarkets) work: each slot senses independently instead of one sensor trying to disambiguate an entire shelf's contents.
 - `price_at_scan` on `CART_ITEM` is intentional: if pricing changes mid-shop, the customer pays what they saw when they scanned.
+- `TRANSACTION.payment_method` supports `mpesa` and `card` as parallel options from day one, both settling into the same transaction record regardless of provider.
+- `RECEIPT` is a 1:1 extension of `TRANSACTION`, tracking the KRA eTIMS submission separately from the payment itself — if eTIMS submission fails or is delayed, the sale isn't blocked; `kra_status` just reflects the receipt as `pending` until it's confirmed `issued`.
