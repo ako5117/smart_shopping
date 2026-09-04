@@ -8,6 +8,7 @@ The four original feature ideas (electronic shelving, smart carts, smart checkou
 Shelf Visibility (1) → Scan & Go (2 + 3) → Online/In-Store Sync (4)
 ```
 
+
 ## Phase 1 — Shelf Visibility (inventory foundation)
 
 **Goal:** real "what's on shelf vs. in store" data, flowing live.
@@ -16,18 +17,21 @@ Hardware routes considered:
 
 | Route | Cost | Accuracy | Notes |
 |---|---|---|---|
-| Weight-sensor shelves | Low | Stock count only — can't tell *which* product if items are swapped | **Pilot choice** |
+| Weight-sensor shelves | Low | Breaks down on multi-product shelves — a weight delta can't identify *which* SKU moved if items have similar/overlapping weights | Not recommended where shelves are mixed |
+| **Per-slot entry/exit sensors (IR break-beam / ToF)** | Low-medium | Counts items passing through a known slot, not weight-inferred — works regardless of product weight overlap, since slot→product mapping is already known from restock scans | **Pilot choice** |
 | RFID tags per item | High (per-unit) | SKU-level accurate | Phase 2+ candidate |
 | Computer vision (shelf cameras) | Medium-high (setup/compute) | Most flexible | Phase 2+ candidate |
 
-**Pilot approach:** weight sensors + barcode scanning at restock. Cheapest path to real data flowing.
+**Pilot approach (revised):** per-slot entry/exit sensors + barcode scanning at restock. Kenyan supermarket shelves commonly mix multiple SKUs on one shelf, which breaks whole-shelf weight sensing — slot-level entry/exit detection sidesteps that by counting movement per known slot instead of inferring product identity from a weight number. Restock scans still provide the ground-truth slot→product mapping. Known trade-off: break-beam sensors can miscount on ambiguous hand motions (browsing without removing, grabbing multiple items in one pass) — needs debounce/calibration tuning, similar in kind to the weight sensor's own blind spot, just a different failure mode.
 
 ## Phase 1 (continued) — Scan & Go
 
 **Goal:** scan → running total → pay, as a single mobile flow (not separate cart + checkout systems).
 
-- App-based (customer's own phone), not dedicated cart hardware — far cheaper POC.
+**Pilot approach:** app-based (customer's own phone), not dedicated cart hardware — far cheaper POC.
 - Depends on the same product/pricing data model as Shelf Visibility.
+- **Payment methods:** M-Pesa (Daraja API, STK Push) and card, both behind a single Payment Gateway abstraction — swappable/extendable without touching inventory logic.
+- **Tax compliance:** each completed transaction auto-generates a KRA eTIMS-compliant receipt. This connects directly back to Awesomtech's original founding idea (automated digital receipt curation for tax filing) — Scan & Go becomes a live proof of that thesis, not just a checkout feature.
 
 ## Phase 2 — Online + In-Store Sync
 
