@@ -40,7 +40,7 @@ smart-shopping/
 - **Version control:** GitHub (this repo)
 - **Diagrams:** Mermaid, kept in `/docs` as version-controlled text, not external files
 - **Hosting (POCs):** DigitalOcean
-- **AI-assisted development:** Claude / Claude Code
+- **AI-assisted development if needed:** Claude / Claude Code
 
 ## Status
 
