@@ -1,78 +1,110 @@
-# Architecture — Phase 1 (Shelf Visibility + Scan & Go)
+# Architecture — Phase 1
 
 ## System overview
 
 ```mermaid
 graph TD
-    subgraph Store["In-Store"]
-        EX[Per-Slot Entry/Exit<br/>Sensors]
-        BR[Barcode Scanner<br/>at Restock]
+    subgraph Shelf["In-store: shelf node"]
+        LC["Load cells + HX711<br/>one per shelf zone"]
+        ESP["ESP32<br/>sampling, filtering, settle detection"]
+        CAM["ESP32-CAM<br/>zone snapshots"]
+        LC --> ESP
     end
 
-    subgraph Backend["Backend Services"]
-        IS[Inventory Service]
-        PS[Product/Pricing Service]
-        DB[(Shared Product &<br/>Inventory Database)]
-        PAY[Payment Gateway<br/>M-Pesa Daraja / Card]
-        TAX[Tax/Receipt Service<br/>KRA eTIMS]
+    subgraph Site["In-store: site services"]
+        MQ["MQTT broker"]
+        SS["Shelf Service<br/>weight + image fusion"]
+        LS[("Local data store<br/>outbox queue")]
+        BR["Barcode scanner<br/>restock"]
     end
 
-    subgraph Customer["Customer-Facing"]
-        APP[Scan & Go<br/>Mobile App]
+    subgraph Cloud["Backend"]
+        INV["Inventory Service<br/>stock ledger"]
+        PP["Product / Pricing Service<br/>EAN-13 catalogue"]
+        PAY["Payments Service<br/>M-Pesa Daraja"]
+        TAX["Tax / Receipt Service<br/>eTIMS placeholder"]
+        ADP["Retailer adapter<br/>REST"]
+        DB[("Shared database")]
     end
 
-    subgraph Future["Phase 2 — not built yet"]
-        WEB[Online Storefront]
-        DISP[Rider Dispatch]
-    end
+    POS["Retailer POS / inventory system"]
+    APP["Checkout app / store dashboard"]
+    DAR["Safaricom Daraja"]
 
-    EX -->|slot in/out events| IS
-    BR -->|restock scans, slot-to-SKU mapping| IS
-    IS --> DB
-    PS <--> DB
-    APP -->|scan item| PS
-    APP -->|running total| PS
-    APP -->|checkout| PAY
-    PAY -->|payment confirmed| IS
-    PAY -->|transaction complete| TAX
-    TAX -->|eTIMS receipt| APP
+    ESP -->|weight events| MQ
+    MQ --> SS
+    CAM -->|image on request| SS
+    SS -->|provisional shelf events| LS
+    BR -->|restock scans| LS
+    LS -->|sync when online| INV
+    INV <--> DB
+    PP <--> DB
+    APP --> PP
+    APP -->|pay| PAY
+    PAY <-->|STK Push + callback| DAR
+    PAY -->|payment confirmed| INV
+    PAY -.->|sale completed| TAX
+    INV <--> ADP
+    ADP <-->|REST, not real-time| POS
 
-    WEB -.->|reads live stock| DB
-    WEB -.-> DISP
-
-    style Future fill:#f5f5f5,stroke:#999,stroke-dasharray: 5 5
+    style TAX stroke-dasharray: 5 5
 ```
 
-## Scan & Go flow (sequence)
+## Checkout flow
 
 ```mermaid
 sequenceDiagram
-    participant C as Customer (App)
-    participant PS as Product/Pricing Service
-    participant DB as Inventory DB
-    participant PAY as Payment Gateway
-    participant IS as Inventory Service
-    participant TAX as Tax/Receipt Service
+    participant C as Customer / cashier app
+    participant PP as Product/Pricing
+    participant PAY as Payments Service
+    participant D as Daraja
+    participant INV as Inventory Service
+    participant ADP as Retailer adapter
 
-    C->>PS: Scan item barcode
-    PS->>DB: Look up product + price
-    DB-->>PS: Product details
-    PS-->>C: Add to cart, update running total
-    Note over C: Repeat per item
+    C->>PP: Scan EAN-13 barcodes
+    PP-->>C: Items and running total
+    C->>PAY: Pay with M-Pesa (phone, amount)
+    PAY->>D: STK Push request
+    D-->>PAY: CheckoutRequestID (pending)
+    Note over D: Customer enters M-Pesa PIN
+    D->>PAY: Callback with result
+    PAY-->>C: Paid / failed / cancelled
+    PAY->>INV: Payment confirmed
+    INV->>INV: Commit sale to stock ledger
+    INV->>ADP: Queue sale for retailer system
+```
 
-    C->>PAY: Checkout (M-Pesa Daraja or card)
-    PAY-->>C: Payment confirmed
-    PAY->>IS: Notify sale completed
-    IS->>DB: Decrement stock for scanned items
-    PAY->>TAX: Notify transaction complete
-    TAX-->>C: eTIMS-compliant receipt issued
+## Shelf event flow
+
+```mermaid
+sequenceDiagram
+    participant ESP as ESP32 (load cells)
+    participant SS as Shelf Service
+    participant CAM as ESP32-CAM
+    participant LS as Local store
+
+    ESP->>SS: Weight change settled (zone, before, after)
+    SS->>CAM: Request snapshot of zone
+    CAM-->>SS: JPEG
+    SS->>SS: Match weight delta to candidate products, classify image
+    SS->>LS: Shelf event: pick / return / moved / misplaced / anomaly
+    Note over LS: Provisional only — stock changes at checkout and restock
 ```
 
 ## Component notes
 
-- **Per-Slot Entry/Exit Sensors → Inventory Service:** each shelf slot (one product per slot, per the data model) reports item-passed-through events via IR break-beam or time-of-flight sensing. This replaces whole-shelf weight sensing, which breaks down when a shelf mixes multiple SKUs with similar or overlapping weights — common on Kenyan supermarket shelves. Because the slot's product identity is already known (see below), the sensor only needs to count movement, not infer *what* moved.
-- **Barcode Scanner at Restock:** establishes and confirms the slot-to-SKU mapping the entry/exit sensors rely on — restock scans are the ground truth for "this slot holds this product."
-- **Shared Product/Inventory Database:** single source of truth for both Scan & Go and (later) the online storefront — this is why the data model has to be right before either feature is built (see `data-model.md`).
-- **Payment Gateway:** kept as a separate integration boundary — M-Pesa via Daraja (STK Push) and card processing sit behind this abstraction so either can be added, swapped, or run in parallel without touching inventory logic.
-- **Tax/Receipt Service:** listens for completed transactions and generates a KRA eTIMS-compliant receipt automatically. Directly extends Awesomtech's original founding concept (automated digital receipt curation for tax filing) into a live feature of Smart Shopping, not a separate product.
-- **Phase 2 components (dashed):** included here only to show where they'll attach, not being built yet.
+- **Shelf node:** each shelf zone sits on its own load cell. The ESP32 samples, filters and detects when the weight has changed and settled, then publishes a weight event over MQTT. It does not identify products. See [`sensor-logic.md`](sensor-logic.md).
+- **ESP32-CAM:** captures a snapshot of the zone when the Shelf Service asks. Image classification runs server-side, not on the ESP32.
+- **Shelf Service:** fuses the weight change with the image result into a shelf event. Runs at the site so it keeps working during internet outages.
+- **Local data store:** holds shelf events, restock scans and outgoing updates in an outbox until they are confirmed delivered. Every record carries an idempotency key so retries never double-count.
+- **Inventory Service:** owns the stock ledger. Stock only changes on restock, sale, or an approved adjustment.
+- **Product / Pricing Service:** catalogue keyed by EAN-13 barcode, including unit weight and the label the image classifier uses.
+- **Payments Service:** M-Pesa STK Push through Daraja. Card payments in Phase 2. See [`services/payments`](../services/payments).
+- **Tax / Receipt Service:** placeholder. Receives completed sales and will issue eTIMS e-receipts once the integration route is confirmed. A sale is never blocked by a receipt failure.
+- **Retailer adapter:** REST connection to the store's existing POS/inventory. Their systems are often slow, so sync is asynchronous. See [`reconciliation.md`](reconciliation.md).
+
+## Deployment (POC)
+
+- Cloud services on DigitalOcean (shared company account).
+- Site services (MQTT broker, Shelf Service, local store) on one small machine in the store; for the bench prototype, a laptop.
+- Daraja callbacks need a public HTTPS URL, so the Payments Service runs in the cloud.
