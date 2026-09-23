@@ -14,3 +14,6 @@ __pycache__/
 *.db
 .venv/
 .pytest_cache/
+
+# Firmware secrets
+hardware/firmware/*/config.h
