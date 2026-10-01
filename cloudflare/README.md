@@ -21,7 +21,7 @@ Until the company DigitalOcean account exists, the backend runs on **Cloudflare 
 | `/shop/` | Scan & Go | Public (customers' phones) |
 | `/pay/...` | Payments Service | Staff, except `/pay/payments/mpesa/callback/<secret>` (Daraja must reach it) |
 | `/inventory/...` | Inventory Service | Staff |
-| `/dashboard/` | Store dashboard | Staff |
+| `/dashboard/` | Store dashboard: Overview, Products (`/dashboard/products`), Exit check (`/dashboard/exit`) | Staff |
 
 `/inventory/docs` and `/pay/docs` open each service's interactive API docs.
 
@@ -60,8 +60,7 @@ Non-secret settings (`STORE_ID`, `STORE_NAME`, `DARAJA_ENV`, shortcode, etc.) ar
 - **One instance per service.** All requests go to the same container, so SQLite stays consistent.
 - **The dashboard has no shelf events** because the Shelf Service isn't hosted. It shows stock, sales and differences only.
 - **Single shared staff login.** Per-person accounts come later.
-- **Scan & Go prices** come from `apps/scan_and_go/prices.example.json`, baked into its image. Change the file and push to update them.
-- **Products must be registered again after a restart** (Inventory starts empty). Use `PUT /inventory/products/{id}` and `POST /inventory/restocks`, or the API docs page at `/inventory/docs`.
+- **Products must be added again after a restart** (Inventory starts empty). Use the dashboard's Products page at `/dashboard/products`.
 
 ## Moving to DigitalOcean
 
