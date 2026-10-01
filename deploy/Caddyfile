@@ -1,24 +1,39 @@
-# Front door for the Smart Shopping services. Same routes the temporary Cloudflare Worker had:
+# Front door for the Smart Shopping services.
 #   /shop/...       Scan & Go         public (customers' phones)
-#   /pay/...        Payments Service  staff login, except the M-Pesa callback (Daraja must reach it)
-#   /inventory/...  Inventory Service staff login
-#   /dashboard/...  Store dashboard   staff login
+#   /dashboard/...  Store dashboard   any staff login
+#   /inventory/...  Inventory API     managers only
+#   /pay/...        Payments API      managers only, except the M-Pesa callback (Daraja must reach it)
 # The prefix is stripped before the request reaches the service.
+#
+# Staff accounts live in deploy/staff/ (users: "name bcrypt-hash", roles: "name manager"), managed with
+# scripts/staff.sh. The signed-in name and role are passed to the services as X-Staff-User / X-Staff-Role;
+# those headers are always overwritten here, so a browser can't fake them.
 
 {$SITE_ADDRESS} {
 	encode gzip
+
+	map {http.auth.user.id} {staff_role} {
+		import /etc/caddy/staff/roles
+		default staff
+	}
 
 	@root path /
 	redir @root /shop/ 302
 
 	redir /shop /shop/ 301
 	handle_path /shop/* {
-		reverse_proxy scan_and_go:8030
+		reverse_proxy scan_and_go:8030 {
+			header_up -X-Staff-User
+			header_up -X-Staff-Role
+		}
 	}
 
 	handle_path /pay/payments/mpesa/callback/* {
 		rewrite * /payments/mpesa/callback{uri}
-		reverse_proxy payments:8000
+		reverse_proxy payments:8000 {
+			header_up -X-Staff-User
+			header_up -X-Staff-Role
+		}
 	}
 
 	redir /dashboard /dashboard/ 301
@@ -27,16 +42,30 @@
 		not path /pay/payments/mpesa/callback/*
 	}
 	basic_auth @staff {
-		{$STAFF_USER} {$STAFF_PASSWORD_HASH}
+		import /etc/caddy/staff/users
 	}
-	handle_path /pay/* {
-		reverse_proxy payments:8000
+
+	handle_path /dashboard/* {
+		reverse_proxy dashboard:8020 {
+			header_up X-Staff-User {http.auth.user.id}
+			header_up X-Staff-Role {staff_role}
+		}
 	}
 	handle_path /inventory/* {
-		reverse_proxy inventory:8010
+		@not_manager expression `{staff_role} != "manager"`
+		respond @not_manager "Managers only" 403
+		reverse_proxy inventory:8010 {
+			header_up X-Staff-User {http.auth.user.id}
+			header_up X-Staff-Role {staff_role}
+		}
 	}
-	handle_path /dashboard/* {
-		reverse_proxy dashboard:8020
+	handle_path /pay/* {
+		@not_manager expression `{staff_role} != "manager"`
+		respond @not_manager "Managers only" 403
+		reverse_proxy payments:8000 {
+			header_up X-Staff-User {http.auth.user.id}
+			header_up X-Staff-Role {staff_role}
+		}
 	}
 
 	handle {
