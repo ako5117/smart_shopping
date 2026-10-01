@@ -1,12 +1,14 @@
 # Front door for the Smart Shopping services.
 #   /shop/...       Scan & Go         public (customers' phones)
 #   /store/...      Online shop       public
-#   /dashboard/...  Store dashboard   any staff login
+#   /dashboard/...  Store dashboard   any staff login (not riders)
+#   /rider/...      Rider app         riders (and managers)
 #   /inventory/...  Inventory API     managers only
+#   /dispatch/...   Dispatch API      managers only
 #   /pay/...        Payments API      managers only, except the M-Pesa callback (Daraja must reach it)
 # The prefix is stripped before the request reaches the service.
 #
-# Staff accounts live in deploy/staff/ (users: "name bcrypt-hash", roles: "name manager"), managed with
+# Staff accounts live in deploy/staff/ (users: "name bcrypt-hash", roles: "name manager" or "name rider"), managed with
 # scripts/staff.sh. The signed-in name and role are passed to the services as X-Staff-User / X-Staff-Role;
 # those headers are always overwritten here, so a browser can't fake them.
 
@@ -46,8 +48,9 @@
 	}
 
 	redir /dashboard /dashboard/ 301
+	redir /rider /rider/ 301
 	@staff {
-		path /pay /pay/* /inventory /inventory/* /dashboard/*
+		path /pay /pay/* /inventory /inventory/* /dispatch /dispatch/* /dashboard/* /rider/*
 		not path /pay/payments/mpesa/callback/*
 	}
 	basic_auth @staff {
@@ -55,6 +58,8 @@
 	}
 
 	handle_path /dashboard/* {
+		@rider expression `{staff_role} == "rider"`
+		respond @rider "Riders use /rider/" 403
 		reverse_proxy dashboard:8020 {
 			header_up X-Staff-User {http.auth.user.id}
 			header_up X-Staff-Role {staff_role}
@@ -64,6 +69,22 @@
 		@not_manager expression `{staff_role} != "manager"`
 		respond @not_manager "Managers only" 403
 		reverse_proxy inventory:8010 {
+			header_up X-Staff-User {http.auth.user.id}
+			header_up X-Staff-Role {staff_role}
+		}
+	}
+	handle_path /rider/* {
+		@not_rider expression `{staff_role} != "rider" && {staff_role} != "manager"`
+		respond @not_rider "For riders only" 403
+		reverse_proxy rider:8060 {
+			header_up X-Staff-User {http.auth.user.id}
+			header_up X-Staff-Role {staff_role}
+		}
+	}
+	handle_path /dispatch/* {
+		@not_manager expression `{staff_role} != "manager"`
+		respond @not_manager "Managers only" 403
+		reverse_proxy dispatch:8050 {
 			header_up X-Staff-User {http.auth.user.id}
 			header_up X-Staff-Role {staff_role}
 		}

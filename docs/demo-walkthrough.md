@@ -1,6 +1,6 @@
 # Demo walkthrough
 
-A 15–20 minute demo of Phase 1, and the first part of Phase 2 (the online shop), for a partner or pilot store. It runs on one laptop. There's no shelf hardware, no Safaricom account and no real money:
+A 20–25 minute demo of Phase 1, and Phase 2 so far (the online shop and rider delivery), for a partner or pilot store. It runs on one laptop. There's no shelf hardware, no Safaricom account and no real money:
 - **M-Pesa** is a simulator that behaves like Daraja.
 - **Shelf sensors** are simulated. The real weight-and-camera logic runs on scripted shelf activity.
 
@@ -11,6 +11,7 @@ Everything else is the real software.
 1. Install [Docker Desktop](https://docs.docker.com/get-docker/) and clone the repo.
 2. Run `./scripts/demo.sh` (on Windows, from Git Bash or WSL). The first run builds everything (a few minutes) and prints:
    - the dashboard address, and two logins: `manager` (can change prices and correct counts) and `staff` (can restock and do exit checks)
+   - the rider app address and a `rider` login
    - the Scan & Go and online shop addresses, including ones for a phone on the same Wi-Fi
 3. Open two windows side by side:
    - **Staff:** http://localhost/dashboard/ (log in as `manager`)
@@ -85,19 +86,39 @@ Now switch to the staff window:
 - **Online orders:** the order is under **To pack**, with the customer's name and where each item is: **Shelf A2** for the sugar, **Store room** for the brown bread, which isn't on a sensor shelf. Press **Packed: ready for collection**. Within a few seconds the customer's page says **Ready to collect**.
 - **Collection:** on **Exit check**, type the code from the customer's pass. It shows **ONLINE ORDER · PAID ✓**, who's collecting and who packed it. Press **Confirm** and the customer's pass turns grey: **Collected**.
 
-### 6. Back to the store view (Staff: Overview), 2 min
+### 6. Delivery by rider (Customer, Rider and Staff), 4 min
+
+Open a third window for the rider: http://localhost/rider/, signed in as `rider`. A second phone works best.
+
+- **Rider:** save a phone number, then tap **Start shift**.
+- **Customer:** in the online shop, add something and tap **Checkout**.
+  - Choose **Deliver to me**, then pick an area. Each area has its own fee, and the total updates.
+  - Type an address, and optionally tap **Share my location**.
+  - Pay with `0712 345 678`.
+  - The order page shows a big **4-digit delivery code**. Point it out: the rider can't finish without it.
+- **Rider:** the job appears under **Waiting for a rider**, with only the area and fee. Tap **Accept**.
+  - The customer's name, address, **Call** and **Map** now appear.
+  - On the customer's page, "Your rider" appears with a **Call** button.
+- **Staff (Online orders):** the card shows the delivery area and the rider.
+  - Press **Packed: ready for the rider**, then **Hand to rider**. That records the parcel leaving the store.
+  - The order moves to **Out for delivery**, and the customer's page says **On the way**.
+- **Rider:** type a wrong code first. It's refused: "4 tries left". Then type the customer's code and tap **Delivered**. The customer's page shows **Delivered**.
+- **If something goes wrong:** on another delivery, the rider taps **Problem** and types "Customer not answering". The dashboard card turns red and shows the customer's number to call. **Rider tries again** sends the rider back out.
+
+### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.
 - **Stock:** dropped by exactly what was paid for, and nothing else.
 - **Recent sales:** shows the M-Pesa references.
 - **The shelf view keeps moving.** A misplaced item turns up under **Needs attention**: the shelf system noticed something left on the wrong shelf.
 
-### 7. Questions people usually ask
+### 8. Questions people usually ask
 
 - **"What if the internet drops?"** The shelf system runs in the store. Changes queue up and sync when the connection is back.
 - **"What if our counts and yours differ?"** The **Differences** panel shows each one. Staff count the shelf and the system corrects itself, with the reason recorded.
 - **"Do we have to replace our till?"** No. We connect to the store's existing POS.
-- **"Can the online shop sell something that isn't there?"** It promises less than the ledger says (see section 5), and the last check happens in the same step that records the order, so two customers can't both buy the last one. Delivery by rider is the next Phase 2 step; for now online orders are collected.
+- **"Can the online shop sell something that isn't there?"** It promises less than the ledger says (see section 5), and the last check happens in the same step that records the order, so two customers can't both buy the last one. Delivered orders work the same way, and a rider can't mark an order delivered without the customer's code.
+- **"Do we need Glovo or Uber?"** Not to start: the store's own riders use the rider app. A courier company can be plugged in later for busy times.
 - **"What's real here?"** All the software is. The two simulated pieces are M-Pesa (until the store's Paybill or Till is connected) and the shelf sensors (until the bench prototype is wired in).
 
 ## After the demo

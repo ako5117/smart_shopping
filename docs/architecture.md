@@ -30,6 +30,8 @@ graph TD
     POS["Retailer POS / inventory system"]
     APP["Checkout app / store dashboard"]
     WEB["Online shop (Phase 2)<br/>live availability, substitutes"]
+    DIS["Dispatch Service (Phase 2)<br/>riders, deliveries"]
+    RID["Rider app"]
     DAR["Safaricom Daraja"]
 
     ESP -->|weight events| MQ
@@ -45,6 +47,10 @@ graph TD
     WEB -->|stock, holds, orders| INV
     SS -.->|recent picks| WEB
     WEB -->|pay| PAY
+    WEB -->|delivery orders| DIS
+    RID -->|accept, deliver| DIS
+    DIS -->|order paid? handed over| INV
+    DIS <--> DB
     PAY <-->|STK Push + callback| DAR
     PAY -->|payment confirmed| INV
     PAY -.->|sale completed| TAX

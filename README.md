@@ -33,13 +33,14 @@ smart_shopping/
 │   ├── data-model.md        # Shared data model (Mermaid ER)
 │   ├── sensor-logic.md      # Weight + optical sensing logic
 │   ├── reconciliation.md    # Keeping our counts and the retailer's in agreement
-│   └── demo-walkthrough.md  # 15–20 minute demo script for partners and pilot stores
+│   └── demo-walkthrough.md  # 20–25 minute demo script for partners and pilot stores
 ├── hardware/
 │   ├── bench-prototype.md   # Bench rig parts list, wiring, test plan
 │   └── firmware/shelf_node/ # ESP32 shelf node firmware
 ├── services/
 │   ├── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
 │   ├── shelf/               # Weight + camera fusion into shelf events
+│   ├── dispatch/            # Rider deliveries of online orders: assignment, handover, proof of delivery
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
 ├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide
@@ -48,7 +49,8 @@ smart_shopping/
 └── apps/
     ├── dashboard/           # Store dashboard (shelves, stock, sales, online orders, differences)
     ├── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
-    └── storefront/          # Online shop: live shelf availability, substitutes, M-Pesa, collect in store
+    ├── storefront/          # Online shop: live shelf availability, substitutes, M-Pesa, collect or delivery
+    └── rider/               # Rider app: deliveries on the rider's phone
 ```
 
 ## Try it
