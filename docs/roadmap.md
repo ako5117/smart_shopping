@@ -36,7 +36,7 @@ Full logic: [`sensor-logic.md`](sensor-logic.md).
 
 ## Phase 2 — Online + in-store sync
 
-- Online storefront reads live shelf data to show real availability and suggest substitutes.
+- Online storefront reads live shelf data to show real availability and suggest substitutes. **Started:** [`apps/storefront`](../apps/storefront) — order online, pay with M-Pesa, collect in store.
 - Rider dispatch for remote orders.
 - Card payments.
 

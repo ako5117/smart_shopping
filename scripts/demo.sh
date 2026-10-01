@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command Smart Shopping demo: every service, the M-Pesa simulator and simulated shelf sensors,
+# One-command Smart Shopping demo: every service (with the online shop), the M-Pesa simulator and simulated shelf sensors,
 # with demo products loaded. Needs only Docker. Walkthrough: docs/demo-walkthrough.md
 #
 #   ./scripts/demo.sh            start (first run sets up .env and prints the staff password)
@@ -80,6 +80,7 @@ cat <<EOF
                     manager / ${manager_pw:-?}   (can change prices and correct counts)
                     staff   / ${staff_pw:-?}   (can restock and do exit checks)
   Scan & Go         http://localhost/shop/${lan_ip:+     on a phone on the same Wi-Fi: http://${lan_ip}/shop/}
+  Online shop       http://localhost/store/${lan_ip:+    on a phone on the same Wi-Fi: http://${lan_ip}/store/}
 
   M-Pesa simulator: any phone number pays after 3 s; ending 000 cancels; ending 111 fails.
   Shelf sensors are simulated: new shelf activity every few seconds on the dashboard.
