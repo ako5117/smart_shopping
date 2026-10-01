@@ -15,21 +15,24 @@
       "image_build_context": ".",
       "max_instances": 1,
       "instance_type": "lite"
-    }
+    },
+    { "class_name": "ScanAndGo", "image": "./apps/scan_and_go/Dockerfile", "max_instances": 1, "instance_type": "lite" }
   ],
   "durable_objects": {
     "bindings": [
       { "name": "INVENTORY", "class_name": "Inventory" },
       { "name": "PAYMENTS", "class_name": "Payments" },
-      { "name": "DASHBOARD", "class_name": "Dashboard" }
+      { "name": "DASHBOARD", "class_name": "Dashboard" },
+      { "name": "SCAN_AND_GO", "class_name": "ScanAndGo" }
     ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Inventory", "Payments", "Dashboard"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Inventory", "Payments", "Dashboard", "ScanAndGo"] }],
 
   // Not secret. Secrets (STAFF_PASSWORD, DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_PASSKEY,
   // CALLBACK_SECRET) are set in the Cloudflare dashboard or with `npx wrangler secret put NAME`.
   "vars": {
     "STORE_ID": "001",
+    "STORE_NAME": "Smart Shopping",
     "STAFF_USER": "staff",
     "PUBLIC_BASE_URL": "",
     "DARAJA_ENV": "sandbox",

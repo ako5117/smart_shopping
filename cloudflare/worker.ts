@@ -4,13 +4,14 @@
  * Each service runs unchanged in its own container (the same Dockerfiles will run on DigitalOcean).
  * This Worker is the front door:
  *
+ *   /shop/...       -> Scan & Go          (public: customers' phones)
  *   /pay/...        -> Payments Service   (/pay/payments/mpesa/callback/... is public, for Daraja)
  *   /inventory/...  -> Inventory Service  (staff login)
  *   /dashboard/...  -> Store dashboard    (staff login)
  *
  * The prefix is stripped before the request reaches the container. Containers reach each other
- * through http://inventory.internal, which the Worker routes straight to the Inventory container,
- * so service-to-service calls never leave Cloudflare or need the staff password.
+ * through http://inventory.internal and http://payments.internal, which the Worker routes straight
+ * to those containers, so service-to-service calls never leave Cloudflare or need the staff password.
  */
 import { Container, ContainerProxy } from "@cloudflare/containers";
 
@@ -20,8 +21,10 @@ export interface Env {
 	INVENTORY: DurableObjectNamespace<Inventory>;
 	PAYMENTS: DurableObjectNamespace<Payments>;
 	DASHBOARD: DurableObjectNamespace<Dashboard>;
+	SCAN_AND_GO: DurableObjectNamespace<ScanAndGo>;
 
 	STORE_ID: string;
+	STORE_NAME: string;
 	STAFF_USER: string;
 	STAFF_PASSWORD: string; // secret
 	PUBLIC_BASE_URL: string; // e.g. https://smart-shopping.<account>.workers.dev
@@ -37,10 +40,12 @@ export interface Env {
 }
 
 const INVENTORY_HOST = "inventory.internal";
+const PAYMENTS_HOST = "payments.internal";
 // One instance of each service. SQLite lives on the container's disk, so all requests must reach the same one.
 const INSTANCE = "main";
 
 const toInventory = (req: Request, env: Env) => env.INVENTORY.getByName(INSTANCE).fetch(req);
+const toPayments = (req: Request, env: Env) => env.PAYMENTS.getByName(INSTANCE).fetch(req);
 
 // Containers report ready once /health answers.
 const PING = "localhost/health";
@@ -90,10 +95,28 @@ export class Dashboard extends Container<Env> {
 	}
 }
 
+export class ScanAndGo extends Container<Env> {
+	defaultPort = 8030;
+	sleepAfter = "1h";
+	pingEndpoint = PING;
+
+	constructor(ctx: DurableObjectState<{}>, env: Env) {
+		super(ctx, env);
+		this.envVars = {
+			STORE_ID: env.STORE_ID ?? "001",
+			STORE_NAME: env.STORE_NAME ?? "Smart Shopping",
+			INVENTORY_URL: `http://${INVENTORY_HOST}`,
+			PAYMENTS_URL: `http://${PAYMENTS_HOST}`,
+			UVICORN_ROOT_PATH: "/shop",
+		};
+	}
+}
+
 // Assigned (not declared as `static outboundByHost = ...` class fields) so the base class's static
 // setter runs and registers the handler; a class field would bypass it and the call would hit DNS.
 Payments.outboundByHost = { [INVENTORY_HOST]: toInventory };
 Dashboard.outboundByHost = { [INVENTORY_HOST]: toInventory };
+ScanAndGo.outboundByHost = { [INVENTORY_HOST]: toInventory, [PAYMENTS_HOST]: toPayments };
 
 type Route = {
 	prefix: string;
@@ -102,6 +125,7 @@ type Route = {
 };
 
 const ROUTES: Route[] = [
+	{ prefix: "/shop", target: (env) => env.SCAN_AND_GO.getByName(INSTANCE), isPublic: () => true },
 	{
 		prefix: "/pay",
 		target: (env) => env.PAYMENTS.getByName(INSTANCE),
@@ -138,7 +162,8 @@ const INDEX = `<!doctype html><meta charset="utf-8"><meta name="viewport" conten
 <title>Smart Shopping</title>
 <body style="font:16px system-ui;max-width:32rem;margin:3rem auto;padding:0 16px">
 <h1>Smart Shopping</h1><p>Temporary hosting for the Phase 1 services.</p>
-<ul><li><a href="/dashboard/">Store dashboard</a> (staff login)</li>
+<ul><li><a href="/shop/">Scan &amp; Go</a> (customers)</li>
+<li><a href="/dashboard/">Store dashboard</a> (staff login)</li>
 <li><a href="/inventory/docs">Inventory Service API</a> (staff login)</li>
 <li><a href="/pay/docs">Payments Service API</a> (staff login)</li></ul></body>`;
 
