@@ -41,7 +41,8 @@ smart_shopping/
 │   ├── shelf/               # Weight + camera fusion into shelf events
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
 └── apps/
-    └── dashboard/           # Store dashboard (shelves, stock, sales, differences); Scan & Go app to follow
+    ├── dashboard/           # Store dashboard (shelves, stock, sales, differences)
+    └── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
 ```
 
 ## Tooling
@@ -55,4 +56,4 @@ smart_shopping/
 
 ## Status
 
-🟡 Phase 1 design agreed (22 Sep 2026). Payments, Shelf and Inventory services and the store dashboard are built and tested in software; bench prototype pending parts.
+🟡 Phase 1 design agreed (22 Sep 2026). Payments, Shelf and Inventory services, the store dashboard and the Scan & Go app are built and tested in software; bench prototype pending parts.
