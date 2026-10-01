@@ -39,3 +39,19 @@ def test_reconcile_and_count_over_http():
     [open_d] = c.get("/discrepancies/001").json()
     r = c.post(f"/discrepancies/{open_d['discrepancy_id']}/count", json={"counted_qty": 11, "counted_by": "Mary"})
     assert r.json()["stock"] == 11
+
+
+def test_read_endpoints_for_dashboard():
+    c = client()
+    assert c.get("/products").json() == [{"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}]
+    c.post("/restocks", json={"store_id": "001", "ean13": "6161000000040", "qty": 5, "scan_id": "s1"})
+    for sale_id in ("S1", "S2"):
+        c.post("/sales", json={"sale_id": sale_id, "store_id": "001", "items": [{"product_id": "milk-500ml", "qty": 1}]})
+    c.post("/sales/S1/commit", json={"payment_ref": "REF1"})
+    sales = c.get("/sales", params={"store_id": "001"}).json()
+    assert {s["sale_id"]: s["status"] for s in sales} == {"S1": "paid", "S2": "pending_payment"}
+    assert sales[0]["items"] == [{"product_id": "milk-500ml", "qty": 1}]
+    assert c.get("/sales", params={"store_id": "002"}).json() == []
+    status = c.get("/sync/001").json()
+    assert status["pending"] == 2 and status["oldest_pending_at"] and status["last_error"] == ""
+    assert c.get("/sync/002").json()["pending"] == 0

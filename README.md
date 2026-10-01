@@ -34,10 +34,14 @@ smart_shopping/
 │   ├── sensor-logic.md      # Weight + optical sensing logic
 │   └── reconciliation.md    # Keeping our counts and the retailer's in agreement
 ├── hardware/
-│   └── bench-prototype.md   # Bench rig parts list, wiring, test plan
+│   ├── bench-prototype.md   # Bench rig parts list, wiring, test plan
+│   └── firmware/shelf_node/ # ESP32 shelf node firmware
 ├── services/
-│   └── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
-└── apps/                    # (to be added) store dashboard, Scan & Go app
+│   ├── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
+│   ├── shelf/               # Weight + camera fusion into shelf events
+│   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
+└── apps/
+    └── dashboard/           # Store dashboard (shelves, stock, sales, differences); Scan & Go app to follow
 ```
 
 ## Tooling
@@ -51,4 +55,4 @@ smart_shopping/
 
 ## Status
 
-🟡 Phase 1 design agreed (22 Sep 2026). Payments service in development; bench prototype pending parts.
+🟡 Phase 1 design agreed (22 Sep 2026). Payments, Shelf and Inventory services and the store dashboard are built and tested in software; bench prototype pending parts.

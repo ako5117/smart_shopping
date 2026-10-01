@@ -39,6 +39,9 @@ class Inventory:
                       "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name",
                       (product_id, ean13, name))
 
+    def products(self) -> List[dict]:
+        return self.db.all("SELECT * FROM products ORDER BY product_id")
+
     def product_by_ean(self, ean13: str) -> dict:
         p = self.db.one("SELECT * FROM products WHERE ean13 = ?", (ean13,))
         if not p:
@@ -165,6 +168,13 @@ class Inventory:
             raise NotFound(f"No sale {sale_id}")
         sale["items"] = [{"product_id": p, "qty": q} for p, q in self._items(sale_id).items()]
         return sale
+
+    def recent_sales(self, store_id: str, limit: int = 50) -> List[dict]:
+        sales = self.db.all("SELECT * FROM sales WHERE store_id = ? ORDER BY created_at DESC, sale_id DESC LIMIT ?",
+                            (store_id, limit))
+        for s in sales:
+            s["items"] = [{"product_id": p, "qty": q} for p, q in self._items(s["sale_id"]).items()]
+        return sales
 
     def _items(self, sale_id: str) -> Dict[str, int]:
         return {r["product_id"]: r["qty"] for r in

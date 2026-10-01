@@ -79,6 +79,21 @@ def drain_outbox(db: Database, adapter: RetailerAdapter, now: Optional[datetime]
     return {"sent": sent, "pending": pending}
 
 
+def sync_status(db: Database, store_id: str) -> dict:
+    """How far behind the retailer's system is: queued movements, and the oldest one's last error."""
+    head = db.one(
+        "SELECT o.attempts, o.next_attempt_at, o.last_error, l.occurred_at FROM outbox o "
+        "JOIN stock_ledger l ON l.entry_id = o.entry_id WHERE o.status = 'queued' AND l.store_id = ? "
+        "ORDER BY o.entry_id LIMIT 1", (store_id,))
+    pending = db.one("SELECT COUNT(*) AS n FROM outbox o JOIN stock_ledger l ON l.entry_id = o.entry_id "
+                     "WHERE o.status = 'queued' AND l.store_id = ?", (store_id,))["n"]
+    return {"pending": pending,
+            "oldest_pending_at": head["occurred_at"] if head else None,
+            "attempts": head["attempts"] if head else 0,
+            "next_attempt_at": head["next_attempt_at"] if head else None,
+            "last_error": head["last_error"] if head else ""}
+
+
 def _unconfirmed_change(db: Database, store_id: str, product_id: str) -> int:
     return db.one(
         "SELECT COALESCE(SUM(l.qty_change), 0) AS q FROM outbox o JOIN stock_ledger l ON l.entry_id = o.entry_id "
