@@ -1,0 +1,9 @@
+# Build context for images built from the repo root (apps/dashboard)
+.git
+node_modules
+**/.env
+**/*.db
+**/.venv
+**/__pycache__
+**/.pytest_cache
+hardware

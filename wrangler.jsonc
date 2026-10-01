@@ -1,0 +1,43 @@
+// Temporary Cloudflare hosting until the DigitalOcean account exists. See cloudflare/README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smart-shopping",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+
+  "containers": [
+    { "class_name": "Inventory", "image": "./services/inventory/Dockerfile", "max_instances": 1, "instance_type": "lite" },
+    { "class_name": "Payments", "image": "./services/payments/Dockerfile", "max_instances": 1, "instance_type": "lite" },
+    {
+      "class_name": "Dashboard",
+      "image": "./apps/dashboard/Dockerfile",
+      "image_build_context": ".",
+      "max_instances": 1,
+      "instance_type": "lite"
+    },
+    { "class_name": "ScanAndGo", "image": "./apps/scan_and_go/Dockerfile", "max_instances": 1, "instance_type": "lite" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "INVENTORY", "class_name": "Inventory" },
+      { "name": "PAYMENTS", "class_name": "Payments" },
+      { "name": "DASHBOARD", "class_name": "Dashboard" },
+      { "name": "SCAN_AND_GO", "class_name": "ScanAndGo" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Inventory", "Payments", "Dashboard", "ScanAndGo"] }],
+
+  // Not secret. Secrets (STAFF_PASSWORD, DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_PASSKEY,
+  // CALLBACK_SECRET) are set in the Cloudflare dashboard or with `npx wrangler secret put NAME`.
+  "vars": {
+    "STORE_ID": "001",
+    "STORE_NAME": "Smart Shopping",
+    "STAFF_USER": "staff",
+    "PUBLIC_BASE_URL": "",
+    "DARAJA_ENV": "sandbox",
+    "DARAJA_SHORTCODE": "174379",
+    "DARAJA_TRANSACTION_TYPE": "CustomerPayBillOnline",
+    "DARAJA_PARTY_B": ""
+  }
+}
