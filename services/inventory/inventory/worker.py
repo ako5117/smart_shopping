@@ -9,7 +9,7 @@ import logging
 import os
 import time
 
-from .db import Database
+from .db import Database, database_from_env
 from .sync import HttpRetailerAdapter, drain_outbox, reconcile
 
 log = logging.getLogger("inventory.worker")
@@ -17,7 +17,7 @@ log = logging.getLogger("inventory.worker")
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    db = Database(os.getenv("INVENTORY_DB_PATH", "inventory.db"))
+    db = database_from_env()
     adapter = HttpRetailerAdapter(os.environ["RETAILER_API_URL"], os.getenv("RETAILER_API_KEY", ""))
     stores = [s for s in os.getenv("STORE_IDS", "001").split(",") if s]
     last_reconcile = 0.0

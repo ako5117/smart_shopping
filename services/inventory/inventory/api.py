@@ -9,7 +9,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .db import Database
+from .db import Database, database_from_env
 from .service import Conflict, Inventory, Item, NotFound
 from . import sync
 
@@ -84,7 +84,7 @@ def who(named: str, header: Optional[str]) -> str:
 
 
 def create_app(db: Optional[Database] = None) -> FastAPI:
-    db = db or Database(os.getenv("INVENTORY_DB_PATH", "inventory.db"))
+    db = db or database_from_env()
     inv = Inventory(db)
     app = FastAPI(title="Smart Shopping - Inventory Service")
 

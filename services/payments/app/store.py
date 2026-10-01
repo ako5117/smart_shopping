@@ -1,10 +1,10 @@
-"""SQLite storage for payment attempts. Swapped for the shared database once it is set up."""
+"""Payment attempts, stored in SQLite (development, tests) or the shared PostgreSQL database (see sqldb.py)."""
 
-import sqlite3
 import uuid
-from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Optional
+
+from .sqldb import Database
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS payments (
@@ -33,21 +33,11 @@ def _now() -> str:
 
 
 class PaymentStore:
-    def __init__(self, path: str):
-        self.path = path
-        # A single shared connection keeps ":memory:" databases alive for tests.
-        self._conn = sqlite3.connect(path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.executescript(SCHEMA)
+    """A SQLite path, or a postgresql:// URL (tables in schema "payments" of the shared database)."""
 
-    @contextmanager
-    def _tx(self):
-        try:
-            yield self._conn
-            self._conn.commit()
-        except Exception:
-            self._conn.rollback()
-            raise
+    def __init__(self, url: str, schema: str = "payments"):
+        self.db = Database(url, SCHEMA, schema=schema)
+        self._tx = self.db.tx
 
     def create(self, sale_id: str, amount: int, phone_number: str) -> dict:
         payment_id = str(uuid.uuid4())
@@ -93,11 +83,7 @@ class PaymentStore:
         return self.get_by_checkout(checkout_request_id)
 
     def get(self, payment_id: str) -> Optional[dict]:
-        row = self._conn.execute("SELECT * FROM payments WHERE payment_id=?", (payment_id,)).fetchone()
-        return dict(row) if row else None
+        return self.db.one("SELECT * FROM payments WHERE payment_id=?", (payment_id,))
 
     def get_by_checkout(self, checkout_request_id: str) -> Optional[dict]:
-        row = self._conn.execute(
-            "SELECT * FROM payments WHERE checkout_request_id=?", (checkout_request_id,)
-        ).fetchone()
-        return dict(row) if row else None
+        return self.db.one("SELECT * FROM payments WHERE checkout_request_id=?", (checkout_request_id,))

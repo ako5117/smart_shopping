@@ -75,15 +75,17 @@ class Inventory:
     def _record(self, c, store_id: str, product_id: str, entry_type: str, qty_change: int,
                 idempotency_key: str, reason: str = "", source_ref: str = "", recorded_by: str = "") -> Optional[int]:
         """Write one ledger entry and queue it for the retailer's system. Returns None if the key was seen before."""
-        cur = c.execute(
-            "INSERT OR IGNORE INTO stock_ledger (store_id, product_id, entry_type, qty_change, reason, source_ref, "
-            "idempotency_key, occurred_at, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (store_id, product_id, entry_type, qty_change, reason, source_ref, idempotency_key, now_iso(), recorded_by))
-        if cur.rowcount == 0:
+        row = c.execute(
+            "INSERT INTO stock_ledger (store_id, product_id, entry_type, qty_change, reason, source_ref, "
+            "idempotency_key, occurred_at, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (idempotency_key) DO NOTHING RETURNING entry_id",
+            (store_id, product_id, entry_type, qty_change, reason, source_ref, idempotency_key, now_iso(),
+             recorded_by)).fetchone()
+        if row is None:
             return None
         c.execute("INSERT INTO outbox (entry_id, status, next_attempt_at) VALUES (?, 'queued', ?)",
-                  (cur.lastrowid, now_iso()))
-        return cur.lastrowid
+                  (row["entry_id"], now_iso()))
+        return row["entry_id"]
 
     def restock(self, store_id: str, ean13: str, qty: int, scan_id: str, recorded_by: str = "") -> dict:
         if qty <= 0:

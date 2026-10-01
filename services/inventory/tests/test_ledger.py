@@ -91,3 +91,19 @@ def test_sale_keeps_the_price_it_was_sold_at(inv):
     inv.create_sale("SALE-P", STORE, [Item(MILK, 2)])
     inv.upsert_product(MILK, EAN[MILK], "Milk 500 ml", price_kes=70)
     assert inv.sale("SALE-P")["items"] == [{"product_id": MILK, "qty": 2, "unit_price_kes": 65}]
+
+
+def test_concurrent_requests_stay_consistent(inv):
+    """Many threads at once (FastAPI runs requests in a thread pool) must not lose or double-count stock."""
+    from concurrent.futures import ThreadPoolExecutor
+    inv.restock(STORE, EAN[MILK], 100, "base")
+
+    def work(i):
+        inv.restock(STORE, EAN[MILK], 1, f"dup-scan-{i % 5}")  # 5 distinct scans, each sent many times
+        inv.create_sale(f"T-{i}", STORE, [Item(MILK, 1)])
+        inv.commit_sale(f"T-{i}", f"REF-{i}")
+        inv.commit_sale(f"T-{i}", f"REF-{i}")  # a repeated commit changes nothing
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(work, range(40)))
+    assert inv.stock(STORE, MILK) == 100 + 5 - 40

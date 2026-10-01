@@ -2,10 +2,11 @@ from fastapi.testclient import TestClient
 
 from inventory.api import create_app
 from inventory.db import Database
+from tests.conftest import fresh_db
 
 
 def client():
-    c = TestClient(create_app(Database(":memory:")))
+    c = TestClient(create_app(fresh_db()))
     c.put("/products/milk-500ml", json={"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"})
     return c
 

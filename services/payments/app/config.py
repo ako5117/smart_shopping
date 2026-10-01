@@ -19,8 +19,9 @@ class Settings:
     party_b: str
     public_base_url: str
     callback_secret: str
-    db_path: str
+    db_path: str  # SQLite file, or a postgresql:// URL for the shared database
     inventory_url: str = ""
+    db_schema: str = "payments"
 
     @property
     def daraja_base_url(self) -> str:
@@ -58,6 +59,7 @@ def load_settings() -> Settings:
         party_b=os.getenv("DARAJA_PARTY_B") or shortcode,
         public_base_url=public_base_url,
         callback_secret=callback_secret,
-        db_path=os.getenv("PAYMENTS_DB_PATH", "payments.db"),
+        db_path=os.getenv("DATABASE_URL") or os.getenv("PAYMENTS_DB_PATH", "payments.db"),
+        db_schema=os.getenv("DATABASE_SCHEMA", "payments"),
         inventory_url=os.getenv("INVENTORY_URL", ""),
     )

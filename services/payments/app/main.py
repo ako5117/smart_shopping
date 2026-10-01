@@ -84,7 +84,7 @@ def create_app(
 ) -> FastAPI:
     settings = settings or load_settings()
     daraja = daraja or DarajaClient(settings)
-    store = store or PaymentStore(settings.db_path)
+    store = store or PaymentStore(settings.db_path, schema=settings.db_schema)
     if on_paid is None:
         on_paid = (inventory_notifier(settings.inventory_url) if settings.inventory_url
                    else lambda payment: log.info("Payment %s paid for sale %s", payment["payment_id"], payment["sale_id"]))
