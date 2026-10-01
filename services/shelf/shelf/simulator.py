@@ -1,13 +1,20 @@
 """Simulated shelf activity, for developing and demonstrating the Shelf Service without hardware.
 
     python -m shelf.simulator --config config.example.json
+    python -m shelf.simulator --config config.example.json --live shelf_events.jsonl
 
 Each scenario feeds realistic weight events (with sensor noise) and camera results into the
 engine, then checks the engine reached the expected conclusion.
+
+With --live, the scenarios play out in real time instead, over and over, and each resulting shelf
+event is appended to the given file exactly as the Shelf Service writes it. The store dashboard
+reads that file, so its shelf view moves during a demo without any hardware.
 """
 
 import argparse
+import json
 import random
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -96,12 +103,52 @@ def run(config_path: str, noise_g: float = 2.0, seed: int = 7, verbose: bool = T
     return failures
 
 
+def live(config_path: str, out_path: str, interval_s: float = 8.0, noise_g: float = 2.0, seed: int = 7,
+         loops: Optional[int] = None, sleep=time.sleep) -> int:
+    """Play the scenarios in real time, appending each shelf event to out_path. Returns events written.
+
+    Steps within a scenario keep their own spacing (capped at interval_s, so a "moved" item still
+    lands inside the engine's moved window); scenarios are interval_s apart. loops=None runs forever.
+    """
+    rng = random.Random(seed)
+    products, zones = load_catalogue(config_path)
+    engine = ShelfEngine(products, zones, FusionSettings(sensor_noise_g=noise_g))
+    weights = {z.zone_id: 5000.0 for z in zones}
+    written, n, loop = 0, 0, 0
+    while loops is None or loop < loops:
+        for scenario in SCENARIOS:
+            for i, step in enumerate(scenario.steps):
+                if i:
+                    sleep(min(step.after_s, interval_s))
+                before = weights[step.zone_id] + rng.gauss(0, noise_g)
+                weights[step.zone_id] += step.delta_g
+                after = weights[step.zone_id] + rng.gauss(0, noise_g)
+                n += 1
+                ev = WeightEvent("sim", step.zone_id, f"live-{n}", round(before, 1), round(after, 1),
+                                 datetime.now(timezone.utc))
+                results = engine.process(ev, step.image)
+                with open(out_path, "a", encoding="utf-8") as f:
+                    for r in results:
+                        f.write(json.dumps(r.to_dict()) + "\n")
+                written += len(results)
+            sleep(interval_s)
+        loop += 1
+    return written
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run simulated shelf scenarios")
     parser.add_argument("--config", default="config.example.json")
     parser.add_argument("--noise", type=float, default=2.0, help="Sensor noise, grams (standard deviation)")
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--live", metavar="EVENTS_FILE",
+                        help="Play the scenarios in real time, forever, appending shelf events to this file")
+    parser.add_argument("--interval", type=float, default=8.0, help="Seconds between scenarios in --live mode")
     args = parser.parse_args()
+    if args.live:
+        print(f"Writing live shelf events to {args.live} every {args.interval:g} s. Ctrl+C to stop.", flush=True)
+        live(args.config, args.live, args.interval, args.noise, args.seed)
+        return
     raise SystemExit(1 if run(args.config, args.noise, args.seed) else 0)
 
 

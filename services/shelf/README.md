@@ -12,6 +12,8 @@ pip install -r requirements-dev.txt
 python -m shelf.simulator --config config.example.json
 ```
 
+Add `--live shelf_events.jsonl` to play the scenarios in real time, over and over, writing shelf events like the real service does. The demo (`scripts/demo.sh`) runs this so the store dashboard's shelf view moves without hardware.
+
 The simulator runs nine scenarios with realistic sensor noise — single and multi-item picks, similar-weight products, put-backs, items moved between shelves, wrong-shelf returns, unknown objects, and camera/weight disagreement — and checks each outcome.
 
 ## Run it for real
