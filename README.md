@@ -36,8 +36,16 @@ smart_shopping/
 ├── hardware/
 │   └── bench-prototype.md   # Bench rig parts list, wiring, test plan
 ├── services/
-│   └── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
-└── apps/                    # (to be added) store dashboard, Scan & Go app
+│   ├── payments/            # M-Pesa (Daraja STK Push)
+│   ├── shelf/               # Weight + camera fusion into shelf events
+│   ├── inventory/           # Stock ledger, retailer sync, reconciliation
+│   └── catalog/             # Products, store prices, promotions, suggestions
+├── apps/
+│   └── checkout/            # Phone checkout: scan, pay with M-Pesa
+├── hardware/firmware/       # ESP32 shelf node
+└── tools/
+    ├── mpesa_simulator/     # Stand-in for Safaricom Daraja, for demos
+    └── demo/                # One command to run the whole checkout locally
 ```
 
 ## Tooling
@@ -47,8 +55,13 @@ smart_shopping/
 - **Hardware:** ESP32, programmed with Arduino
 - **Diagrams:** Mermaid, kept in `/docs` as version-controlled text, not external files
 - **Hosting (POCs):** DigitalOcean (shared company account — pending setup)
+- **Docs site:** Cloudflare Workers static assets — `wrangler.jsonc` runs `scripts/build-docs.mjs`, which copies the Markdown into `dist/`; `site/index.html` renders it (Mermaid included) in the browser
 - **AI-assisted development if needed:** Claude / Claude Code
 
 ## Status
 
-🟡 Phase 1 design agreed (22 Sep 2026). Payments service in development; bench prototype pending parts.
+🟡 Phase 1 software complete apart from eTIMS and the camera model; full checkout demo runs locally (`tools/demo`). Bench prototype pending parts.
+
+## Licensing rule
+
+No code is copied from other projects, and no GPL or AGPL-licensed code is used. Ideas from other projects are written as our own code. Dependencies are limited to standard permissively licensed libraries (e.g. FastAPI).
