@@ -41,6 +41,13 @@ class InventoryClient:
     def find_sale(self, store_id: str, code: str) -> httpx.Response:
         return self.http.get("/sales/lookup", params={"store_id": store_id, "code": code})
 
+    def online_orders(self, store_id: str) -> List[dict]:
+        """Paid online orders not collected yet: to pack, or packed and waiting."""
+        return self._get("/sales", store_id=store_id, channel="online", status="paid", uncollected="true", limit=200)
+
+    def mark_ready(self, sale_id: str, ready_by: str) -> httpx.Response:
+        return self.http.post(f"/sales/{sale_id}/ready", json={"ready_by": ready_by})
+
     def record_exit(self, sale_id: str, checked_by: str) -> httpx.Response:
         return self.http.post(f"/sales/{sale_id}/exit", json={"checked_by": checked_by})
 

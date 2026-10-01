@@ -11,9 +11,9 @@
 <header>
   <div>
     <h1>Products</h1>
-    <div class="muted">Prices here are what Scan &amp; Go charges (changes reach it within 30 seconds).</div>
+    <div class="muted">Prices here are what Scan &amp; Go and the online shop charge (changes reach them within 30 seconds).</div>
   </div>
-  <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="exit">Exit check</a></nav>
+  <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a></nav>
   <span class="muted who" id="me"></span>
 </header>
 <main>
@@ -40,10 +40,13 @@
     <form id="product" class="fields" autocomplete="off">
       <label>Barcode (EAN-13)<input id="p-ean" inputmode="numeric" maxlength="13" required placeholder="Scan or type"></label>
       <label>Name<input id="p-name" required maxlength="120" placeholder="e.g. Milk 500 ml"></label>
-      <label>Price (KES)<input id="p-price" type="number" min="1" step="1" placeholder="Not sold in Scan & Go"></label>
+      <label>Price (KES)<input id="p-price" type="number" min="1" step="1" placeholder="Not for sale yet"></label>
+      <label>Category<input id="p-category" maxlength="40" list="categories" placeholder="e.g. Dairy"></label>
+      <datalist id="categories"></datalist>
       <button id="p-save">Save product</button>
     </form>
     <div class="muted" id="p-id-note" style="margin-top:6px"></div>
+    <div class="muted" style="margin-top:6px">The online shop suggests products from the same category when something sells out.</div>
     <div id="product-result" class="result" hidden></div>
   </section>
 
@@ -94,11 +97,13 @@ async function load() {
   $("table").innerHTML = products.length ? `<table>
     <tr><th>Product</th><th>Barcode</th><th class="num">Price</th><th class="num">In stock</th></tr>
     ${products.map((p) => `<tr class="pick" data-id="${esc(p.product_id)}" tabindex="0" title="Edit">
-      <td>${esc(p.name)}<div class="muted">${esc(p.product_id)}</div></td>
+      <td>${esc(p.name)}<div class="muted">${esc(p.product_id)}${p.category ? " · " + esc(p.category) : ""}</div></td>
       <td style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
       <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}${p.price_changed_by ? `<div class="muted">set by ${esc(p.price_changed_by)}</div>` : ""}</td>
       <td class="num">${p.stock}</td></tr>`).join("")}
   </table>` : `<div class="empty">No products yet. Add the first one above.</div>`;
+  const categories = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
+  $("categories").innerHTML = categories.map((c) => `<option value="${esc(c)}">`).join("");
 }
 
 function edit(product) {
@@ -107,6 +112,7 @@ function edit(product) {
   $("p-ean").value = product ? product.ean13 : $("p-ean").value;
   $("p-name").value = product ? product.name : "";
   $("p-price").value = product && product.price_kes ? product.price_kes : "";
+  $("p-category").value = product ? product.category || "" : "";
   $("p-id-note").textContent = product ? `Product code: ${product.product_id}` : "";
   show($("product-result"), "");
 }
@@ -148,9 +154,10 @@ $("product").addEventListener("submit", async (e) => {
     return show($("product-result"), `A product called "${id}" already exists. Pick it in the list to edit it.`, false);
   }
   const price = $("p-price").value ? Number($("p-price").value) : null;
+  const category = $("p-category").value.trim();
   $("p-save").disabled = true;
   try {
-    await api(`api/products/${encodeURIComponent(id)}`, {method: "PUT", body: JSON.stringify({ean13, name, price_kes: price})});
+    await api(`api/products/${encodeURIComponent(id)}`, {method: "PUT", body: JSON.stringify({ean13, name, price_kes: price, category})});
     edit(null);
     $("p-ean").value = "";
     show($("product-result"), `Saved ${name}${price ? ` at ${kes(price)}` : ""}.`, true);

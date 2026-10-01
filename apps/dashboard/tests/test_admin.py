@@ -11,10 +11,14 @@ def test_products_list_includes_stock(client):
 
 
 def test_save_product(client, fake):
-    r = client.put("/api/products/bread-400g", json={"ean13": "6161000000064", "name": "Bread 400 g", "price_kes": 70})
+    r = client.put("/api/products/bread-400g", json={"ean13": "6161000000064", "name": "Bread 400 g", "price_kes": 70,
+                                                     "category": "Bakery"})
     assert r.status_code == 200
     assert fake.products[-1] == {"product_id": "bread-400g", "ean13": "6161000000064", "name": "Bread 400 g",
-                                 "price_kes": 70, "changed_by": ""}
+                                 "price_kes": 70, "category": "Bakery", "changed_by": ""}
+    client.put("/api/products/bread-400g", json={"ean13": "6161000000064", "name": "Bread 400 g"})
+    assert fake.products[-1] == {"product_id": "bread-400g", "ean13": "6161000000064", "name": "Bread 400 g",
+                                 "changed_by": ""}  # no price or category sent: the Inventory Service keeps them
     clash = client.put("/api/products/other", json={"ean13": "6161000000064", "name": "Other"})
     assert clash.status_code == 409 and "already belongs" in clash.json()["detail"]
     assert client.put("/api/products/x", json={"ean13": "123", "name": "X"}).status_code == 422

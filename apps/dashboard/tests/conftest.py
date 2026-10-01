@@ -50,6 +50,17 @@ class FakeInventory:
         ]
         self.sync = {"pending": 2, "oldest_pending_at": "2026-10-01T08:00:00+00:00", "attempts": 1,
                      "next_attempt_at": "2026-10-01T10:01:00+00:00", "last_error": "retailer offline"}
+        self.online = [  # paid online orders not collected yet (GET /sales?channel=online...)
+            {"sale_id": "WEB-00000000000000B2", "store_id": "001", "status": "paid", "channel": "online",
+             "customer_name": "Jane", "payment_ref": "REF9", "created_at": "2026-10-01T09:30:00+00:00",
+             "ready_at": None, "ready_by": None, "exited_at": None,
+             "items": [{"product_id": "milk-500ml", "qty": 2, "unit_price_kes": 65},
+                       {"product_id": "sugar-1kg", "qty": 1, "unit_price_kes": 180}]},
+            {"sale_id": "WEB-00000000000000A1", "store_id": "001", "status": "paid", "channel": "online",
+             "customer_name": "Otieno", "payment_ref": "REF8", "created_at": "2026-10-01T09:00:00+00:00",
+             "ready_at": "2026-10-01T09:10:00+00:00", "ready_by": "mary", "exited_at": None,
+             "items": [{"product_id": "bread-400g", "qty": 1, "unit_price_kes": 70}]},
+        ]
         self.discrepancies = [{"discrepancy_id": 7, "store_id": "001", "product_id": "sugar-1kg", "our_qty": 3,
                                "retailer_qty": 5, "category": "unknown", "status": "open",
                                "created_at": "2026-10-01T07:00:00+00:00"}]
@@ -80,6 +91,16 @@ class FakeInventory:
             if request.url.params["store_id"] != "001" or not hits:
                 return httpx.Response(404, json={"detail": f"No order {code} in this store"})
             return httpx.Response(200, json=hits[0])
+        if path == "/sales" and request.url.params.get("channel") == "online":
+            assert request.url.params["status"] == "paid" and request.url.params["uncollected"] == "true"
+            return httpx.Response(200, json=self.online)
+        if request.method == "POST" and path.endswith("/ready"):
+            sale = next((s for s in self.online if s["sale_id"] == path.split("/")[2]), None)
+            if not sale:
+                return httpx.Response(404, json={"detail": "No sale"})
+            if not sale["ready_at"]:
+                sale.update(ready_at="2026-10-01T10:45:00+00:00", ready_by=json.loads(request.content)["ready_by"])
+            return httpx.Response(200, json=sale)
         if request.method == "POST" and path.endswith("/exit"):
             sale = next((s for s in self.sales if s["sale_id"] == path.split("/")[2]), None)
             if sale.get("exited_at"):
