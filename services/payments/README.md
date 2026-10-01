@@ -46,7 +46,11 @@ Set `DARAJA_ENV=simulator` and run `tools/mpesa_simulator` (or use the `demo` pr
 pytest
 ```
 
-Tests use a mocked Daraja; no credentials or network needed.
+Tests use a mocked Daraja; no credentials or network needed. They run on SQLite in memory; set `TEST_DATABASE_URL=postgresql://...` to run them against PostgreSQL too.
+
+## Storage
+
+`DATABASE_URL` points at the shared PostgreSQL database (`postgresql://user:password@host:5432/dbname`), with this service's tables in the `DATABASE_SCHEMA` schema (default `payments`). Without it, payments are kept in a SQLite file, `PAYMENTS_DB_PATH` (default `payments.db`), which is fine for development. `app/sqldb.py` is shared with the Inventory Service and must stay identical to `services/inventory/inventory/sqldb.py`.
 
 ## How it handles the awkward cases
 
@@ -66,5 +70,4 @@ When `INVENTORY_URL` is set, a confirmed payment calls `POST /sales/{sale_id}/co
 
 ## Next
 
-- Move storage from SQLite to the shared database once it is set up.
 - Card payments (Phase 2).

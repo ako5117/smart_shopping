@@ -1,4 +1,4 @@
-"""SQLite storage. Swapped for the shared database once it is set up."""
+"""Inventory tables. Stored in SQLite (development, tests) or the shared PostgreSQL database (see sqldb.py)."""
 
 # Columns added after the first release; ALTER TABLE brings older database files up to date.
 ADDED_COLUMNS = {
@@ -8,8 +8,9 @@ ADDED_COLUMNS = {
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
 
-import sqlite3
-from contextlib import contextmanager
+import os
+
+from .sqldb import Database as _Database
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS products (
@@ -79,33 +80,17 @@ CREATE TABLE IF NOT EXISTS discrepancies (
 """
 
 
-class Database:
-    def __init__(self, path: str):
-        # One shared connection keeps ":memory:" databases alive for tests.
-        self.conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
-        self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        self.conn.executescript(SCHEMA)
-        for table, columns in ADDED_COLUMNS.items():
-            have = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
-            for name, decl in columns:
-                if name not in have:
-                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+DEFAULT_SQLITE_PATH = "inventory.db"
 
-    @contextmanager
-    def tx(self):
-        """All-or-nothing: a sale's ledger entries and outbox rows are written together or not at all."""
-        self.conn.execute("BEGIN IMMEDIATE")
-        try:
-            yield self.conn
-            self.conn.execute("COMMIT")
-        except Exception:
-            self.conn.execute("ROLLBACK")
-            raise
 
-    def one(self, sql, args=()):
-        row = self.conn.execute(sql, args).fetchone()
-        return dict(row) if row else None
+class Database(_Database):
+    """The Inventory Service's database: a SQLite path, or a postgresql:// URL (tables in schema "inventory")."""
 
-    def all(self, sql, args=()):
-        return [dict(r) for r in self.conn.execute(sql, args).fetchall()]
+    def __init__(self, url: str, schema: str = "inventory"):
+        super().__init__(url, SCHEMA, schema=schema, added_columns=ADDED_COLUMNS)
+
+
+def database_from_env() -> Database:
+    """DATABASE_URL (postgresql://...) when set, otherwise the SQLite file INVENTORY_DB_PATH."""
+    url = os.getenv("DATABASE_URL") or os.getenv("INVENTORY_DB_PATH", DEFAULT_SQLITE_PATH)
+    return Database(url, schema=os.getenv("DATABASE_SCHEMA", "inventory"))

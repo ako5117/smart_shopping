@@ -1,5 +1,7 @@
 import base64
 import json
+import os
+import uuid
 
 import httpx
 import pytest
@@ -11,6 +13,25 @@ from app.main import create_app
 from app.store import PaymentStore
 
 SECRET = "test-callback-secret"
+
+# Set TEST_DATABASE_URL=postgresql://... to run every test against PostgreSQL instead of SQLite.
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+_pg_stores = []
+
+
+def fresh_store() -> PaymentStore:
+    if TEST_DATABASE_URL:
+        store = PaymentStore(TEST_DATABASE_URL, schema=f"test_{uuid.uuid4().hex[:12]}")
+        _pg_stores.append(store)
+        return store
+    return PaymentStore(":memory:")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _drop_test_schemas():
+    yield
+    for store in _pg_stores:
+        store.db.drop_schema()
 
 
 @pytest.fixture
@@ -82,7 +103,7 @@ def paid_events():
 
 @pytest.fixture
 def client(settings, daraja, paid_events):
-    app = create_app(settings=settings, daraja=daraja, store=PaymentStore(":memory:"), on_paid=paid_events.append)
+    app = create_app(settings=settings, daraja=daraja, store=fresh_store(), on_paid=paid_events.append)
     return TestClient(app)
 
 

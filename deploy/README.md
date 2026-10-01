@@ -18,7 +18,7 @@
 | `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Managers |
 | `/pay/...` | Payments Service API (`/pay/docs`) | Managers, except `/pay/payments/mpesa/callback/<secret>`, which Daraja must reach |
 
-Services talk to each other inside Docker's network (`http://inventory:8010`, `http://payments:8000`). Only Caddy is published. The Shelf Service isn't included: it reads the shelf nodes over MQTT and runs in the store.
+Services talk to each other inside Docker's network (`http://inventory:8010`, `http://payments:8000`). Inventory and Payments keep their data in one PostgreSQL database (the `db` service), each in its own schema. Only Caddy is published; the database is reachable only inside Docker. The Shelf Service isn't included: it reads the shelf nodes over MQTT and runs in the store.
 
 ## Staff logins
 
@@ -58,6 +58,7 @@ The stack refuses to start with a clear message if these are missing:
 | Setting | Why |
 |---|---|
 | `CALLBACK_SECRET` | Secret part of the M-Pesa callback URL. Make it with `openssl rand -hex 24`. |
+| `DB_PASSWORD` | Password for the shared database. Make it the same way. Set it before the first start: the database keeps the password it was created with, so changing it later in `.env` alone locks the services out. |
 | `PUBLIC_BASE_URL` | Only for real M-Pesa (`DARAJA_ENV=sandbox` or `production`): the public `https://` address. The Payments Service won't start without it; check `docker compose logs payments`. |
 
 ## Demo mode: M-Pesa simulator
@@ -91,7 +92,7 @@ That sets up `.env`, creates a `manager` and a `staff` login, starts everything 
 To do it by hand instead:
 
 ```bash
-cp .env.example .env            # then set CALLBACK_SECRET
+cp .env.example .env            # then set CALLBACK_SECRET and DB_PASSWORD
 ./scripts/staff.sh add yourname --manager
 docker compose up -d --build
 python scripts/seed_demo.py --url http://localhost/inventory --user yourname --password 'your-password'
@@ -116,7 +117,7 @@ Then open:
    Set these in `.env`:
    - `SITE_ADDRESS=shop.awesomtech.co.ke`
    - `PUBLIC_BASE_URL=https://shop.awesomtech.co.ke`
-   - `CALLBACK_SECRET`
+   - `CALLBACK_SECRET` and `DB_PASSWORD`
    - for real M-Pesa, the `DARAJA_*` values (see "Demo mode" above)
    Then add the logins: `./scripts/staff.sh add <your-name> --manager`, plus one per staff member.
 4. **Start it:**
@@ -133,14 +134,14 @@ git pull && docker compose up -d --build
 
 ## Your data, and backing it up
 
-Products, stock, sales and payments live in SQLite files inside Docker volumes (`inventory-data`, `payments-data`). They survive restarts, rebuilds and `git pull` updates.
+Products, stock, sales, payments and who-did-what all live in one PostgreSQL database, kept in the Docker volume `db-data`. It survives restarts, rebuilds and `git pull` updates.
 
 > ⚠️ **`docker compose down -v` deletes all data.** The `-v` removes the volumes. To stop the stack, use `docker compose down` (without `-v`) or `docker compose stop`.
 
 Use one or both of these:
 
 - **DigitalOcean backups:** an image of the whole Droplet, weekly (+20% of the Droplet price) or daily (+30%). Turn it on under the Droplet's **Backups** tab. Restoring rolls back the whole server.
-- **Nightly database backups:** `scripts/backup.sh` uses SQLite's online backup, which is safe while the services are running. It saves `inventory-<date>.db` and `payments-<date>.db` to `./backups` and keeps 14 days. Add it to cron on the Droplet:
+- **Nightly database backups:** `scripts/backup.sh` runs `pg_dump`, which is safe while the services are running. It saves `smartshopping-<date>.dump` to `./backups` and keeps 14 days. Add it to cron on the Droplet:
   ```bash
   crontab -e
   # then add this line:
@@ -148,10 +149,14 @@ Use one or both of these:
   ```
   Copy `./backups` off the server now and then (e.g. to DigitalOcean Spaces or a laptop). A backup on the same disk doesn't survive losing the Droplet.
 
-To restore a database:
-1. Stop the stack: `docker compose stop`
-2. Copy the backup in, for example `docker compose cp backups/inventory-2026-10-01_0230.db inventory:/data/inventory.db`
-3. Start again: `docker compose start`
+To restore a backup (this replaces the current data):
+```bash
+docker compose stop inventory payments
+docker compose exec -T db pg_restore -U smartshopping -d smartshopping --clean --if-exists < backups/smartshopping-2026-10-01_0230.dump
+docker compose start inventory payments
+```
+
+**Managed database (optional, later):** with several stores, DigitalOcean Managed PostgreSQL (from about $15 a month) takes over backups, updates and failover. Point `DATABASE_URL` for `inventory` and `payments` at it (add `?sslmode=require`) and drop the `db` service.
 
 ## Notes
 

@@ -58,4 +58,19 @@ uvicorn inventory.api:create_app --factory --port 8010
 pytest
 ```
 
-Storage is SQLite (`INVENTORY_DB_PATH`, default `inventory.db`) until the shared database is set up.
+### Storage
+
+| Setting | Meaning |
+|---|---|
+| `DATABASE_URL` | `postgresql://user:password@host:5432/dbname`: the shared PostgreSQL database (what `docker-compose.yml` uses). Otherwise a SQLite file path. |
+| `DATABASE_SCHEMA` | PostgreSQL schema for this service's tables (default `inventory`), so it can share a database with the Payments Service. |
+| `INVENTORY_DB_PATH` | SQLite file used when `DATABASE_URL` is not set (default `inventory.db`). Fine for development. |
+
+Tables are created on start. `inventory/sqldb.py` runs the same SQL on either database; `services/payments/app/sqldb.py` must stay an identical copy (a test checks).
+
+Tests use SQLite in memory. To run them against PostgreSQL as well (each test gets its own throwaway schema):
+
+```bash
+docker run -d --rm --name pgtest -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17-alpine
+TEST_DATABASE_URL=postgresql://postgres:test@localhost:55432/postgres pytest
+```

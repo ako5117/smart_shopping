@@ -1,28 +1,25 @@
 #!/usr/bin/env sh
-# Nightly backup of the Inventory and Payments databases, safe while the services are running
-# (SQLite's online backup, not a file copy). Keeps the last 14 days.
+# Nightly backup of the shared database (products, stock, sales, payments, staff actions), taken with
+# pg_dump while everything keeps running. Keeps the last 14 days.
 #
 #   ./scripts/backup.sh                      # writes to ./backups
 #   BACKUP_DIR=/root/backups ./scripts/backup.sh
 #
 # Cron, every night at 02:30 (run `crontab -e` on the Droplet):
 #   30 2 * * * cd /root/smart_shopping && ./scripts/backup.sh >> /var/log/smart-shopping-backup.log 2>&1
+#
+# Restore (replaces the current data):
+#   docker compose stop inventory payments
+#   docker compose exec -T db pg_restore -U smartshopping -d smartshopping --clean --if-exists < backups/<file>.dump
+#   docker compose start inventory payments
 set -eu
 cd "$(dirname "$0")/.."
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
-STAMP="$(date +%Y-%m-%d_%H%M)"
+FILE="$BACKUP_DIR/smartshopping-$(date +%Y-%m-%d_%H%M).dump"
 mkdir -p "$BACKUP_DIR"
 
-backup() {  # service, database file inside the container
-  docker compose exec -T "$1" python -c "
-import sqlite3, sys
-src = sqlite3.connect('$2'); dst = sqlite3.connect('/tmp/backup.db')
-src.backup(dst); dst.close(); src.close()"
-  docker compose cp "$1:/tmp/backup.db" "$BACKUP_DIR/$1-$STAMP.db"
-  docker compose exec -T "$1" rm -f /tmp/backup.db
-  echo "$(date '+%F %T') backed up $1 to $BACKUP_DIR/$1-$STAMP.db"
-}
-
-backup inventory /data/inventory.db
-backup payments /data/payments.db
-find "$BACKUP_DIR" -name '*.db' -mtime +14 -delete
+docker compose exec -T db pg_dump -U smartshopping -d smartshopping --format=custom > "$FILE.partial"
+[ -s "$FILE.partial" ] || { echo "$(date '+%F %T') backup FAILED: empty dump" >&2; rm -f "$FILE.partial"; exit 1; }
+mv "$FILE.partial" "$FILE"
+echo "$(date '+%F %T') backed up the database to $FILE ($(du -h "$FILE" | cut -f1))"
+find "$BACKUP_DIR" -name 'smartshopping-*.dump' -mtime +14 -delete
