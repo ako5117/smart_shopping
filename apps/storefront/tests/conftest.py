@@ -65,6 +65,8 @@ class FakeInventory:
             items = [{**it, "unit_price_kes": prices.get(it["product_id"])} for it in body["items"]]
             self.sales[body["sale_id"]] = {"sale_id": body["sale_id"], "store_id": body["store_id"], "items": items,
                                            "channel": body.get("channel", "in_store"),
+                                           "fulfilment": body.get("fulfilment", "collect"),
+                                           "delivery_fee_kes": body.get("delivery_fee_kes", 0),
                                            "customer_name": body.get("customer_name", ""),
                                            "status": "pending_payment", "payment_ref": None, "exited_at": None,
                                            "ready_at": None, "created_at": NOW.isoformat()}
@@ -121,9 +123,48 @@ class FakePayments:
             self.inventory.pay(p["sale_id"])
 
 
+class FakeDispatch:
+    def __init__(self):
+        self.down = False
+        self.refuse = False
+        self.deliveries = {}
+        self.riders = {"otieno": {"rider_id": "otieno", "phone": "0722000111", "on_shift": True}}
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            raise httpx.ConnectError("refused", request=request)
+        path, method = request.url.path, request.method
+        if path == "/areas":
+            return httpx.Response(200, json=[{"area": "Kilimani", "fee_kes": 150}, {"area": "Westlands", "fee_kes": 200}])
+        if method == "POST" and path == "/deliveries":
+            if self.refuse:
+                return httpx.Response(422, json={"detail": "nope"})
+            body = json.loads(request.content)
+            self.deliveries[body["sale_id"]] = {**body, "status": "awaiting_payment", "fee_kes": 150, "pin": "4821",
+                                                "rider_id": None, "picked_up_at": None, "delivered_at": None}
+            return httpx.Response(201, json=self.deliveries[body["sale_id"]])
+        if path.startswith("/deliveries/"):
+            d = self.deliveries.get(path.split("/")[2])
+            if not d:
+                return httpx.Response(404, json={"detail": "No delivery"})
+            out = dict(d)
+            if request.url.params.get("include_pin") != "true":
+                out.pop("pin")
+            return httpx.Response(200, json=out)
+        if path.startswith("/riders/"):
+            r = self.riders.get(path.split("/")[2])
+            return httpx.Response(200, json=r) if r else httpx.Response(404, json={"detail": "No rider"})
+        return httpx.Response(404, json={"detail": "not found"})
+
+
 @pytest.fixture
 def inventory():
     return FakeInventory()
+
+
+@pytest.fixture
+def dispatch():
+    return FakeDispatch()
 
 
 @pytest.fixture
@@ -148,7 +189,7 @@ def clock():
 
 
 @pytest.fixture
-def client(inventory, payments, shelf_log, clock):
+def client(inventory, payments, dispatch, shelf_log, clock):
     settings = Settings(store_id="001", store_name="Test Store", inventory_url="http://inv", payments_url="http://pay",
                         shelf_events_path=str(shelf_log), in_store_buffer=1, few_left=5,
                         products_cache_s=0, stock_cache_s=0)
@@ -157,4 +198,5 @@ def client(inventory, payments, shelf_log, clock):
         inventory=httpx.Client(base_url="http://inv", transport=httpx.MockTransport(inventory.handler)),
         payments=httpx.Client(base_url="http://pay", transport=httpx.MockTransport(payments.handler)),
         clock=lambda: clock["now"],
+        dispatch=httpx.Client(base_url="http://dispatch", transport=httpx.MockTransport(dispatch.handler)),
     ))

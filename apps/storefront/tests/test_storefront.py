@@ -150,5 +150,6 @@ def test_store_unreachable(client, inventory):
 
 def test_page_and_store_info(client):
     assert "Online shop" in client.get("/").text
-    assert client.get("/api/store").json() == {"store_id": "001", "name": "Test Store", "currency": "KES",
-                                               "hold_minutes": 15}
+    assert client.get("/api/store").json() == {
+        "store_id": "001", "name": "Test Store", "currency": "KES", "hold_minutes": 15,
+        "delivery": {"available": True, "areas": [{"area": "Kilimani", "fee": 150}, {"area": "Westlands", "fee": 200}]}}

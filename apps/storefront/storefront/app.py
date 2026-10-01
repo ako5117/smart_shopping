@@ -12,7 +12,9 @@ Availability is live. For each product the shop promises only:
 When something runs low or out, the shop suggests substitutes from the same category. The Inventory
 Service checks again when the order is placed, in the same transaction that records it, so two customers
 can't both buy the last one. Prices and totals come from the Inventory Service, never from the browser.
-Paid orders appear on the store dashboard to be packed; the customer collects with the pass on their phone.
+Paid orders appear on the store dashboard to be packed. The customer collects with the pass on their
+phone, or a rider delivers (Dispatch Service): the delivery fee comes from the Dispatch Service's area
+list, and the customer gives the rider a 4-digit code shown on their order page.
 """
 
 import io
@@ -25,7 +27,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 import httpx
 import segno
@@ -61,10 +63,20 @@ class Line(BaseModel):
     qty: int = Field(..., ge=1)
 
 
+class DeliveryIn(BaseModel):
+    area: str = Field(..., min_length=1, max_length=60)
+    address: str = Field(..., min_length=3, max_length=200)
+    notes: str = Field("", max_length=300)
+    lat: Optional[float] = Field(None, ge=-90, le=90)
+    lng: Optional[float] = Field(None, ge=-180, le=180)
+
+
 class OrderIn(BaseModel):
-    name: str = Field(..., min_length=1, max_length=60, description="Who collects the order")
+    name: str = Field(..., min_length=1, max_length=60, description="Who collects or receives the order")
     phone: str = Field(..., min_length=9, max_length=16)
     items: List[Line] = Field(..., min_length=1)
+    fulfilment: Literal["collect", "delivery"] = "collect"
+    delivery: Optional[DeliveryIn] = None
 
 
 class PayIn(BaseModel):
@@ -124,10 +136,12 @@ def substitutes(product: dict, products: List[dict], available: Dict[str, int]) 
 
 
 def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Client] = None,
-               payments: Optional[httpx.Client] = None, clock=None) -> FastAPI:
+               payments: Optional[httpx.Client] = None, clock=None, dispatch: Optional[httpx.Client] = None) -> FastAPI:
     settings = settings or load_settings()
     inventory = inventory or httpx.Client(base_url=settings.inventory_url, timeout=10.0)
     payments = payments or httpx.Client(base_url=settings.payments_url, timeout=40.0)
+    if dispatch is None and settings.dispatch_url:
+        dispatch = httpx.Client(base_url=settings.dispatch_url, timeout=10.0)
     clock = clock or (lambda: datetime.now(timezone.utc))
     limiter = RateLimiter(settings.stk_limit_per_phone, settings.stk_limit_window_s)
     app = FastAPI(title="Smart Shopping - Online store")
@@ -150,6 +164,42 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         r.raise_for_status()
         return r.json()
 
+    def fetch_areas() -> Dict[str, int]:
+        r = dispatch.get("/areas")
+        r.raise_for_status()
+        return {a["area"]: a["fee_kes"] for a in r.json()}
+
+    areas_cache = Cached(fetch_areas, settings.products_cache_s)
+
+    def delivery_areas() -> Optional[Dict[str, int]]:
+        """Where riders go, with fees; None when delivery is off or the Dispatch Service is down."""
+        if dispatch is None:
+            return None
+        try:
+            return areas_cache.get()
+        except httpx.HTTPError as e:
+            log.warning("Dispatch unavailable: %s", e)
+            return None
+
+    def delivery_for(sale: dict) -> Optional[dict]:
+        if sale.get("fulfilment") != "delivery" or dispatch is None:
+            return None
+        try:
+            r = dispatch.get(f"/deliveries/{sale['sale_id']}", params={"include_pin": True})
+            if r.status_code != 200:
+                return None
+            d = r.json()
+            rider = None
+            if d.get("rider_id"):
+                rr = dispatch.get(f"/riders/{d['rider_id']}")
+                rider = {"name": d["rider_id"], "phone": rr.json().get("phone", "") if rr.status_code == 200 else ""}
+        except httpx.HTTPError as e:
+            log.warning("Dispatch unavailable: %s", e)
+            return None
+        return {"status": d["status"], "area": d["area"], "address": d["address"], "notes": d["notes"],
+                "fee": d["fee_kes"], "pin": d["pin"] if sale["status"] == "paid" else None, "rider": rider,
+                "picked_up_at": d.get("picked_up_at"), "delivered_at": d.get("delivered_at")}
+
     products_cache = Cached(fetch_products, settings.products_cache_s)
     held_cache = Cached(fetch_held, settings.stock_cache_s)
     shelf_cache = Cached(lambda: read_recent_lines(settings.shelf_events_path), settings.stock_cache_s)
@@ -171,7 +221,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         lines = [{"product_id": it["product_id"], "name": names.get(it["product_id"], it["product_id"]),
                   "qty": it["qty"], "price": it.get("unit_price_kes"),
                   "line_total": (it.get("unit_price_kes") or 0) * it["qty"]} for it in sale["items"]]
-        return {"lines": lines, "total": sum(l["line_total"] for l in lines)}
+        fee = sale.get("delivery_fee_kes") or 0
+        return {"lines": lines, "delivery_fee": fee, "total": sum(l["line_total"] for l in lines) + fee}
 
     def start_payment(sale_id: str, phone: str, amount: int) -> dict:
         if not limiter.allow(phone_key(phone)):
@@ -213,8 +264,11 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
 
     @app.get("/api/store")
     def store():
+        areas = delivery_areas()
         return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES",
-                "hold_minutes": settings.order_hold_min}
+                "hold_minutes": settings.order_hold_min,
+                "delivery": {"available": bool(areas),
+                             "areas": [{"area": a, "fee": fee} for a, fee in (areas or {}).items()]}}
 
     @app.get("/api/catalogue")
     def catalogue():
@@ -245,6 +299,16 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         by_id = {p["product_id"]: p for p in products}
         if any(pid not in by_id for pid in merged):
             raise HTTPException(409, "Something in your basket isn't sold online any more. Please remove it.")
+        fee = 0
+        if body.fulfilment == "delivery":
+            if body.delivery is None:
+                raise HTTPException(422, "Enter where to deliver.")
+            areas = delivery_areas()
+            if not areas:
+                raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
+            if body.delivery.area not in areas:
+                raise HTTPException(422, f"We don't deliver to {body.delivery.area}.")
+            fee = areas[body.delivery.area]
 
         # Fresh numbers for the check, not the few-seconds-old copy the page was showing.
         held_cache.clear()
@@ -258,7 +322,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         sale_id = "WEB-" + secrets.token_hex(8).upper()
         r = upstream("Inventory", lambda: inventory.post("/sales", json={
             "sale_id": sale_id, "store_id": settings.store_id, "channel": "online", "customer_name": body.name.strip(),
-            "check_stock": True, "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
+            "check_stock": True, "fulfilment": body.fulfilment, "delivery_fee_kes": fee,
+            "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
         if r.status_code == 409 and isinstance(r.json().get("detail"), dict):
             held_cache.clear()
             not_enough(r.json()["detail"]["short"], products, available)
@@ -270,7 +335,24 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         if any(not it.get("unit_price_kes") for it in sale["items"]):
             upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
             raise HTTPException(409, "Something in your basket isn't sold online any more. Please remove it.")
-        total = sum(it["unit_price_kes"] * it["qty"] for it in sale["items"])
+        total = sum(it["unit_price_kes"] * it["qty"] for it in sale["items"]) + sale.get("delivery_fee_kes", 0)
+        if body.fulfilment == "delivery":
+            d = body.delivery
+            try:
+                r = dispatch.post("/deliveries", json={
+                    "sale_id": sale_id, "store_id": settings.store_id, "customer_name": body.name.strip(),
+                    "customer_phone": body.phone.strip(), "area": d.area, "address": d.address, "notes": d.notes,
+                    "lat": d.lat, "lng": d.lng})
+                ok = r.status_code == 201
+                if not ok:
+                    log.error("Dispatch refused delivery %s: %s %s", sale_id, r.status_code, r.text[:200])
+            except httpx.HTTPError as e:
+                log.error("Dispatch unavailable for %s: %s", sale_id, e)
+                ok = False
+            if not ok:
+                upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+                held_cache.clear()
+                raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
         try:
             payment = start_payment(sale_id, body.phone, total)
         except HTTPException:
@@ -288,7 +370,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         if _age_s(sale, clock()) > settings.order_hold_min * 60:
             upstream("Inventory", lambda: inventory.post(f"/sales/{order_id}/cancel"))
             raise HTTPException(409, "This order has expired and its items were released. Please place it again.")
-        total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"])
+        total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
         payment = start_payment(order_id, body.phone, total)
         return {"order_id": order_id, "payment_id": payment["payment_id"], "total": total}
 
@@ -307,8 +389,12 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             if refreshed.status_code == 200:
                 payment = refreshed.json()
         sale = online_sale(order_id)
+        delivery = delivery_for(sale)
         if sale["status"] == "cancelled":
             stage = "cancelled"
+        elif sale["status"] == "paid" and sale.get("fulfilment") == "delivery":
+            stage = {"picked_up": "on_the_way", "failed": "on_the_way", "delivered": "delivered"}.get(
+                (delivery or {}).get("status"), "ready" if sale.get("ready_at") else "packing")
         elif sale["status"] == "paid":
             stage = "collected" if sale.get("exited_at") else "ready" if sale.get("ready_at") else "packing"
         else:
@@ -318,7 +404,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "order_id": order_id,
             "store_name": settings.store_name,
             "customer_name": sale.get("customer_name", ""),
-            "stage": stage,  # awaiting_payment | payment_failed | packing | ready | collected | cancelled
+            "stage": stage,  # awaiting_payment | payment_failed | packing | ready | collected | on_the_way | delivered | cancelled
+            "fulfilment": sale.get("fulfilment", "collect"),
+            "delivery": delivery,
             "payment_status": payment["status"],
             "mpesa_receipt": payment.get("mpesa_receipt_number"),
             "phone": mask_phone(payment.get("phone_number", "")),

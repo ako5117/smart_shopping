@@ -8,6 +8,7 @@ class Settings:
     store_name: str
     inventory_url: str
     payments_url: str
+    dispatch_url: str = ""  # Dispatch Service; empty: collection only, no delivery
     shelf_events_path: str = ""  # the Shelf Service's event log; empty: no live shelf signal
     picked_window_min: int = 5  # items picked up this recently count as in a shopper's basket
     in_store_buffer: int = 1  # kept back from online sale per product, in case the shelf count is off
@@ -27,6 +28,7 @@ def load_settings() -> Settings:
         store_name=os.getenv("STORE_NAME", "Smart Shopping"),
         inventory_url=os.getenv("INVENTORY_URL", "http://localhost:8010"),
         payments_url=os.getenv("PAYMENTS_URL", "http://localhost:8000"),
+        dispatch_url=os.getenv("DISPATCH_URL", ""),
         shelf_events_path=os.getenv("SHELF_EVENTS_PATH", ""),
         picked_window_min=int(os.getenv("PICKED_WINDOW_MIN", "5")),
         in_store_buffer=int(os.getenv("IN_STORE_BUFFER", "1")),
