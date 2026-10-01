@@ -17,3 +17,7 @@ __pycache__/
 
 # Firmware secrets
 hardware/firmware/*/config.h
+
+# Cloudflare
+.dev.vars
+.wrangler/

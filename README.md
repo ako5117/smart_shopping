@@ -40,6 +40,7 @@ smart_shopping/
 │   ├── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
 │   ├── shelf/               # Weight + camera fusion into shelf events
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
+├── cloudflare/              # Temporary hosting: Worker that routes to the service containers
 └── apps/
     └── dashboard/           # Store dashboard (shelves, stock, sales, differences); Scan & Go app to follow
 ```
@@ -50,7 +51,7 @@ smart_shopping/
 - **Backend:** Python
 - **Hardware:** ESP32, programmed with Arduino
 - **Diagrams:** Mermaid, kept in `/docs` as version-controlled text, not external files
-- **Hosting (POCs):** DigitalOcean (shared company account — pending setup)
+- **Hosting (POCs):** temporarily Cloudflare Containers (see [`cloudflare/README.md`](cloudflare/README.md)); moving to DigitalOcean once the shared company account is set up
 - **AI-assisted development if needed:** Claude / Claude Code
 
 ## Status
