@@ -1,6 +1,6 @@
 """Load demo products, prices and stock into a running Inventory Service.
 
-    python scripts/seed_demo.py --url http://localhost/inventory --user staff --password '...'
+    python scripts/seed_demo.py --url http://localhost/inventory --user <manager login> --password '...'
     python scripts/seed_demo.py --url http://localhost:8010          # Inventory run directly, no login
 
 Uses the shelf catalogue (services/shelf/config.example.json), so product codes match the shelf zones.
@@ -23,7 +23,7 @@ STOCK = {"maize-flour-2kg": 24, "sugar-1kg": 18, "rice-1kg": 30,
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--url", default="http://localhost/inventory", help="Inventory Service base URL")
-    parser.add_argument("--user", default="staff")
+    parser.add_argument("--user", help="A manager login, when going through the proxy")
     parser.add_argument("--password", help="Staff password, when going through the proxy")
     parser.add_argument("--store", default="001")
     parser.add_argument("--catalogue", default=str(ROOT / "services/shelf/config.example.json"))

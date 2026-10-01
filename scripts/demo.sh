@@ -24,16 +24,29 @@ esac
 
 if [ ! -f .env ]; then
   say "First run: creating .env in demo mode"
-  password="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
-  hash="$(docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "$password" | tail -n 1)"
   secret="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
-  # Compose reads $ as a variable, so the hash's $ signs are written as $$.
-  sed -e "s|^STAFF_PASSWORD_HASH=.*|STAFF_PASSWORD_HASH=${hash//\$/\$\$}|" \
-      -e "s|^CALLBACK_SECRET=.*|CALLBACK_SECRET=${secret}|" \
+  sed -e "s|^CALLBACK_SECRET=.*|CALLBACK_SECRET=${secret}|" \
       -e "s|^STORE_NAME=.*|STORE_NAME=Smart Shopping Demo Store|" \
       .env.example > .env
-  printf '%s\n' "$password" > .demo-staff-password
-  chmod 600 .env .demo-staff-password
+  chmod 600 .env
+fi
+
+if [ ! -f .demo-logins ]; then
+  say "Creating demo logins: 'manager' (prices, counts) and 'staff' (restock, exit check)"
+  manager_pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
+  staff_pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
+  for login in manager staff; do
+    pw="$manager_pw"; [ "$login" = staff ] && pw="$staff_pw"
+    if ./scripts/staff.sh list | grep -q "^$login "; then
+      ./scripts/staff.sh password "$login" --password "$pw"
+    elif [ "$login" = manager ]; then
+      ./scripts/staff.sh add manager --manager --password "$pw"
+    else
+      ./scripts/staff.sh add staff --password "$pw"
+    fi
+  done
+  printf 'manager %s\nstaff %s\n' "$manager_pw" "$staff_pw" > .demo-logins
+  chmod 600 .demo-logins
 fi
 grep -q '^COMPOSE_PROFILES=demo' .env || echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
 
@@ -53,10 +66,13 @@ docker compose cp services/shelf/config.example.json inventory:/tmp/catalogue.js
 docker compose exec -T inventory python /tmp/seed_demo.py --url http://localhost:8010 --catalogue /tmp/catalogue.json
 
 lan_ip="$( (hostname -I 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true) | awk '{print $1}')"
-password="$(cat .demo-staff-password 2>/dev/null || echo '(the password you set in .env)')"
+manager_pw="$(awk '$1=="manager"{print $2}' .demo-logins 2>/dev/null)"
+staff_pw="$(awk '$1=="staff"{print $2}' .demo-logins 2>/dev/null)"
 say "Demo is running"
 cat <<EOF
-  Store dashboard   http://localhost/dashboard/    user: staff   password: ${password}
+  Store dashboard   http://localhost/dashboard/
+                    manager / ${manager_pw:-?}   (can change prices and correct counts)
+                    staff   / ${staff_pw:-?}   (can restock and do exit checks)
   Scan & Go         http://localhost/shop/${lan_ip:+     on a phone on the same Wi-Fi: http://${lan_ip}/shop/}
 
   M-Pesa simulator: any phone number pays after 3 s; ending 000 cancels; ending 111 fails.

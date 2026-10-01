@@ -8,6 +8,8 @@ Owns committed stock. Stock only changes on a **restock** (barcode scan), a **sa
 2. It starts the M-Pesa payment through the Payments Service.
 3. When the payment is confirmed, the Payments Service calls `POST /sales/{sale_id}/commit` and the items leave stock.
 
+**Who did what.** Restocks and adjustments store `recorded_by`, and product updates log price changes with `changed_by`. Callers can name the person in the request; otherwise the signed-in staff member the proxy passes in `X-Staff-User` is used. Stock counts record the counter.
+
 Each sale keeps the price of every item at the moment it was created (`unit_price_kes`), so changing a price later never changes an old receipt.
 
 Every write is idempotent: a re-sent restock scan, a repeated commit, or a retried request is counted once.
@@ -18,6 +20,7 @@ Every write is idempotent: a re-sent restock scan, a repeated commit, or a retri
 |---|---|---|
 | `GET` | `/products` | Registered products |
 | `PUT` | `/products/{product_id}` | Register a product, its EAN-13 barcode and its shelf price (`price_kes`, optional; leaving it out keeps the current price) |
+| `GET` | `/products/{product_id}/price-history` | Every price change: old and new price, who, when |
 | `POST` | `/restocks` | Add stock from a barcode scan (`scan_id` makes re-sends safe) |
 | `GET` | `/stock/{store_id}` | Stock of every product in a store |
 | `GET` | `/stock/{store_id}/{product_id}` | Stock of one product, with recent history |

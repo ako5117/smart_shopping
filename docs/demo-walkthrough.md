@@ -10,10 +10,10 @@ Everything else is the real software.
 
 1. Install [Docker Desktop](https://docs.docker.com/get-docker/) and clone the repo.
 2. Run `./scripts/demo.sh` (on Windows, from Git Bash or WSL). The first run builds everything (a few minutes) and prints:
-   - the dashboard address and the staff password
+   - the dashboard address, and two logins: `manager` (can change prices and correct counts) and `staff` (can restock and do exit checks)
    - the Scan & Go address, including one for a phone on the same Wi-Fi
 3. Open two windows side by side:
-   - **Staff:** http://localhost/dashboard/ (log in as `staff`)
+   - **Staff:** http://localhost/dashboard/ (log in as `manager`)
    - **Customer:** http://localhost/shop/. Use a phone if you have one: open the "same Wi-Fi" address the script printed. Otherwise use a narrow browser window.
 4. Starting from an earlier demo? `./scripts/demo.sh --reset` gives clean data.
 
@@ -44,8 +44,11 @@ Everything else is the real software.
 
 ### 2. Products and prices (Staff: Products), 2 min
 
+> Signed in as `manager`. Everything below is recorded under the signed-in name.
+
 - **Restock:** type `6161000000040` (milk), quantity `12`, then **Add to stock**. In a store, a handheld scanner types the barcode.
 - **Change a price:** click **Milk 500 ml** in the list, change the price to `70`, then **Save product**. Scan & Go charges the new price within 30 seconds.
+- **Who's allowed:** in a private window, sign in as `staff`. The price editor is gone, and staff can restock but not change prices. Each person has their own login.
 - **The store's own system:** every stock change is queued to sync with the store's existing till system (see **Retailer sync** at the top of the Overview). We connect to the store's POS rather than replace it.
 
 ### 3. The customer shops (Customer: Scan & Go), 3 min
@@ -64,7 +67,7 @@ Everything else is the real software.
 
 - **Check the pass:** type the 8-character code from the customer's pass (in a store, a handheld scanner reads the QR).
 - **PAID ✓** shows exactly what was bought, so staff can compare it with the bag.
-- **Confirm:** enter a name and press **Confirm**. The customer's pass turns grey and says **CHECKED OUT**.
+- **Confirm:** press **Confirm**. It's recorded under whoever is signed in. The customer's pass turns grey and says **CHECKED OUT**.
 - **Try to reuse it:** check the same code again and it shows **PASS ALREADY USED**, with the time and the staff name.
 
 ### 5. Back to the store view (Staff: Overview), 2 min

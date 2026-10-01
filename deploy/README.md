@@ -14,11 +14,42 @@
 |---|---|---|
 | `/` | Redirects to Scan & Go | — |
 | `/shop/` | Scan & Go | Public (customers' phones) |
-| `/dashboard/` | Store dashboard: Overview, Products, Exit check | Staff |
-| `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Staff |
-| `/pay/...` | Payments Service API (`/pay/docs`) | Staff, except `/pay/payments/mpesa/callback/<secret>`, which Daraja must reach |
+| `/dashboard/` | Store dashboard: Overview, Products, Exit check | Any staff login |
+| `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Managers |
+| `/pay/...` | Payments Service API (`/pay/docs`) | Managers, except `/pay/payments/mpesa/callback/<secret>`, which Daraja must reach |
 
 Services talk to each other inside Docker's network (`http://inventory:8010`, `http://payments:8000`). Only Caddy is published. The Shelf Service isn't included: it reads the shelf nodes over MQTT and runs in the store.
+
+## Staff logins
+
+Everyone has their own login. Logins are managed with `scripts/staff.sh` and kept in `deploy/staff/` (git-ignored):
+
+```bash
+./scripts/staff.sh add adrian --manager   # asks for a password (at least 8 characters)
+./scripts/staff.sh add mary               # ordinary staff
+./scripts/staff.sh list
+./scripts/staff.sh password mary          # new password
+./scripts/staff.sh role mary manager      # or: role mary staff
+./scripts/staff.sh remove mary
+```
+
+Changes take effect immediately, with no restart. **Add at least one manager before the first start**: the proxy won't start with no logins.
+
+| | Staff | Manager |
+|---|---|---|
+| Overview, restock, exit check | ✓ | ✓ |
+| Add products, change prices | | ✓ |
+| Record a stock count (correct a difference) | | ✓ |
+| Raw Inventory and Payments APIs (`/inventory/`, `/pay/`) | | ✓ |
+
+The dashboard records who did what:
+- each restock and stock correction
+- each price change, with the old and new price
+- each exit check
+
+The signed-in name comes from the login, so nobody types a name, and the proxy overwrites anything a browser sends in its place.
+
+The browser remembers a login until it's closed. On a shared till computer, close the browser at the end of a shift.
 
 ## Settings that must be set
 
@@ -26,7 +57,6 @@ The stack refuses to start with a clear message if these are missing:
 
 | Setting | Why |
 |---|---|
-| `STAFF_PASSWORD_HASH` | Staff login. Make it with `docker run --rm caddy:2.10-alpine caddy hash-password --plaintext 'your-password'`, and write each `$` as `$$` in `.env`. |
 | `CALLBACK_SECRET` | Secret part of the M-Pesa callback URL. Make it with `openssl rand -hex 24`. |
 | `PUBLIC_BASE_URL` | Only for real M-Pesa (`DARAJA_ENV=sandbox` or `production`): the public `https://` address. The Payments Service won't start without it; check `docker compose logs payments`. |
 
@@ -53,14 +83,23 @@ For real M-Pesa, delete `COMPOSE_PROFILES=demo`, set `DARAJA_ENV=sandbox` (or `p
 Needs Docker.
 
 ```bash
-cp .env.example .env            # then set STAFF_PASSWORD_HASH and CALLBACK_SECRET
+./scripts/demo.sh
+```
+
+That sets up `.env`, creates a `manager` and a `staff` login, starts everything and loads demo products. See [`docs/demo-walkthrough.md`](../docs/demo-walkthrough.md).
+
+To do it by hand instead:
+
+```bash
+cp .env.example .env            # then set CALLBACK_SECRET
+./scripts/staff.sh add yourname --manager
 docker compose up -d --build
-python scripts/seed_demo.py --url http://localhost/inventory --password 'your-password'
+python scripts/seed_demo.py --url http://localhost/inventory --user yourname --password 'your-password'
 ```
 
 Then open:
 
-- http://localhost/dashboard/: log in as `staff`
+- http://localhost/dashboard/: log in with your name
 - http://localhost/shop/: Scan & Go. Type a barcode (e.g. `6161000000040`), check out with any number like `0712345678`, and the receipt appears a few seconds later.
 
 `scripts/seed_demo.py` loads the six demo products with prices and stock. Running it twice changes nothing.
@@ -77,9 +116,9 @@ Then open:
    Set these in `.env`:
    - `SITE_ADDRESS=shop.awesomtech.co.ke`
    - `PUBLIC_BASE_URL=https://shop.awesomtech.co.ke`
-   - `STAFF_PASSWORD_HASH`
    - `CALLBACK_SECRET`
    - for real M-Pesa, the `DARAJA_*` values (see "Demo mode" above)
+   Then add the logins: `./scripts/staff.sh add <your-name> --manager`, plus one per staff member.
 4. **Start it:**
    ```bash
    docker compose up -d --build
@@ -117,4 +156,4 @@ To restore a database:
 ## Notes
 
 - Production M-Pesa needs the store's own Paybill or Till; see `services/payments/README.md`.
-- One shared staff login for now. Per-person accounts come later.
+- Staff logins use the browser's built-in sign-in box (HTTP Basic over HTTPS). There's no "log out" button: closing the browser signs out.
