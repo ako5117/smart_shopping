@@ -4,7 +4,7 @@ never a separately edited number."""
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from .db import Database
@@ -16,6 +16,18 @@ class NotFound(Exception):
 
 class Conflict(Exception):
     pass
+
+
+class NotEnoughStock(Conflict):
+    """An online order asked for more than is available. short: [{product_id, requested, available}]."""
+
+    def __init__(self, short: List[dict]):
+        super().__init__("Not enough stock for: " + ", ".join(s["product_id"] for s in short))
+        self.short = short
+
+
+CHANNELS = ("in_store", "online")
+HOLD_MINUTES = 15  # an unpaid order holds its items this long; after that they count as available again
 
 
 @dataclass(frozen=True)
@@ -35,8 +47,8 @@ class Inventory:
     # ------------------------------------------------------------ catalogue
 
     def upsert_product(self, product_id: str, ean13: str, name: str, price_kes: Optional[int] = None,
-                       changed_by: str = "") -> None:
-        """Add or update a product. Leaving price_kes out keeps the current price. Price changes are logged."""
+                       changed_by: str = "", category: Optional[str] = None) -> None:
+        """Add or update a product. Leaving price_kes or category out keeps the current one. Price changes are logged."""
         if price_kes is not None and price_kes <= 0:
             raise ValueError("Price must be at least 1 KES")
         clash = self.db.one("SELECT product_id FROM products WHERE ean13 = ? AND product_id != ?", (ean13, product_id))
@@ -44,10 +56,11 @@ class Inventory:
             raise Conflict(f"Barcode {ean13} already belongs to {clash['product_id']}")
         old = self.db.one("SELECT price_kes FROM products WHERE product_id = ?", (product_id,))
         with self.db.tx() as c:
-            c.execute("INSERT INTO products (product_id, ean13, name, price_kes) VALUES (?, ?, ?, ?) "
+            c.execute("INSERT INTO products (product_id, ean13, name, price_kes, category) VALUES (?, ?, ?, ?, ?) "
                       "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name, "
-                      "price_kes = COALESCE(excluded.price_kes, products.price_kes)",
-                      (product_id, ean13, name, price_kes))
+                      "price_kes = COALESCE(excluded.price_kes, products.price_kes), "
+                      "category = CASE WHEN ? THEN excluded.category ELSE products.category END",
+                      (product_id, ean13, name, price_kes, (category or "").strip(), category is not None))
             old_price = old["price_kes"] if old else None
             if price_kes is not None and price_kes != old_price:
                 c.execute("INSERT INTO price_changes (product_id, old_price_kes, new_price_kes, changed_by, changed_at) "
@@ -118,14 +131,26 @@ class Inventory:
                            "WHERE store_id = ? GROUP BY product_id ORDER BY product_id", (store_id,))
         return {r["product_id"]: r["qty"] for r in rows}
 
+    def availability(self, store_id: str, now: Optional[datetime] = None) -> Dict[str, dict]:
+        """Per product: committed stock, and how much of it unpaid orders are holding (for HOLD_MINUTES)."""
+        return _availability(self.db.all, store_id, now)
+
     def history(self, store_id: str, product_id: str, limit: int = 50) -> List[dict]:
         return self.db.all("SELECT * FROM stock_ledger WHERE store_id = ? AND product_id = ? "
                            "ORDER BY entry_id DESC LIMIT ?", (store_id, product_id, limit))
 
     # ---------------------------------------------------------------- sales
 
-    def create_sale(self, sale_id: str, store_id: str, items: List[Item]) -> dict:
-        """Called at checkout, before payment. Stock is not touched until the sale is paid."""
+    def create_sale(self, sale_id: str, store_id: str, items: List[Item], channel: str = "in_store",
+                    customer_name: str = "", check_stock: bool = False) -> dict:
+        """Called at checkout, before payment. Stock is not touched until the sale is paid.
+
+        With check_stock (online orders, where the customer isn't holding the items), the sale is refused with
+        NotEnoughStock unless each item is available: committed stock less what other unpaid orders hold.
+        The check and the insert share one transaction, and the database lock lets one run at a time.
+        """
+        if channel not in CHANNELS:
+            raise ValueError(f"channel must be one of {', '.join(CHANNELS)}")
         if not items:
             raise ValueError("A sale needs at least one item")
         merged: Dict[str, int] = {}
@@ -140,8 +165,19 @@ class Inventory:
             return self.sale(sale_id)
         ts = now_iso()
         with self.db.tx() as c:
-            c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at) "
-                      "VALUES (?, ?, 'pending_payment', ?, ?)", (sale_id, store_id, ts, ts))
+            if check_stock:
+                avail = _availability(lambda sql, a: c.execute(sql, a).fetchall(), store_id)
+                short = []
+                for pid, qty in merged.items():
+                    a = avail.get(pid, {"stock": 0, "held": 0})
+                    available = max(0, a["stock"] - a["held"])
+                    if qty > available:
+                        short.append({"product_id": pid, "requested": qty, "available": available})
+                if short:
+                    raise NotEnoughStock(short)
+            c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name) "
+                      "VALUES (?, ?, 'pending_payment', ?, ?, ?, ?)",
+                      (sale_id, store_id, ts, ts, channel, customer_name.strip()))
             for pid, qty in merged.items():
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
                 if not product:
@@ -227,9 +263,32 @@ class Inventory:
                 raise Conflict(f"Order {sale_id} already left the store")
         return self.sale(sale_id)
 
-    def recent_sales(self, store_id: str, limit: int = 50) -> List[dict]:
-        sales = self.db.all("SELECT * FROM sales WHERE store_id = ? ORDER BY created_at DESC, sale_id DESC LIMIT ?",
-                            (store_id, limit))
+    def mark_ready(self, sale_id: str, ready_by: str) -> dict:
+        """An online order is packed and waiting at the store for the customer. Marking it twice changes nothing."""
+        sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))
+        if not sale:
+            raise NotFound(f"No sale {sale_id}")
+        if sale["channel"] != "online":
+            raise Conflict(f"Order {sale_id} isn't an online order")
+        if sale["status"] != "paid":
+            raise Conflict(f"Order {sale_id} is not paid")
+        if sale["exited_at"]:
+            raise Conflict(f"Order {sale_id} was already collected")
+        if not sale["ready_at"]:
+            with self.db.tx() as c:
+                c.execute("UPDATE sales SET ready_at = ?, ready_by = ? WHERE sale_id = ? AND ready_at IS NULL",
+                          (now_iso(), ready_by, sale_id))
+        return self.sale(sale_id)
+
+    def recent_sales(self, store_id: str, limit: int = 50, channel: Optional[str] = None,
+                     status: Optional[str] = None, uncollected: bool = False) -> List[dict]:
+        filters = {"store_id = ?": store_id, "channel = ?": channel, "status = ?": status}
+        where = [cond for cond, value in filters.items() if value]
+        args = [value for value in filters.values() if value]
+        if uncollected:
+            where.append("exited_at IS NULL")
+        sales = self.db.all(f"SELECT * FROM sales WHERE {' AND '.join(where)} "
+                            "ORDER BY created_at DESC, sale_id DESC LIMIT ?", (*args, limit))
         for s in sales:
             s["items"] = self.db.all("SELECT product_id, qty, unit_price_kes FROM sale_items WHERE sale_id = ? "
                                      "ORDER BY product_id", (s["sale_id"],))
@@ -238,3 +297,17 @@ class Inventory:
     def _items(self, sale_id: str) -> Dict[str, int]:
         return {r["product_id"]: r["qty"] for r in
                 self.db.all("SELECT product_id, qty FROM sale_items WHERE sale_id = ? ORDER BY product_id", (sale_id,))}
+
+
+def _availability(query, store_id: str, now: Optional[datetime] = None) -> Dict[str, dict]:
+    """query(sql, args) -> rows; works with Database.all or inside a transaction."""
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(minutes=HOLD_MINUTES)).isoformat()
+    out: Dict[str, dict] = {}
+    for r in query("SELECT product_id, SUM(qty_change) AS qty FROM stock_ledger WHERE store_id = ? "
+                   "GROUP BY product_id", (store_id,)):
+        out[r["product_id"]] = {"stock": r["qty"], "held": 0}
+    for r in query("SELECT si.product_id, SUM(si.qty) AS qty FROM sale_items si JOIN sales s ON s.sale_id = si.sale_id "
+                   "WHERE s.store_id = ? AND s.status = 'pending_payment' AND s.created_at >= ? "
+                   "GROUP BY si.product_id", (store_id, cutoff)):
+        out.setdefault(r["product_id"], {"stock": 0, "held": 0})["held"] = r["qty"]
+    return out

@@ -2,8 +2,11 @@
 
 # Columns added after the first release; ALTER TABLE brings older database files up to date.
 ADDED_COLUMNS = {
-    "products": [("price_kes", "INTEGER CHECK (price_kes IS NULL OR price_kes > 0)")],
-    "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT")],
+    "products": [("price_kes", "INTEGER CHECK (price_kes IS NULL OR price_kes > 0)"),
+                 ("category", "TEXT NOT NULL DEFAULT ''")],
+    "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT"),
+              ("channel", "TEXT NOT NULL DEFAULT 'in_store'"), ("customer_name", "TEXT NOT NULL DEFAULT ''"),
+              ("ready_at", "TEXT"), ("ready_by", "TEXT")],
     "sale_items": [("unit_price_kes", "INTEGER")],
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
@@ -17,7 +20,8 @@ CREATE TABLE IF NOT EXISTS products (
     product_id TEXT PRIMARY KEY,
     ean13 TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    price_kes INTEGER CHECK (price_kes IS NULL OR price_kes > 0)
+    price_kes INTEGER CHECK (price_kes IS NULL OR price_kes > 0),
+    category TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS stock_ledger (
     entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +44,11 @@ CREATE TABLE IF NOT EXISTS sales (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     exited_at TEXT,
-    exited_by TEXT
+    exited_by TEXT,
+    channel TEXT NOT NULL DEFAULT 'in_store',  -- in_store (Scan & Go) or online (storefront, click & collect)
+    customer_name TEXT NOT NULL DEFAULT '',
+    ready_at TEXT,  -- online orders: packed and waiting for collection
+    ready_by TEXT
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),

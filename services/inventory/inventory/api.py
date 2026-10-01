@@ -4,13 +4,13 @@
 """
 
 import os
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .db import Database, database_from_env
-from .service import Conflict, Inventory, Item, NotFound
+from .service import Conflict, Inventory, Item, NotEnoughStock, NotFound
 from . import sync
 
 
@@ -20,6 +20,7 @@ class ProductIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     price_kes: Optional[int] = Field(None, gt=0, description="Shelf price in whole KES; omit to keep the current price")
     changed_by: str = Field("", max_length=60, description="Who made the change (defaults to the signed-in staff member)")
+    category: Optional[str] = Field(None, max_length=40, description="Shelf category, e.g. Dairy; used to suggest substitutes. Omit to keep the current one")
 
 
 class RestockIn(BaseModel):
@@ -39,6 +40,13 @@ class SaleIn(BaseModel):
     sale_id: str = Field(..., min_length=1, max_length=64)
     store_id: str
     items: List[ItemIn] = Field(..., min_length=1)
+    channel: Literal["in_store", "online"] = "in_store"
+    customer_name: str = Field("", max_length=60, description="Online orders: who collects")
+    check_stock: bool = Field(False, description="Refuse the sale (409) unless every item is available")
+
+
+class ReadyIn(BaseModel):
+    ready_by: str = Field("", max_length=60, description="Who packed it (defaults to the signed-in staff member)")
 
 
 class CommitIn(BaseModel):
@@ -93,6 +101,8 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
             return fn(*a, **kw)
         except NotFound as e:
             raise HTTPException(404, str(e))
+        except NotEnoughStock as e:
+            raise HTTPException(409, {"message": str(e), "short": e.short})
         except Conflict as e:
             raise HTTPException(409, str(e))
         except ValueError as e:
@@ -110,7 +120,7 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def put_product(product_id: str, p: ProductIn, staff: Optional[str] = StaffUser):
         if p.product_id != product_id:
             raise HTTPException(422, "product_id in path and body differ")
-        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes, who(p.changed_by, staff))
+        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes, who(p.changed_by, staff), p.category)
         return {"product_id": product_id}
 
     @app.get("/products/{product_id}/price-history")
@@ -125,6 +135,11 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def stock_levels(store_id: str):
         return inv.stock_levels(store_id)
 
+    @app.get("/availability/{store_id}")
+    def availability(store_id: str):
+        """Committed stock per product, and how much unpaid orders are holding."""
+        return inv.availability(store_id)
+
     @app.get("/stock/{store_id}/{product_id}")
     def stock(store_id: str, product_id: str):
         return {"product_id": product_id, "qty": inv.stock(store_id, product_id),
@@ -132,11 +147,15 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
 
     @app.post("/sales", status_code=201)
     def create_sale(s: SaleIn):
-        return guard(inv.create_sale, s.sale_id, s.store_id, [Item(i.product_id, i.qty) for i in s.items])
+        return guard(inv.create_sale, s.sale_id, s.store_id, [Item(i.product_id, i.qty) for i in s.items],
+                     s.channel, s.customer_name, s.check_stock)
 
     @app.get("/sales")
-    def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500)):
-        return inv.recent_sales(store_id, limit)
+    def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500),
+                   channel: Optional[Literal["in_store", "online"]] = None,
+                   status: Optional[Literal["pending_payment", "paid", "cancelled"]] = None,
+                   uncollected: bool = False):
+        return inv.recent_sales(store_id, limit, channel, status, uncollected)
 
     @app.get("/sales/lookup")
     def lookup_sale(store_id: str, code: str):
@@ -153,6 +172,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/sales/{sale_id}/exit")
     def exit_sale(sale_id: str, body: ExitIn):
         return guard(inv.record_exit, sale_id, body.checked_by.strip())
+
+    @app.post("/sales/{sale_id}/ready")
+    def ready_sale(sale_id: str, body: ReadyIn, staff: Optional[str] = StaffUser):
+        return guard(inv.mark_ready, sale_id, who(body.ready_by, staff))
 
     @app.post("/sales/{sale_id}/cancel")
     def cancel_sale(sale_id: str):
