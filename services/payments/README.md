@@ -18,7 +18,7 @@ Amounts are whole shillings; Daraja does not accept decimals. Phone numbers are 
 
 1. Create an account at [developer.safaricom.co.ke](https://developer.safaricom.co.ke), create an app with **M-Pesa Express (Sandbox)** enabled, and copy the Consumer Key and Consumer Secret.
 2. Copy `.env.example` to `.env` and fill it in. The sandbox shortcode is `174379`; the sandbox passkey is shown on the Daraja portal's test credentials page.
-3. Daraja can only deliver callbacks to a public HTTPS URL. For local development, run a tunnel (e.g. `ngrok http 8000`) and put its URL in `PUBLIC_BASE_URL`. Set `CALLBACK_SECRET` to a long random string.
+3. Daraja can only deliver callbacks to a public HTTPS URL. The service won't start on `sandbox` or `production` without an `https://` `PUBLIC_BASE_URL` and a `CALLBACK_SECRET`. For local development, run a tunnel (e.g. `ngrok http 8000`) and put its URL in `PUBLIC_BASE_URL`. Set `CALLBACK_SECRET` to a long random string.
 
 ```bash
 cd services/payments
@@ -35,6 +35,10 @@ curl -X POST localhost:8000/payments/mpesa/stk-push \
   -H "Content-Type: application/json" \
   -d '{"sale_id": "TEST-001", "phone": "0708374149", "amount": 1}'
 ```
+
+## Demo without Safaricom
+
+Set `DARAJA_ENV=simulator` and run `tools/mpesa_simulator` (or use the `demo` profile in the repo's `docker-compose.yml`). See [`tools/mpesa_simulator/README.md`](../../tools/mpesa_simulator/README.md).
 
 ## Tests
 

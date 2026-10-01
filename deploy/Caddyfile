@@ -1,0 +1,45 @@
+# Front door for the Smart Shopping services. Same routes the temporary Cloudflare Worker had:
+#   /shop/...       Scan & Go         public (customers' phones)
+#   /pay/...        Payments Service  staff login, except the M-Pesa callback (Daraja must reach it)
+#   /inventory/...  Inventory Service staff login
+#   /dashboard/...  Store dashboard   staff login
+# The prefix is stripped before the request reaches the service.
+
+{$SITE_ADDRESS} {
+	encode gzip
+
+	@root path /
+	redir @root /shop/ 302
+
+	redir /shop /shop/ 301
+	handle_path /shop/* {
+		reverse_proxy scan_and_go:8030
+	}
+
+	handle_path /pay/payments/mpesa/callback/* {
+		rewrite * /payments/mpesa/callback{uri}
+		reverse_proxy payments:8000
+	}
+
+	redir /dashboard /dashboard/ 301
+	@staff {
+		path /pay /pay/* /inventory /inventory/* /dashboard/*
+		not path /pay/payments/mpesa/callback/*
+	}
+	basic_auth @staff {
+		{$STAFF_USER} {$STAFF_PASSWORD_HASH}
+	}
+	handle_path /pay/* {
+		reverse_proxy payments:8000
+	}
+	handle_path /inventory/* {
+		reverse_proxy inventory:8010
+	}
+	handle_path /dashboard/* {
+		reverse_proxy dashboard:8020
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}

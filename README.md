@@ -40,7 +40,9 @@ smart_shopping/
 │   ├── payments/            # M-Pesa (Daraja STK Push) service — Python/FastAPI
 │   ├── shelf/               # Weight + camera fusion into shelf events
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
-├── cloudflare/              # Temporary hosting: Worker that routes to the service containers
+├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
+├── deploy/                  # Caddy proxy config and the DigitalOcean guide
+├── scripts/seed_demo.py     # Load demo products, prices and stock
 └── apps/
     ├── dashboard/           # Store dashboard (shelves, stock, sales, differences)
     └── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
@@ -52,7 +54,7 @@ smart_shopping/
 - **Backend:** Python
 - **Hardware:** ESP32, programmed with Arduino
 - **Diagrams:** Mermaid, kept in `/docs` as version-controlled text, not external files
-- **Hosting (POCs):** temporarily Cloudflare Containers (see [`cloudflare/README.md`](cloudflare/README.md)); moving to DigitalOcean once the shared company account is set up
+- **Hosting (POCs):** DigitalOcean, with Docker Compose (see [`deploy/README.md`](deploy/README.md)). The same setup runs a full local demo with `docker compose up`.
 - **AI-assisted development if needed:** Claude / Claude Code
 
 ## Status

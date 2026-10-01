@@ -1,0 +1,83 @@
+# All Phase 1 services behind one HTTPS front door.
+# Local:        cp .env.example .env && docker compose up -d --build   ->  http://localhost
+# DigitalOcean: same, with SITE_ADDRESS set to your domain (see deploy/README.md)
+# Demo without Safaricom: set COMPOSE_PROFILES=demo and DARAJA_ENV=simulator in .env
+
+services:
+  proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      STAFF_USER: ${STAFF_USER:-staff}
+      STAFF_PASSWORD_HASH: ${STAFF_PASSWORD_HASH:?Set STAFF_PASSWORD_HASH in .env (see deploy/README.md)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [inventory, payments, dashboard, scan_and_go]
+
+  inventory:
+    build: services/inventory
+    restart: unless-stopped
+    environment:
+      UVICORN_ROOT_PATH: /inventory
+    volumes: [inventory-data:/data]
+
+  payments:
+    build: services/payments
+    restart: unless-stopped
+    environment:
+      DARAJA_ENV: ${DARAJA_ENV:-sandbox}
+      DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY:-}
+      DARAJA_CONSUMER_SECRET: ${DARAJA_CONSUMER_SECRET:-}
+      DARAJA_SHORTCODE: ${DARAJA_SHORTCODE:-174379}
+      DARAJA_PASSKEY: ${DARAJA_PASSKEY:-}
+      DARAJA_TRANSACTION_TYPE: ${DARAJA_TRANSACTION_TYPE:-CustomerPayBillOnline}
+      DARAJA_PARTY_B: ${DARAJA_PARTY_B:-}
+      DARAJA_SIM_URL: http://mpesa_sim:8099
+      # Callbacks come back through the proxy. Without a public address (simulator demo) that's the proxy
+      # inside Docker; the Payments Service refuses to start on sandbox/production without an https:// one.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://proxy}/pay
+      CALLBACK_SECRET: ${CALLBACK_SECRET:?Set CALLBACK_SECRET in .env to a long random string (see deploy/README.md)}
+      INVENTORY_URL: http://inventory:8010
+      UVICORN_ROOT_PATH: /pay
+    volumes: [payments-data:/data]
+    depends_on: [inventory]
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    restart: unless-stopped
+    environment:
+      STORE_ID: ${STORE_ID:-001}
+      INVENTORY_URL: http://inventory:8010
+      UVICORN_ROOT_PATH: /dashboard
+    volumes: [dashboard-data:/data]
+    depends_on: [inventory]
+
+  scan_and_go:
+    build: apps/scan_and_go
+    restart: unless-stopped
+    environment:
+      STORE_ID: ${STORE_ID:-001}
+      STORE_NAME: ${STORE_NAME:-Smart Shopping}
+      INVENTORY_URL: http://inventory:8010
+      PAYMENTS_URL: http://payments:8000
+      UVICORN_ROOT_PATH: /shop
+    depends_on: [inventory, payments]
+
+  # Stand-in for Safaricom Daraja (tools/mpesa_simulator). Only runs with the "demo" profile.
+  mpesa_sim:
+    profiles: [demo]
+    build: tools/mpesa_simulator
+    restart: unless-stopped
+    environment:
+      SIM_DELAY_S: ${SIM_DELAY_S:-3}
+
+volumes:
+  caddy-data:
+  inventory-data:
+  payments-data:
+  dashboard-data:

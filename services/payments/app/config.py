@@ -4,6 +4,7 @@ from dataclasses import dataclass
 BASE_URLS = {
     "sandbox": "https://sandbox.safaricom.co.ke",
     "production": "https://api.safaricom.co.ke",
+    "simulator": "http://localhost:8099",  # tools/mpesa_simulator; override with DARAJA_SIM_URL
 }
 
 
@@ -23,6 +24,8 @@ class Settings:
 
     @property
     def daraja_base_url(self) -> str:
+        if self.daraja_env == "simulator":
+            return os.getenv("DARAJA_SIM_URL", BASE_URLS["simulator"])
         return BASE_URLS[self.daraja_env]
 
     @property
@@ -35,6 +38,16 @@ def load_settings() -> Settings:
     if env not in BASE_URLS:
         raise ValueError(f"DARAJA_ENV must be one of {list(BASE_URLS)}, got {env!r}")
     shortcode = os.getenv("DARAJA_SHORTCODE", "174379")
+    public_base_url = os.getenv("PUBLIC_BASE_URL", "")
+    callback_secret = os.getenv("CALLBACK_SECRET", "")
+    if not callback_secret:
+        raise ValueError("CALLBACK_SECRET is not set. Set it to a long random string; it is part of the "
+                         "M-Pesa callback URL so only Daraja can post payment results.")
+    if env in ("sandbox", "production") and not public_base_url.startswith("https://"):
+        raise ValueError(f"PUBLIC_BASE_URL must be this server's public https:// address (e.g. "
+                         f"https://shop.example.co.ke) when DARAJA_ENV is {env}; Daraja only sends callbacks "
+                         f"over HTTPS. Got {public_base_url!r}. For a demo without Safaricom, use "
+                         f"DARAJA_ENV=simulator.")
     return Settings(
         daraja_env=env,
         consumer_key=os.getenv("DARAJA_CONSUMER_KEY", ""),
@@ -43,8 +56,8 @@ def load_settings() -> Settings:
         passkey=os.getenv("DARAJA_PASSKEY", ""),
         transaction_type=os.getenv("DARAJA_TRANSACTION_TYPE", "CustomerPayBillOnline"),
         party_b=os.getenv("DARAJA_PARTY_B") or shortcode,
-        public_base_url=os.getenv("PUBLIC_BASE_URL", ""),
-        callback_secret=os.getenv("CALLBACK_SECRET", ""),
+        public_base_url=public_base_url,
+        callback_secret=callback_secret,
         db_path=os.getenv("PAYMENTS_DB_PATH", "payments.db"),
         inventory_url=os.getenv("INVENTORY_URL", ""),
     )
