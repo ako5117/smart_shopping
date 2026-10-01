@@ -32,7 +32,8 @@ smart_shopping/
 │   ├── architecture.md      # System architecture (Mermaid)
 │   ├── data-model.md        # Shared data model (Mermaid ER)
 │   ├── sensor-logic.md      # Weight + optical sensing logic
-│   └── reconciliation.md    # Keeping our counts and the retailer's in agreement
+│   ├── reconciliation.md    # Keeping our counts and the retailer's in agreement
+│   └── demo-walkthrough.md  # 10–15 minute demo script for partners and pilot stores
 ├── hardware/
 │   ├── bench-prototype.md   # Bench rig parts list, wiring, test plan
 │   └── firmware/shelf_node/ # ESP32 shelf node firmware
@@ -42,11 +43,16 @@ smart_shopping/
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
 ├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide
-├── scripts/seed_demo.py     # Load demo products, prices and stock
+├── scripts/                 # demo.sh (one-command demo), seed_demo.py, backup.sh
+├── tools/mpesa_simulator/   # Stand-in for Safaricom Daraja, for demos
 └── apps/
     ├── dashboard/           # Store dashboard (shelves, stock, sales, differences)
     └── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
 ```
+
+## Try it
+
+With Docker installed: `./scripts/demo.sh` starts everything with demo data, the M-Pesa simulator and simulated shelf sensors. Then follow [`docs/demo-walkthrough.md`](docs/demo-walkthrough.md).
 
 ## Tooling
 

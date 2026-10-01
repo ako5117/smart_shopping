@@ -1,7 +1,8 @@
 # All Phase 1 services behind one HTTPS front door.
 # Local:        cp .env.example .env && docker compose up -d --build   ->  http://localhost
 # DigitalOcean: same, with SITE_ADDRESS set to your domain (see deploy/README.md)
-# Demo without Safaricom: set COMPOSE_PROFILES=demo and DARAJA_ENV=simulator in .env
+# Demo without Safaricom or shelf hardware: set COMPOSE_PROFILES=demo and DARAJA_ENV=simulator in .env
+# (or just run scripts/demo.sh)
 
 services:
   proxy:
@@ -75,6 +76,17 @@ services:
     restart: unless-stopped
     environment:
       SIM_DELAY_S: ${SIM_DELAY_S:-3}
+
+  # Simulated shelf sensors (services/shelf, live mode). Writes shelf events where the dashboard reads them.
+  shelf_sim:
+    profiles: [demo]
+    build: services/shelf
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    command: ["python", "-m", "shelf.simulator", "--config", "config.example.json",
+              "--live", "/data/shelf_events.jsonl", "--interval", "${SHELF_SIM_INTERVAL_S:-12}"]
+    volumes: [dashboard-data:/data]
 
 volumes:
   caddy-data:
