@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a4d">
+<title>Scan &amp; Go</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
+    --accent: #1f7a4d; --accent-text: #ffffff; --warn: #b26a00; --warn-bg: #fff4e0; --bad: #b42318; --bad-bg: #fdecea;
+    --ok-bg: #e7f5ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
+      --accent: #4cc38a; --accent-text: #0d1f16; --warn: #f0a640; --warn-bg: #3a2c12; --bad: #f2786d; --bad-bg: #3d1d1b;
+      --ok-bg: #173327;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh;
+         padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+           padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header b { font-size: 17px; }
+  main { max-width: 520px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .muted { color: var(--muted); }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .viewer { position: relative; aspect-ratio: 4 / 3; background: #000; border-radius: 10px; overflow: hidden; }
+  .viewer video { width: 100%; height: 100%; object-fit: cover; }
+  .viewer .frame { position: absolute; inset: 22% 10%; border: 3px solid rgba(255,255,255,.85); border-radius: 10px; }
+  .viewer .hint { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: #fff; font-size: 14px;
+                  text-shadow: 0 1px 2px #000; }
+  .viewer.idle { display: grid; place-items: center; color: #ccd; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 12px 16px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button.link { background: none; color: var(--accent); padding: 6px 0; font-weight: 500; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+  input { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px;
+          background: var(--bg); color: var(--text); }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+  .msg.bad { background: var(--bad-bg); color: var(--bad); }
+  .msg.ok { background: var(--ok-bg); color: var(--accent); }
+  .line { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .line:last-child { border-bottom: 0; }
+  .qty { display: inline-flex; align-items: center; gap: 4px; }
+  .qty button { width: 34px; height: 34px; padding: 0; border-radius: 8px; background: var(--bg); color: var(--text);
+                border: 1px solid var(--line); font-size: 18px; }
+  .qty span { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; background: var(--panel); border-top: 1px solid var(--line);
+         padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .bar .inner { max-width: 520px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+  .bar .total { flex: 1; }
+  .bar .total b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .center { text-align: center; }
+  .spinner { width: 44px; height: 44px; margin: 8px auto 14px; border: 4px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pass { background: var(--accent); color: var(--accent-text); border-radius: 14px; padding: 20px 16px; text-align: center; margin-bottom: 14px; }
+  .pass .big { font-size: 34px; font-weight: 800; letter-spacing: .04em; }
+  .pass .code { font: 700 22px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; margin: 6px 0; }
+  .pass .clock { font-variant-numeric: tabular-nums; font-size: 18px; }
+  .pulse { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; margin-right: 6px;
+           animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
+  @keyframes pulse { 50% { opacity: .2; transform: scale(.6); } }
+  .warnbox { background: var(--warn-bg); color: var(--warn); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><b id="store-name">Scan &amp; Go</b><span class="muted" id="step-label">Scan</span></header>
+
+<main>
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- 1. Scanning -->
+  <section id="scan-view">
+    <div class="card">
+      <div id="viewer" class="viewer idle"><button id="start-camera">Start scanning</button></div>
+      <form id="manual" class="row" style="margin-top:10px">
+        <input class="grow" id="manual-code" inputmode="numeric" pattern="\d{13}" maxlength="13"
+               placeholder="Or type the barcode number" aria-label="Barcode number" autocomplete="off">
+        <button class="secondary">Add</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Your basket</h2>
+      <div id="basket"></div>
+    </div>
+  </section>
+
+  <!-- 2. Phone number -->
+  <section id="phone-view" hidden>
+    <div class="card">
+      <h2>Pay with M-Pesa</h2>
+      <p class="muted" style="margin-top:0">We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.</p>
+      <form id="phone-form">
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
+        <button style="width:100%;margin-top:12px" id="pay-button">Pay</button>
+      </form>
+      <button class="link" id="back-to-basket">← Back to basket</button>
+    </div>
+  </section>
+
+  <!-- 3. Waiting for payment -->
+  <section id="wait-view" hidden>
+    <div class="card center">
+      <div class="spinner"></div>
+      <h2>Check your phone</h2>
+      <p class="muted" id="wait-text">Enter your M-Pesa PIN to pay.</p>
+    </div>
+    <div class="card warnbox" id="retry-box" hidden>
+      <p id="retry-text" style="margin-top:0"></p>
+      <form id="retry-form">
+        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
+        <button style="width:100%;margin-top:10px">Send payment request again</button>
+      </form>
+      <button class="link" id="abandon">Start a new basket</button>
+    </div>
+  </section>
+
+  <!-- 4. Receipt / exit pass -->
+  <section id="receipt-view" hidden>
+    <div class="pass">
+      <div class="big">PAID</div>
+      <div class="code" id="pass-code"></div>
+      <div class="clock"><span class="pulse"></span><span id="pass-clock"></span></div>
+      <div style="margin-top:6px;opacity:.9">Show this screen at the exit</div>
+    </div>
+    <div class="card">
+      <h2 id="receipt-store"></h2>
+      <div id="receipt-lines"></div>
+      <div class="line"><b>Total</b><b class="num" id="receipt-total"></b></div>
+      <p class="muted" id="receipt-meta" style="margin-bottom:0"></p>
+    </div>
+    <button class="secondary" style="width:100%" id="new-basket">Start a new basket</button>
+  </section>
+</main>
+
+<div class="bar" id="checkout-bar">
+  <div class="inner">
+    <div class="total"><span class="muted" id="count">0 items</span><b id="total">KES 0</b></div>
+    <button id="checkout" disabled>Checkout</button>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
+const POLL_MS = 2500;
+const ZXING_URL = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
+
+// Browser storage can be unavailable (private mode, blocked site data): fall back to memory.
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+let basket = store.get("sg.basket", []);  // [{product_id, ean13, name, price, qty}]
+let order = store.get("sg.order", null);  // {order_id, payment_id, total, phone}
+let pollTimer = null, clockTimer = null;
+
+function say(text, kind = "bad") {
+  const m = $("msg");
+  m.hidden = !text;
+  m.className = "msg " + kind;
+  m.textContent = text || "";
+  if (text) window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const detail = Array.isArray(body.detail) ? "Please check what you entered." : body.detail;
+    throw Object.assign(new Error(detail || "Something went wrong. Please try again."), {status: r.status});
+  }
+  return body;
+}
+
+function show(view) {
+  for (const v of ["scan", "phone", "wait", "receipt"]) $(v + "-view").hidden = v !== view;
+  $("checkout-bar").hidden = view !== "scan";
+  $("step-label").textContent = {scan: "Scan", phone: "Pay", wait: "Paying", receipt: "Receipt"}[view];
+  if (view !== "scan") stopCamera();
+}
+
+// ------------------------------------------------------------------ basket
+
+function renderBasket() {
+  store.set("sg.basket", basket);
+  const items = basket.reduce((n, l) => n + l.qty, 0);
+  const total = basket.reduce((n, l) => n + l.qty * l.price, 0);
+  $("count").textContent = items === 1 ? "1 item" : items + " items";
+  $("total").textContent = kes(total);
+  $("checkout").disabled = items === 0;
+  $("basket").innerHTML = basket.length ? basket.map((l, i) => `
+    <div class="line">
+      <div>${esc(l.name)}<div class="muted">${kes(l.price)} each</div></div>
+      <div class="num"><b>${kes(l.qty * l.price)}</b></div>
+      <div class="qty"><button aria-label="One less" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span>
+        <button aria-label="One more" data-i="${i}" data-d="1">+</button></div>
+    </div>`).join("") : `<p class="muted" style="margin:0">Scan a product's barcode to add it.</p>`;
+}
+
+$("basket").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-i]");
+  if (!b) return;
+  const line = basket[+b.dataset.i];
+  line.qty += +b.dataset.d;
+  if (line.qty <= 0) basket.splice(+b.dataset.i, 1);
+  renderBasket();
+});
+
+let lastCode = "", lastAt = 0;
+async function addByBarcode(code) {
+  const now = Date.now();
+  if (code === lastCode && now - lastAt < 2500) return;  // the camera reads the same code many times a second
+  lastCode = code; lastAt = now;
+  try {
+    const p = await api(`api/products/${encodeURIComponent(code)}`);
+    const line = basket.find((l) => l.product_id === p.product_id);
+    if (line) line.qty += 1; else basket.push({...p, qty: 1});
+    renderBasket();
+    say(`Added ${p.name}`, "ok");
+    setTimeout(() => { if ($("msg").textContent === `Added ${p.name}`) say(""); }, 1800);
+    if (navigator.vibrate) navigator.vibrate(60);
+  } catch (err) {
+    say(err.message);
+  }
+}
+
+$("manual").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const code = $("manual-code").value.replace(/\D/g, "");
+  if (code.length !== 13) return say("A barcode has 13 digits.");
+  lastCode = "";
+  $("manual-code").value = "";
+  addByBarcode(code);
+});
+
+// ------------------------------------------------------------------ camera
+
+let stream = null, scanning = false, zxingReader = null;
+
+async function startCamera() {
+  say("");
+  if (!navigator.mediaDevices?.getUserMedia) return say("This browser can't use the camera. Type the barcode number instead.");
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false});
+  } catch {
+    return say("Camera access was blocked. Allow it in your browser settings, or type the barcode number.");
+  }
+  $("viewer").className = "viewer";
+  $("viewer").innerHTML = `<video playsinline muted></video><div class="frame"></div><div class="hint">Point at a barcode</div>`;
+  const video = $("viewer").querySelector("video");
+  video.srcObject = stream;
+  await video.play();
+  scanning = true;
+
+  if ("BarcodeDetector" in window && (await BarcodeDetector.getSupportedFormats()).includes("ean_13")) {
+    const detector = new BarcodeDetector({formats: ["ean_13"]});
+    const tick = async () => {
+      if (!scanning) return;
+      try {
+        const [hit] = await detector.detect(video);
+        if (hit) addByBarcode(hit.rawValue);
+      } catch {}
+      setTimeout(tick, 250);
+    };
+    tick();
+  } else {
+    // iPhones and some browsers have no BarcodeDetector: use the ZXing library instead.
+    try {
+      if (!window.ZXing) await new Promise((ok, fail) => {
+        const s = document.createElement("script");
+        s.src = ZXING_URL; s.onload = ok; s.onerror = fail; document.head.appendChild(s);
+      });
+      const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]]]);
+      zxingReader = new ZXing.BrowserMultiFormatReader(hints, 250);
+      zxingReader.decodeFromStream(stream, video, (result) => { if (result && scanning) addByBarcode(result.getText()); });
+    } catch {
+      say("The barcode scanner couldn't load. Type the barcode number instead.");
+    }
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  if (zxingReader) { try { zxingReader.reset(); } catch {} zxingReader = null; }
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  $("viewer").className = "viewer idle";
+  $("viewer").innerHTML = `<button id="start-camera">Start scanning</button>`;
+}
+
+$("viewer").addEventListener("click", (e) => { if (e.target.id === "start-camera") startCamera(); });
+
+// ------------------------------------------------------------------ checkout and payment
+
+$("checkout").addEventListener("click", () => {
+  say("");
+  $("phone").value = store.get("sg.phone", "");
+  show("phone");
+  $("phone").focus();
+});
+$("back-to-basket").addEventListener("click", () => show("scan"));
+
+$("phone-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("pay-button").disabled = true;
+  say("");
+  try {
+    const phone = $("phone").value.trim();
+    const r = await api("api/checkout", {method: "POST", body: JSON.stringify({
+      phone, items: basket.map((l) => ({product_id: l.product_id, qty: l.qty}))})});
+    store.set("sg.phone", phone);
+    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone};
+    store.set("sg.order", order);
+    waitForPayment();
+  } catch (err) {
+    say(err.message);
+  } finally {
+    $("pay-button").disabled = false;
+  }
+});
+
+function waitForPayment() {
+  show("wait");
+  $("retry-box").hidden = true;
+  $("wait-text").textContent = `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  clearTimeout(pollTimer);
+  poll();
+}
+
+async function poll() {
+  if (!order) return;
+  try {
+    const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
+    if (s.payment_status === "paid") return showReceipt(s);
+    if (s.payment_status === "failed" || s.payment_status === "cancelled") {
+      $("retry-box").hidden = false;
+      $("retry-text").textContent = s.payment_status === "cancelled"
+        ? "The payment was cancelled on your phone. Nothing was charged."
+        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`;
+      $("retry-phone").value = order.phone || "";
+      return;
+    }
+  } catch (err) {
+    if (err.status === 404) return reset();
+  }
+  pollTimer = setTimeout(poll, POLL_MS);
+}
+
+$("retry-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  say("");
+  try {
+    const phone = $("retry-phone").value.trim();
+    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify({phone})});
+    order = {...order, payment_id: r.payment_id, phone};
+    store.set("sg.order", order);
+    waitForPayment();
+  } catch (err) {
+    say(err.message);
+  }
+});
+
+function showReceipt(s) {
+  clearTimeout(pollTimer);
+  show("receipt");
+  basket = [];
+  store.del("sg.basket");
+  renderBasket();
+  $("pass-code").textContent = s.order_id.slice(-8);
+  $("receipt-store").textContent = s.store_name;
+  $("receipt-lines").innerHTML = s.lines.map((l) => `
+    <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("");
+  $("receipt-total").textContent = kes(s.amount ?? s.total);
+  const paid = s.paid_at ? new Date(s.paid_at) : null;
+  $("receipt-meta").textContent = [
+    paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
+    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
+    s.phone, "Order " + s.order_id,
+  ].filter(Boolean).join(" · ");
+  // A live clock on the pass makes an old screenshot easy to spot at the exit.
+  clearInterval(clockTimer);
+  const tickClock = () => { $("pass-clock").textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"}); };
+  tickClock();
+  clockTimer = setInterval(tickClock, 1000);
+}
+
+function reset() {
+  clearTimeout(pollTimer);
+  clearInterval(clockTimer);
+  order = null;
+  store.del("sg.order");
+  say("");
+  show("scan");
+  renderBasket();
+}
+$("new-basket").addEventListener("click", reset);
+$("abandon").addEventListener("click", reset);
+
+// ------------------------------------------------------------------ start
+
+api("api/store").then((s) => { $("store-name").textContent = s.name; document.title = `Scan & Go · ${s.name}`; }).catch(() => {});
+renderBasket();
+if (order) waitForPayment(); else show("scan");
+</script>
+</body>
+</html>
