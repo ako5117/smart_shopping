@@ -8,7 +8,6 @@ class Settings:
     store_name: str
     inventory_url: str
     payments_url: str
-    prices_path: str
     stk_limit_per_phone: int = 3
     stk_limit_window_s: int = 600
     max_qty_per_item: int = 20
@@ -21,6 +20,5 @@ def load_settings() -> Settings:
         store_name=os.getenv("STORE_NAME", "Smart Shopping"),
         inventory_url=os.getenv("INVENTORY_URL", "http://localhost:8010"),
         payments_url=os.getenv("PAYMENTS_URL", "http://localhost:8000"),
-        prices_path=os.getenv("PRICES_PATH", "prices.example.json"),
         stk_limit_per_phone=int(os.getenv("STK_LIMIT_PER_PHONE", "3")),
     )

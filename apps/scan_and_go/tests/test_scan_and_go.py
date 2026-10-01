@@ -32,7 +32,7 @@ def test_checkout_prices_on_the_server(client, inventory, payments):
     assert order["order_id"].startswith("SG-") and len(order["order_id"]) == 19
     sale = inventory.sales[order["order_id"]]
     assert sale["store_id"] == "001"
-    assert sale["items"] == [{"product_id": "milk-500ml", "qty": 3}, {"product_id": "sugar-1kg", "qty": 1}]
+    assert [(i["product_id"], i["qty"]) for i in sale["items"]] == [("milk-500ml", 3), ("sugar-1kg", 1)]
     assert payments.pushes == [{"sale_id": order["order_id"], "phone": "0712345678", "amount": 375}]
 
 
@@ -120,3 +120,40 @@ def test_store_offline(client, inventory):
 def test_page_and_store_info(client):
     assert "<title>Scan &amp; Go</title>" in client.get("/").text
     assert client.get("/api/store").json() == {"store_id": "001", "name": "Test Store", "currency": "KES"}
+
+
+def test_pass_shows_exit_check(client, inventory, payments):
+    order = checkout(client, [{"product_id": "milk-500ml", "qty": 1}]).json()
+    payments.settle(order["payment_id"], "paid", receipt="R1")
+    url = f"/api/orders/{order['order_id']}/payments/{order['payment_id']}"
+    assert client.get(url).json()["exited_at"] is None
+    inventory.sales[order["order_id"]]["exited_at"] = "2026-10-01T10:05:00+00:00"
+    assert client.get(url).json()["exited_at"] == "2026-10-01T10:05:00+00:00"
+
+
+def test_pass_qr_code(client):
+    r = client.get("/api/orders/SG-0123456789ABCDEF/qr.svg")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("image/svg+xml")
+    assert 'xmlns="http://www.w3.org/2000/svg"' in r.text  # needed for the browser to show it as an <img>
+    assert client.get("/api/orders/not-an-order/qr.svg").status_code == 404
+
+
+def test_prices_come_from_inventory(client, inventory):
+    inventory.products[2]["price_kes"] = 70  # staff priced the bread in the dashboard
+    assert client.get(f"/api/products/{BREAD}").json()["price"] == 70
+
+
+def test_charges_the_price_saved_on_the_sale(client, inventory, payments):
+    client.get(f"/api/products/{MILK}")  # the app now has milk at 65 in its cache
+    inventory.products[0]["price_kes"] = 70  # staff raise the price; the sale is made at 70
+    order = checkout(client, [{"product_id": "milk-500ml", "qty": 2}]).json()
+    assert order["total"] == 140 and payments.pushes[-1]["amount"] == 140
+
+
+def test_product_priced_away_between_scan_and_checkout(client, inventory, payments):
+    client.get(f"/api/products/{MILK}")
+    inventory.products[0]["price_kes"] = None
+    r = checkout(client, [{"product_id": "milk-500ml", "qty": 1}])
+    assert r.status_code == 409 and payments.pushes == []
+    [sale] = inventory.sales.values()
+    assert sale["status"] == "cancelled"

@@ -9,13 +9,13 @@
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
     --accent: #1f7a4d; --accent-text: #ffffff; --warn: #b26a00; --warn-bg: #fff4e0; --bad: #b42318; --bad-bg: #fdecea;
-    --ok-bg: #e7f5ee;
+    --ok-bg: #e7f5ee; --done-bg: #5b6470; --done-text: #ffffff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
       --accent: #4cc38a; --accent-text: #0d1f16; --warn: #f0a640; --warn-bg: #3a2c12; --bad: #f2786d; --bad-bg: #3d1d1b;
-      --ok-bg: #173327;
+      --ok-bg: #173327; --done-bg: #3a414b; --done-text: #e6e8eb;
     }
   }
   * { box-sizing: border-box; }
@@ -67,6 +67,9 @@
   .pass .big { font-size: 34px; font-weight: 800; letter-spacing: .04em; }
   .pass .code { font: 700 22px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; margin: 6px 0; }
   .pass .clock { font-variant-numeric: tabular-nums; font-size: 18px; }
+  .pass .qr { display: inline-block; background: #fff; padding: 8px; border-radius: 10px; margin: 6px 0 10px; line-height: 0; }
+  .pass .qr img { width: 180px; height: 180px; max-width: 100%; }
+  .pass.done { background: var(--done-bg); color: var(--done-text); }
   .pulse { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; margin-right: 6px;
            animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
   @keyframes pulse { 50% { opacity: .2; transform: scale(.6); } }
@@ -128,11 +131,12 @@
 
   <!-- 4. Receipt / exit pass -->
   <section id="receipt-view" hidden>
-    <div class="pass">
-      <div class="big">PAID</div>
+    <div class="pass" id="pass">
+      <div class="big" id="pass-title">PAID</div>
       <div class="code" id="pass-code"></div>
-      <div class="clock"><span class="pulse"></span><span id="pass-clock"></span></div>
-      <div style="margin-top:6px;opacity:.9">Show this screen at the exit</div>
+      <div class="qr"><img id="pass-qr" alt="Order QR code for the exit check" width="180" height="180"></div>
+      <div class="clock" id="pass-live"><span class="pulse"></span><span id="pass-clock"></span></div>
+      <div style="margin-top:6px;opacity:.9" id="pass-hint">Show this screen at the exit</div>
     </div>
     <div class="card">
       <h2 id="receipt-store"></h2>
@@ -156,6 +160,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
 const POLL_MS = 2500;
+const EXIT_POLL_MS = 5000;
 const ZXING_URL = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
 
 // Browser storage can be unavailable (private mode, blocked site data): fall back to memory.
@@ -381,6 +386,8 @@ function showReceipt(s) {
   store.del("sg.basket");
   renderBasket();
   $("pass-code").textContent = s.order_id.slice(-8);
+  const qr = `api/orders/${encodeURIComponent(s.order_id)}/qr.svg`;
+  if (!$("pass-qr").src.endsWith(qr)) $("pass-qr").src = qr;
   $("receipt-store").textContent = s.store_name;
   $("receipt-lines").innerHTML = s.lines.map((l) => `
     <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("");
@@ -391,11 +398,26 @@ function showReceipt(s) {
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
     s.phone, "Order " + s.order_id,
   ].filter(Boolean).join(" · ");
-  // A live clock on the pass makes an old screenshot easy to spot at the exit.
   clearInterval(clockTimer);
+  if (s.exited_at) {
+    // Checked at the exit: the pass can't be used again.
+    const left = new Date(s.exited_at);
+    $("pass").classList.add("done");
+    $("pass-title").textContent = "CHECKED OUT";
+    $("pass-live").hidden = true;
+    $("pass-hint").textContent = "Left the store at " + (isNaN(left) ? "" : left.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})) + ". Thank you!";
+    return;
+  }
+  $("pass").classList.remove("done");
+  $("pass-title").textContent = "PAID";
+  $("pass-live").hidden = false;
+  $("pass-hint").textContent = "Show this screen at the exit";
+  // A live clock on the pass makes an old screenshot easy to spot at the exit.
   const tickClock = () => { $("pass-clock").textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"}); };
   tickClock();
   clockTimer = setInterval(tickClock, 1000);
+  // Keep checking, so the pass turns grey as soon as staff check it at the exit.
+  pollTimer = setTimeout(poll, EXIT_POLL_MS);
 }
 
 function reset() {
