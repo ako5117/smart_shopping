@@ -1,0 +1,85 @@
+{
+  "_note": "Example catalogue for the bench prototype and simulator. EAN-13 codes are placeholders with valid check digits.",
+  "products": [
+    {
+      "product_id": "maize-flour-2kg",
+      "ean13": "6161000000019",
+      "name": "Maize flour 2 kg",
+      "unit_weight_g": 2012,
+      "weight_tolerance_g": 18,
+      "classifier_label": "maize_flour_2kg"
+    },
+    {
+      "product_id": "sugar-1kg",
+      "ean13": "6161000000026",
+      "name": "Sugar 1 kg",
+      "unit_weight_g": 1010,
+      "weight_tolerance_g": 8,
+      "classifier_label": "sugar_1kg"
+    },
+    {
+      "product_id": "rice-1kg",
+      "ean13": "6161000000033",
+      "name": "Rice 1 kg",
+      "unit_weight_g": 1006,
+      "weight_tolerance_g": 8,
+      "classifier_label": "rice_1kg"
+    },
+    {
+      "product_id": "milk-500ml",
+      "ean13": "6161000000040",
+      "name": "Milk 500 ml",
+      "unit_weight_g": 528,
+      "weight_tolerance_g": 6,
+      "classifier_label": "milk_500ml"
+    },
+    {
+      "product_id": "cooking-oil-1l",
+      "ean13": "6161000000057",
+      "name": "Cooking oil 1 L",
+      "unit_weight_g": 935,
+      "weight_tolerance_g": 10,
+      "classifier_label": "cooking_oil_1l"
+    },
+    {
+      "product_id": "bread-400g",
+      "ean13": "6161000000064",
+      "name": "Bread 400 g",
+      "unit_weight_g": 412,
+      "weight_tolerance_g": 12,
+      "classifier_label": "bread_400g"
+    }
+  ],
+  "zones": [
+    {
+      "zone_id": "A1",
+      "shelf_id": "A",
+      "product_ids": [
+        "maize-flour-2kg"
+      ]
+    },
+    {
+      "zone_id": "A2",
+      "shelf_id": "A",
+      "product_ids": [
+        "sugar-1kg",
+        "rice-1kg"
+      ]
+    },
+    {
+      "zone_id": "B1",
+      "shelf_id": "B",
+      "product_ids": [
+        "milk-500ml"
+      ]
+    },
+    {
+      "zone_id": "B2",
+      "shelf_id": "B",
+      "product_ids": [
+        "cooking-oil-1l",
+        "bread-400g"
+      ]
+    }
+  ]
+}

@@ -56,13 +56,14 @@ Weight event (MQTT, topic `store/{store_id}/shelf/{shelf_id}/zone/{zone_id}/weig
 For each product `p` assigned to the zone:
 
 ```
-n      = |delta_g| / unit_weight_g(p)
-qty    = round(n)
-error  = |n - qty| × unit_weight_g(p)
-fits   = qty ≥ 1 and error ≤ weight_tolerance_g(p) × sqrt(qty)
+n        = |delta_g| / unit_weight_g(p)
+qty      = round(n)
+error    = |n - qty| × unit_weight_g(p)
+allowed  = sqrt( (weight_tolerance_g(p) × sqrt(qty))² + (3 × sensor_noise_g × sqrt(2))² )
+fits     = qty ≥ 1 and error ≤ allowed
 ```
 
-The tolerance grows with quantity because per-item weight variation adds up.
+Two error sources are combined. Product variation grows with quantity because per-item weight differences add up. Sensor noise enters twice, because a change is the difference of two noisy readings (before and after). Simulator testing showed that allowing for product variation alone rejected 3–4% of genuine picks for tightly specified items such as milk, so both terms are required.
 
 - **Exactly one product fits** → strong candidate; camera confirms.
 - **More than one fits** (similar weights) → camera decides.
@@ -106,7 +107,8 @@ Committed stock changes only at **checkout** (sale) and **restock** (barcode sca
 |---|---|---|
 | Sample rate | 10 Hz | Firmware |
 | Median window | 5 samples | Firmware |
-| `noise_threshold_g` | 3 × measured noise (standard deviation) of an idle zone | Calibration |
+| `sensor_noise_g` | Measured noise (standard deviation) of an idle zone | Calibration — also used in the fit test above |
+| `noise_threshold_g` | 3 × measured noise | Calibration |
 | `settle_band_g` | 2 × measured noise | Calibration |
 | `settle_time_ms` | 700 ms | Bench test |
 | `weight_tolerance_g` per product | Measured spread across 10 units of the product | Product onboarding |
