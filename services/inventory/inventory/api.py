@@ -6,7 +6,7 @@
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .db import Database
@@ -86,6 +86,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    @app.get("/products")
+    def list_products():
+        return inv.products()
+
     @app.put("/products/{product_id}")
     def put_product(product_id: str, p: ProductIn):
         if p.product_id != product_id:
@@ -110,6 +114,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def create_sale(s: SaleIn):
         return guard(inv.create_sale, s.sale_id, s.store_id, [Item(i.product_id, i.qty) for i in s.items])
 
+    @app.get("/sales")
+    def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500)):
+        return inv.recent_sales(store_id, limit)
+
     @app.get("/sales/{sale_id}")
     def get_sale(sale_id: str):
         return guard(inv.sale, sale_id)
@@ -133,6 +141,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/reconcile")
     def reconcile(s: SnapshotIn):
         return {"differences": guard(sync.reconcile, db, s.store_id, {k: int(v) for k, v in s.stock.items()}, s.tolerance)}
+
+    @app.get("/sync/{store_id}")
+    def sync_status(store_id: str):
+        return sync.sync_status(db, store_id)
 
     @app.get("/discrepancies/{store_id}")
     def discrepancies(store_id: str):

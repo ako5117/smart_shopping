@@ -14,16 +14,19 @@ Every write is idempotent: a re-sent restock scan, a repeated commit, or a retri
 
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/products` | Registered products |
 | `PUT` | `/products/{product_id}` | Register a product and its EAN-13 barcode |
 | `POST` | `/restocks` | Add stock from a barcode scan (`scan_id` makes re-sends safe) |
 | `GET` | `/stock/{store_id}` | Stock of every product in a store |
 | `GET` | `/stock/{store_id}/{product_id}` | Stock of one product, with recent history |
+| `GET` | `/sales?store_id=&limit=` | Most recent sales in a store, newest first |
 | `POST` | `/sales` | Create a sale at checkout (before payment) |
 | `POST` | `/sales/{sale_id}/commit` | Payment confirmed — take the items out of stock |
 | `POST` | `/sales/{sale_id}/cancel` | Abandon an unpaid sale |
 | `POST` | `/sales/{sale_id}/returns` | Return items from a paid sale (never more than were sold) |
 | `POST` | `/adjustments` | Correct stock, with a reason (damage, count, etc.) |
 | `POST` | `/reconcile` | Compare with the retailer's stock figures |
+| `GET` | `/sync/{store_id}` | Movements still waiting to reach the retailer's system, and the last error |
 | `GET` | `/discrepancies/{store_id}` | Open differences with the retailer's system |
 | `POST` | `/discrepancies/{id}/count` | Staff counted the shelf — adjust and close |
 
