@@ -2,7 +2,10 @@
 
 import hmac
 import logging
+import time
 from typing import Callable, Optional
+
+import httpx
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -45,6 +48,34 @@ def parse_callback(body: dict) -> dict:
     }
 
 
+def inventory_notifier(base_url: str, http: Optional[httpx.Client] = None, attempts: int = 3,
+                       backoff_s: float = 1.0) -> Callable[[dict], None]:
+    """Tell the Inventory Service a sale is paid, so its stock is committed.
+
+    The commit is idempotent on the inventory side, so retrying is safe. If every attempt fails the
+    error is logged loudly: the payment stands, and the sale shows as unpaid in inventory until it is
+    committed again (POST /sales/{sale_id}/commit).
+    """
+    client = http or httpx.Client(base_url=base_url, timeout=10.0)
+
+    def notify(payment: dict) -> None:
+        ref = payment.get("mpesa_receipt_number") or payment.get("checkout_request_id") or payment["payment_id"]
+        for attempt in range(1, attempts + 1):
+            try:
+                r = client.post(f"/sales/{payment['sale_id']}/commit", json={"payment_ref": ref})
+                if r.status_code < 500:
+                    if r.status_code >= 400:
+                        log.error("Inventory rejected commit for sale %s: %s %s", payment["sale_id"], r.status_code, r.text[:200])
+                    return
+            except httpx.HTTPError as e:
+                log.warning("Inventory commit attempt %d for sale %s failed: %s", attempt, payment["sale_id"], e)
+            if attempt < attempts:
+                time.sleep(backoff_s * attempt)
+        log.error("SALE NOT COMMITTED: sale %s is paid (%s) but inventory could not be reached", payment["sale_id"], ref)
+
+    return notify
+
+
 def create_app(
     settings: Optional[Settings] = None,
     daraja: Optional[DarajaClient] = None,
@@ -54,7 +85,9 @@ def create_app(
     settings = settings or load_settings()
     daraja = daraja or DarajaClient(settings)
     store = store or PaymentStore(settings.db_path)
-    on_paid = on_paid or (lambda payment: log.info("Payment %s paid for sale %s", payment["payment_id"], payment["sale_id"]))
+    if on_paid is None:
+        on_paid = (inventory_notifier(settings.inventory_url) if settings.inventory_url
+                   else lambda payment: log.info("Payment %s paid for sale %s", payment["payment_id"], payment["sale_id"]))
 
     app = FastAPI(title="Smart Shopping — Payments Service")
 
