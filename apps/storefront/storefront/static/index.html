@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a4d">
+<title>Online shop</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
+    --accent: #1f7a4d; --accent-text: #ffffff; --warn: #9a5b00; --warn-bg: #fff4e0; --bad: #b42318; --bad-bg: #fdecea;
+    --ok-bg: #e7f5ee; --done-bg: #5b6470; --done-text: #ffffff; --chip: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
+      --accent: #4cc38a; --accent-text: #0d1f16; --warn: #f0a640; --warn-bg: #3a2c12; --bad: #f2786d; --bad-bg: #3d1d1b;
+      --ok-bg: #173327; --done-bg: #3a414b; --done-text: #e6e8eb; --chip: #262b33;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh;
+         padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header .inner { max-width: 720px; margin: 0 auto; padding: 12px 16px; display: flex; justify-content: space-between;
+                  align-items: center; gap: 12px; }
+  header b { font-size: 17px; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button.link { background: none; color: var(--accent); padding: 6px 0; font-weight: 500; }
+  button.small { padding: 6px 10px; font-size: 14px; }
+  button:disabled { opacity: .5; cursor: default; }
+  input { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px;
+          background: var(--bg); color: var(--text); }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 10px 0 4px; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+  .msg.bad { background: var(--bad-bg); color: var(--bad); }
+  .msg.ok { background: var(--ok-bg); color: var(--accent); }
+  .live { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; margin: 4px 0 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 2s ease-in-out infinite; }
+  .dot.off { background: var(--muted); animation: none; }
+  @keyframes pulse { 50% { opacity: .25; } }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 12px; }
+  .chips button { background: var(--chip); color: var(--text); font-weight: 500; white-space: nowrap; padding: 7px 12px;
+                  border-radius: 999px; }
+  .chips button.on { background: var(--accent); color: var(--accent-text); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .product { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+  .product .name { font-weight: 600; }
+  .product .price { font-variant-numeric: tabular-nums; }
+  .product .actions { margin-top: auto; padding-top: 6px; }
+  .badge { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .badge.in { background: var(--ok-bg); color: var(--accent); }
+  .badge.few { background: var(--warn-bg); color: var(--warn); }
+  .badge.out { background: var(--bad-bg); color: var(--bad); }
+  .subs { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 14px; }
+  .sub { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; }
+  .qty { display: inline-flex; align-items: center; gap: 4px; }
+  .qty button { width: 34px; height: 34px; padding: 0; border-radius: 8px; background: var(--bg); color: var(--text);
+                border: 1px solid var(--line); font-size: 18px; }
+  .qty span { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+  .line { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .line:last-child { border-bottom: 0; }
+  .line .problem { grid-column: 1 / -1; background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+  .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; background: var(--panel); border-top: 1px solid var(--line);
+         padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 12px; align-items: center; }
+  .bar .total { flex: 1; }
+  .bar .total b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .center { text-align: center; }
+  .spinner { width: 44px; height: 44px; margin: 8px auto 14px; border: 4px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .steps { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 14px; }
+  .steps div { flex: 1; text-align: center; font-size: 13px; color: var(--muted); padding-top: 8px; border-top: 4px solid var(--line); }
+  .steps div.done { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .pass { background: var(--accent); color: var(--accent-text); border-radius: 14px; padding: 20px 16px; text-align: center; margin-bottom: 14px; }
+  .pass .big { font-size: 26px; font-weight: 800; }
+  .pass .code { font: 700 22px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; margin: 6px 0; }
+  .pass .qr { display: inline-block; background: #fff; padding: 8px; border-radius: 10px; margin: 6px 0 10px; line-height: 0; }
+  .pass .qr img { width: 180px; height: 180px; max-width: 100%; }
+  .pass.done { background: var(--done-bg); color: var(--done-text); }
+  .warnbox { background: var(--warn-bg); color: var(--warn); }
+  .banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><div class="inner"><b id="store-name">Online shop</b><span class="muted small" id="step-label">Order online, collect in store</span></div></header>
+
+<main>
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- 1. Shop -->
+  <section id="shop-view">
+    <div class="card banner" id="order-banner" hidden>
+      <span id="order-banner-text"></span><button class="small" id="view-order">View order</button>
+    </div>
+    <input id="search" type="search" placeholder="Search products" aria-label="Search products" autocomplete="off">
+    <div class="live"><span class="dot" id="live-dot"></span><span id="live-text">Checking what's on the shelves…</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="grid" id="products"></div>
+  </section>
+
+  <!-- 2. Checkout -->
+  <section id="checkout-view" hidden>
+    <div class="card">
+      <h2>Your order</h2>
+      <div id="lines"></div>
+      <div class="line"><b>Total</b><b class="num" id="checkout-total"></b></div>
+    </div>
+    <div class="card">
+      <h2>Collect from <span id="collect-store"></span></h2>
+      <p class="muted small" style="margin-top:0">We'll pack your order and tell you here when it's ready. Show the pass on this
+        page when you collect. Your items are held for <span id="hold-min">15</span> minutes while you pay.</p>
+      <form id="order-form">
+        <label for="name">Your name</label>
+        <input id="name" autocomplete="name" maxlength="60" required>
+        <label for="phone">M-Pesa number</label>
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required>
+        <button style="width:100%;margin-top:14px" id="pay-button">Pay with M-Pesa</button>
+      </form>
+      <button class="link" id="back-to-shop">← Keep shopping</button>
+    </div>
+  </section>
+
+  <!-- 3. Waiting for payment -->
+  <section id="wait-view" hidden>
+    <div class="card center">
+      <div class="spinner"></div>
+      <h2>Check your phone</h2>
+      <p class="muted" id="wait-text">Enter your M-Pesa PIN to pay.</p>
+    </div>
+    <div class="card warnbox" id="retry-box" hidden>
+      <p id="retry-text" style="margin-top:0"></p>
+      <form id="retry-form">
+        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
+        <button style="width:100%;margin-top:10px">Send payment request again</button>
+      </form>
+      <button class="link" id="abandon">Cancel and go back to the shop</button>
+    </div>
+  </section>
+
+  <!-- 4. Order status and collection pass -->
+  <section id="order-view" hidden>
+    <div class="steps" id="steps"><div data-s="paid">Paid</div><div data-s="packing">Packing</div><div data-s="ready">Ready</div><div data-s="collected">Collected</div></div>
+    <div class="pass" id="pass">
+      <div class="big" id="pass-title"></div>
+      <div class="code" id="pass-code"></div>
+      <div class="qr"><img id="pass-qr" alt="Order QR code, scanned when you collect" width="180" height="180"></div>
+      <div id="pass-hint"></div>
+    </div>
+    <div class="card">
+      <h2 id="receipt-store"></h2>
+      <div id="receipt-lines"></div>
+      <div class="line"><b>Total</b><b class="num" id="receipt-total"></b></div>
+      <p class="muted small" id="receipt-meta" style="margin-bottom:0"></p>
+    </div>
+    <button class="secondary" style="width:100%" id="back-from-order">Back to the shop</button>
+  </section>
+</main>
+
+<div class="bar" id="basket-bar">
+  <div class="inner">
+    <div class="total"><span class="muted" id="count">0 items</span><b id="total">KES 0</b></div>
+    <button id="checkout" disabled>Checkout</button>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
+const CATALOGUE_MS = 15000, PAY_POLL_MS = 2500, ORDER_POLL_MS = 5000;
+
+// Browser storage can be unavailable (private mode, blocked site data): fall back to memory.
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+let basket = store.get("web.basket", {});   // {product_id: qty}
+let order = store.get("web.order", null);   // {order_id, payment_id, total, phone, paid}
+let products = {}, categories = [], category = "", view = "shop";
+let catalogueTimer = null, pollTimer = null;
+
+function say(text, kind = "bad") {
+  const m = $("msg");
+  m.hidden = !text;
+  m.className = "msg " + kind;
+  m.textContent = text || "";
+  if (text) window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    let detail = body.detail;
+    if (Array.isArray(detail)) detail = "Please check what you entered.";
+    if (detail && typeof detail === "object") detail = detail.message;
+    throw Object.assign(new Error(detail || "Something went wrong. Please try again."), {status: r.status});
+  }
+  return body;
+}
+
+function show(v) {
+  view = v;
+  for (const name of ["shop", "checkout", "wait", "order"]) $(name + "-view").hidden = name !== v;
+  $("basket-bar").hidden = v !== "shop";
+  $("step-label").textContent = {shop: "Order online, collect in store", checkout: "Checkout", wait: "Paying", order: "Your order"}[v];
+  if (v === "shop" || v === "checkout") render();
+}
+
+// ------------------------------------------------------------------ catalogue (live)
+
+async function loadCatalogue() {
+  clearTimeout(catalogueTimer);
+  try {
+    const c = await api("api/catalogue");
+    products = Object.fromEntries(c.products.map((p) => [p.product_id, p]));
+    categories = c.categories;
+    const at = new Date(c.updated_at).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    $("live-dot").classList.toggle("off", !c.shelf_live);
+    $("live-text").textContent = c.shelf_live ? `Live from the store shelves · updated ${at}` : `Stock updated ${at}`;
+    for (const pid of Object.keys(basket)) if (!products[pid]) delete basket[pid];
+    if (view === "shop" || view === "checkout") render();
+  } catch (err) {
+    $("live-dot").classList.add("off");
+    $("live-text").textContent = err.message;
+  }
+  catalogueTimer = setTimeout(loadCatalogue, CATALOGUE_MS);
+}
+
+function badge(p) {
+  if (p.status === "out") return `<span class="badge out">Out of stock</span>`;
+  if (p.status === "few") return `<span class="badge few">Only ${p.left} left</span>`;
+  return `<span class="badge in">In stock</span>`;
+}
+
+function stepper(pid, qty) {
+  return `<span class="qty"><button aria-label="One less" data-pid="${esc(pid)}" data-d="-1">−</button><span>${qty}</span>
+    <button aria-label="One more" data-pid="${esc(pid)}" data-d="1" ${qty >= products[pid].max ? "disabled" : ""}>+</button></span>`;
+}
+
+function subsHtml(p, swapFor = "") {
+  if (!p.substitutes.length) return "";
+  return `<div class="subs"><span class="muted">${p.status === "out" ? "Try instead:" : "Similar, in stock:"}</span>${p.substitutes.map((s) => `
+    <div class="sub"><span>${esc(s.name)} · ${kes(s.price)}</span>
+      <button class="small secondary" data-add="${esc(s.product_id)}" data-swap="${esc(swapFor)}">${swapFor ? "Swap" : "Add"}</button></div>`).join("")}</div>`;
+}
+
+function renderShop() {
+  $("chips").innerHTML = ["", ...categories].map((c) =>
+    `<button class="${c === category ? "on" : ""}" data-cat="${esc(c)}">${esc(c || "All")}</button>`).join("");
+  const q = $("search").value.trim().toLowerCase();
+  const list = Object.values(products).filter((p) => (!category || p.category === category) && (!q || p.name.toLowerCase().includes(q)));
+  $("products").innerHTML = list.length ? list.map((p) => {
+    const qty = basket[p.product_id] || 0;
+    const action = p.status === "out" ? "" : qty ? stepper(p.product_id, qty) : `<button data-add="${esc(p.product_id)}">Add</button>`;
+    const subs = p.status === "out" || (qty && qty >= p.max) ? subsHtml(p) : "";
+    return `<div class="card product">
+      <div class="name">${esc(p.name)}</div>
+      <div class="muted small">${esc(p.category)}</div>
+      <div class="price">${kes(p.price)}</div>
+      <div>${badge(p)}</div>
+      <div class="actions">${action}</div>${subs}
+    </div>`;
+  }).join("") : `<p class="muted">No products match.</p>`;
+  const banner = order && order.paid && order.stage !== "collected";
+  $("order-banner").hidden = !banner;
+  if (banner) $("order-banner-text").textContent = `Order ${order.order_id.slice(-8)}: ${order.stage === "ready" ? "ready to collect" : "being packed"}`;
+}
+
+function renderCheckout() {
+  const ids = Object.keys(basket);
+  $("lines").innerHTML = ids.length ? ids.map((pid) => {
+    const p = products[pid], qty = basket[pid];
+    let problem = "";
+    if (p.status === "out") problem = `<div class="problem">Sold out since you added it. ${p.substitutes.length ? "" : "Please remove it."}${subsHtml(p, pid)}</div>`;
+    else if (qty > p.max) problem = `<div class="problem">Only ${p.max} available now.
+      <button class="small" data-set="${esc(pid)}" data-q="${p.max}">Change to ${p.max}</button></div>`;
+    return `<div class="line">
+      <div>${esc(p.name)}<div class="muted small">${kes(p.price)} each</div></div>
+      <div class="num"><b>${kes(qty * p.price)}</b></div>
+      <div>${stepper(pid, qty)}</div><div></div>${problem}
+    </div>`;
+  }).join("") : `<p class="muted" style="margin:0">Your basket is empty.</p>`;
+  $("checkout-total").textContent = kes(total());
+  const blocked = !ids.length || ids.some((pid) => products[pid].status === "out" || basket[pid] > products[pid].max);
+  $("pay-button").disabled = blocked;
+}
+
+function total() { return Object.entries(basket).reduce((n, [pid, q]) => n + q * (products[pid]?.price || 0), 0); }
+
+function render() {
+  store.set("web.basket", basket);
+  const items = Object.values(basket).reduce((n, q) => n + q, 0);
+  $("count").textContent = items === 1 ? "1 item" : items + " items";
+  $("total").textContent = kes(total());
+  $("checkout").disabled = items === 0;
+  if (view === "shop") renderShop();
+  if (view === "checkout") renderCheckout();
+}
+
+function change(pid, d) {
+  const p = products[pid];
+  if (!p) return;
+  const next = (basket[pid] || 0) + d;
+  if (next <= 0) delete basket[pid];
+  else basket[pid] = Math.min(next, Math.max(p.max, basket[pid] || 0));
+  render();
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b || b.disabled) return;
+  if (b.dataset.cat !== undefined) { category = b.dataset.cat; render(); }
+  else if (b.dataset.d) change(b.dataset.pid, +b.dataset.d);
+  else if (b.dataset.set) { basket[b.dataset.set] = +b.dataset.q; render(); }
+  else if (b.dataset.add) {
+    if (b.dataset.swap) delete basket[b.dataset.swap];
+    change(b.dataset.add, 1);
+  }
+});
+$("search").addEventListener("input", () => render());
+
+// ------------------------------------------------------------------ checkout and payment
+
+$("checkout").addEventListener("click", () => {
+  say("");
+  $("name").value = store.get("web.name", "");
+  $("phone").value = store.get("web.phone", "");
+  show("checkout");
+});
+$("back-to-shop").addEventListener("click", () => { say(""); show("shop"); });
+
+$("order-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("pay-button").disabled = true;
+  say("");
+  try {
+    const name = $("name").value.trim(), phone = $("phone").value.trim();
+    const r = await api("api/orders", {method: "POST", body: JSON.stringify({
+      name, phone, items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))})});
+    store.set("web.name", name);
+    store.set("web.phone", phone);
+    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, paid: false};
+    store.set("web.order", order);
+    waitForPayment();
+  } catch (err) {
+    say(err.message);
+    if (err.status === 409) await loadCatalogue();  // show what changed, with substitutes
+    else $("pay-button").disabled = false;
+  }
+});
+
+function waitForPayment() {
+  show("wait");
+  $("retry-box").hidden = true;
+  $("wait-text").textContent = `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  clearTimeout(pollTimer);
+  poll();
+}
+
+async function poll() {
+  if (!order) return;
+  try {
+    const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
+    if (s.stage === "cancelled") return forgetOrder("That order was cancelled. Nothing was charged.");
+    if (["packing", "ready", "collected"].includes(s.stage)) return showOrder(s);
+    if (s.stage === "payment_failed" && view === "wait") {
+      $("retry-box").hidden = false;
+      $("retry-text").textContent = s.payment_status === "cancelled"
+        ? "The payment was cancelled on your phone. Nothing was charged."
+        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`;
+      $("retry-phone").value = order.phone || "";
+      return;
+    }
+  } catch (err) {
+    if (err.status === 404) return forgetOrder("");
+  }
+  pollTimer = setTimeout(poll, PAY_POLL_MS);
+}
+
+$("retry-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  say("");
+  try {
+    const phone = $("retry-phone").value.trim();
+    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify({phone})});
+    order = {...order, payment_id: r.payment_id, phone};
+    store.set("web.order", order);
+    waitForPayment();
+  } catch (err) {
+    say(err.message);
+    if (err.status === 409) forgetOrder(err.message);
+  }
+});
+
+function forgetOrder(message) {
+  clearTimeout(pollTimer);
+  order = null;
+  store.del("web.order");
+  show("shop");
+  say(message);
+  loadCatalogue();
+}
+$("abandon").addEventListener("click", () => forgetOrder(""));
+
+const STAGES = ["paid", "packing", "ready", "collected"];
+function showOrder(s) {
+  clearTimeout(pollTimer);
+  if (!order.paid) { basket = {}; store.set("web.basket", basket); }
+  order = {...order, paid: true, stage: s.stage};
+  store.set("web.order", order);
+  if (view !== "order") show("order");
+  const reached = {packing: 1, ready: 2, collected: 3}[s.stage];
+  $("steps").querySelectorAll("div").forEach((d) => d.classList.toggle("done", STAGES.indexOf(d.dataset.s) <= reached));
+  $("pass").classList.toggle("done", s.stage === "collected");
+  $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage];
+  $("pass-code").textContent = s.order_id.slice(-8);
+  const qr = `api/orders/${encodeURIComponent(s.order_id)}/qr.svg`;
+  if (!$("pass-qr").src.endsWith(qr)) $("pass-qr").src = qr;
+  $("pass-qr").parentElement.hidden = s.stage === "collected";
+  const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+  $("pass-hint").textContent = {
+    packing: "We'll show “Ready to collect” here when it's packed.",
+    ready: `Ready since ${when(s.ready_at)}. Show this screen at the counter, ${s.customer_name}.`,
+    collected: `Collected at ${when(s.collected_at)}. Thank you!`,
+  }[s.stage];
+  $("receipt-store").textContent = s.store_name;
+  $("receipt-lines").innerHTML = s.lines.map((l) => `
+    <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("");
+  $("receipt-total").textContent = kes(s.amount ?? s.total);
+  const paid = s.paid_at ? new Date(s.paid_at) : null;
+  $("receipt-meta").textContent = [
+    paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
+    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.phone, "Order " + s.order_id,
+  ].filter(Boolean).join(" · ");
+  if (s.stage !== "collected") pollTimer = setTimeout(poll, ORDER_POLL_MS);
+}
+
+$("back-from-order").addEventListener("click", () => {
+  if (order?.stage === "collected") { order = null; store.del("web.order"); }
+  show("shop");
+});
+$("view-order").addEventListener("click", () => { show("order"); poll(); });
+
+// ------------------------------------------------------------------ start
+
+api("api/store").then((s) => {
+  $("store-name").textContent = s.name;
+  $("collect-store").textContent = s.name;
+  $("hold-min").textContent = s.hold_minutes;
+  document.title = `${s.name} · Online shop`;
+}).catch(() => {});
+show("shop");
+loadCatalogue().then(() => {
+  if (order && order.paid) { show("order"); poll(); }
+  else if (order) waitForPayment();
+});
+</script>
+</body>
+</html>
