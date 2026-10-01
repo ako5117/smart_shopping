@@ -32,6 +32,18 @@ class InventoryClient:
     def discrepancies(self, store_id: str) -> List[dict]:
         return self._get(f"/discrepancies/{store_id}")
 
+    def save_product(self, product_id: str, body: dict) -> httpx.Response:
+        return self.http.put(f"/products/{product_id}", json={"product_id": product_id, **body})
+
+    def restock(self, body: dict) -> httpx.Response:
+        return self.http.post("/restocks", json=body)
+
+    def find_sale(self, store_id: str, code: str) -> httpx.Response:
+        return self.http.get("/sales/lookup", params={"store_id": store_id, "code": code})
+
+    def record_exit(self, sale_id: str, checked_by: str) -> httpx.Response:
+        return self.http.post(f"/sales/{sale_id}/exit", json={"checked_by": checked_by})
+
     def record_count(self, discrepancy_id: int, counted_qty: int, counted_by: str) -> httpx.Response:
         return self.http.post(f"/discrepancies/{discrepancy_id}/count",
                               json={"counted_qty": counted_qty, "counted_by": counted_by})

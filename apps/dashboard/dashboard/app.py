@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
@@ -28,6 +29,35 @@ STATIC = Path(__file__).parent / "static"
 class CountIn(BaseModel):
     counted_qty: int = Field(..., ge=0)
     counted_by: str = Field(..., min_length=1)
+
+
+class ProductIn(BaseModel):
+    ean13: str = Field(..., pattern=r"^\d{13}$")
+    name: str = Field(..., min_length=1, max_length=120)
+    price_kes: Optional[int] = Field(None, gt=0)
+
+
+class RestockIn(BaseModel):
+    ean13: str = Field(..., pattern=r"^\d{13}$")
+    qty: int = Field(..., gt=0, le=10000)
+    scan_id: str = Field(..., min_length=8, max_length=64, description="Made by the page once per restock, so a retry isn't counted twice")
+
+
+class ExitIn(BaseModel):
+    checked_by: str = Field(..., min_length=1, max_length=60)
+
+
+def _passthrough(r: httpx.Response):
+    """Return the Inventory Service's answer, or raise its error with the same status and message."""
+    if r.status_code >= 400:
+        try:
+            detail = r.json().get("detail", r.text)
+        except ValueError:
+            detail = r.text
+        if isinstance(detail, list):  # validation errors
+            detail = "Please check what you entered."
+        raise HTTPException(r.status_code, detail)
+    return r.json()
 
 
 def _attempt(errors: dict, source: str, fn: Callable, default):
@@ -143,9 +173,75 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     def health():
         return {"status": "ok"}
 
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
     @app.get("/")
     def index():
         return FileResponse(STATIC / "index.html")
+
+    @app.get("/products")
+    def products_page():
+        return FileResponse(STATIC / "products.html")
+
+    @app.get("/exit")
+    def exit_page():
+        return FileResponse(STATIC / "exit.html")
+
+    def call(fn, *args):
+        try:
+            return _passthrough(fn(*args))
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+
+    def catalogue() -> dict:
+        try:
+            return {p["product_id"]: p for p in inventory.products()}
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+
+    @app.get("/api/products")
+    def list_products():
+        products = catalogue()
+        try:
+            stock = inventory.stock(settings.store_id)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+        return [{**p, "stock": stock.get(pid, 0)} for pid, p in sorted(products.items(), key=lambda kv: kv[1]["name"].lower())]
+
+    @app.get("/api/shelf-products")
+    def shelf_products():
+        """Products the shelf sensors already know, so new products reuse the same product code."""
+        try:
+            products = load_catalogue(settings.shelf_config_path)["products"].values()
+        except (OSError, ValueError):
+            return []
+        return [{"product_id": p["product_id"], "ean13": p["ean13"], "name": p.get("name", p["product_id"])} for p in products]
+
+    @app.put("/api/products/{product_id}")
+    def save_product(product_id: str, body: ProductIn):
+        return call(inventory.save_product, product_id, body.model_dump())
+
+    @app.post("/api/restocks")
+    def restock(body: RestockIn):
+        return call(inventory.restock, {**body.model_dump(), "store_id": settings.store_id})
+
+    def priced(sale: dict) -> dict:
+        products = catalogue()
+        lines = []
+        for it in sale.get("items", []):
+            p = products.get(it["product_id"], {})
+            price = p.get("price_kes")
+            lines.append({**it, "name": p.get("name", it["product_id"]), "price_kes": price,
+                          "line_total": price * it["qty"] if price else None})
+        return {**sale, "items": lines, "item_count": sum(l["qty"] for l in lines)}
+
+    @app.get("/api/exit/lookup")
+    def exit_lookup(code: str):
+        return priced(call(inventory.find_sale, settings.store_id, code))
+
+    @app.post("/api/exit/{sale_id}")
+    def exit_confirm(sale_id: str, body: ExitIn):
+        return priced(call(inventory.record_exit, sale_id, body.checked_by.strip()))
 
     @app.get("/api/overview")
     def overview():

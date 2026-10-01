@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exit check · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+<style>
+  .verdict { border-radius: 12px; padding: 18px; display: grid; gap: 6px; }
+  .verdict .big { font-size: 28px; font-weight: 800; letter-spacing: .02em; }
+  .verdict.ok { background: var(--ok-bg); color: var(--accent); }
+  .verdict.bad { background: var(--bad-bg); color: var(--bad); }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); }
+  .lookup input#code { font-size: 20px; padding: 10px 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .lookup button { padding: 10px 16px; }
+  .items { margin: 10px 0 0; padding: 0; list-style: none; color: var(--text); }
+  .items li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .items li:last-child { border-bottom: 0; }
+  #confirm { font-size: 16px; padding: 10px 18px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Exit check</h1>
+    <div class="muted">Scan the QR code on the customer's Scan &amp; Go pass, or type the 8-character code under PAID.</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products">Products</a><a href="exit" aria-current="page">Exit check</a></nav>
+</header>
+<main>
+  <section class="two-thirds">
+    <form id="lookup" class="fields lookup" autocomplete="off">
+      <label style="grid-column: span 2">Order code<input id="code" required maxlength="19" placeholder="e.g. A7B29BAE" autofocus></label>
+      <button id="check">Check</button>
+    </form>
+    <div id="verdict" style="margin-top:14px"></div>
+  </section>
+
+  <section class="third">
+    <h2>Checked by</h2>
+    <label>Your name<input id="staff" maxlength="60" required placeholder="Name on the exit record" style="width:100%"></label>
+    <h2 style="margin-top:16px">This shift</h2>
+    <div id="log" class="muted">No checks yet.</div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const time = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+$("staff").value = store.get("exit.staff", "");
+$("staff").addEventListener("change", () => store.set("exit.staff", $("staff").value.trim()));
+
+let current = null;
+const log = [];
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(body.detail || r.statusText), {status: r.status});
+  return body;
+}
+
+function itemsList(sale) {
+  return `<ul class="items">${sale.items.map((i) => `<li><span>${i.qty} × ${esc(i.name)}</span></li>`).join("")}</ul>
+    <div class="muted">${sale.item_count} item${sale.item_count === 1 ? "" : "s"} · order ${esc(sale.sale_id)}${sale.payment_ref ? " · M-Pesa " + esc(sale.payment_ref) : ""}</div>`;
+}
+
+function verdict(kind, title, body) {
+  $("verdict").innerHTML = `<div class="verdict ${kind}" role="status"><div class="big">${title}</div>${body}</div>`;
+}
+
+function showSale(sale) {
+  current = null;
+  if (sale.status !== "paid") {
+    verdict("bad", "NOT PAID", `<div>This order is ${sale.status === "cancelled" ? "cancelled" : "waiting for payment"}. Send the customer to a till.</div>${itemsList(sale)}`);
+  } else if (sale.exited_at) {
+    verdict("warn", "PASS ALREADY USED", `<div>This order left the store at ${time(sale.exited_at)}, checked by ${esc(sale.exited_by)}. Ask for another receipt or send the customer to a till.</div>${itemsList(sale)}`);
+  } else {
+    current = sale;
+    verdict("ok", "PAID ✓", `<div>Check the bag matches, then confirm.</div>${itemsList(sale)}
+      <div><button id="confirm">Confirm: customer left the store</button></div>`);
+    $("confirm").focus();
+  }
+}
+
+$("lookup").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = $("code").value.trim();
+  if (!code) return;
+  $("check").disabled = true;
+  try {
+    showSale(await api(`api/exit/lookup?code=${encodeURIComponent(code)}`));
+  } catch (err) {
+    current = null;
+    verdict("bad", err.status === 404 ? "NOT FOUND" : "CAN'T CHECK", `<div>${esc(err.message)}</div>`);
+  } finally {
+    $("check").disabled = false;
+    $("code").select();
+  }
+});
+
+$("verdict").addEventListener("click", async (e) => {
+  if (e.target.id !== "confirm" || !current) return;
+  const staff = $("staff").value.trim();
+  if (!staff) {
+    $("staff").focus();
+    if (!$("name-needed")) e.target.insertAdjacentHTML("afterend", '<div id="name-needed">Enter your name under "Checked by" first, then press Confirm.</div>');
+    return;
+  }
+  store.set("exit.staff", staff);
+  e.target.disabled = true;
+  try {
+    const sale = await api(`api/exit/${encodeURIComponent(current.sale_id)}`, {method: "POST", body: JSON.stringify({checked_by: staff})});
+    log.unshift({code: sale.sale_id.slice(-8), at: sale.exited_at, items: sale.item_count});
+    verdict("ok", "DONE", `<div>Recorded at ${time(sale.exited_at)}. Ready for the next customer.</div>`);
+    current = null;
+  } catch (err) {
+    verdict("bad", "NOT RECORDED", `<div>${esc(err.message)}</div>`);
+  }
+  $("log").innerHTML = log.length ? log.slice(0, 20).map((l) => `<div>${time(l.at)} · ${esc(l.code)} · ${l.items} item${l.items === 1 ? "" : "s"}</div>`).join("") : "No checks yet.";
+  $("code").value = "";
+  $("code").focus();
+});
+</script>
+</body>
+</html>
