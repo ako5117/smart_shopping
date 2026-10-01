@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Products · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>Products</h1>
+    <div class="muted">Prices here are what Scan &amp; Go charges (changes reach it within 30 seconds).</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="exit">Exit check</a></nav>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="half">
+    <h2>Restock</h2>
+    <p class="muted" style="margin-top:0">Scan each delivered product's barcode, enter how many went on the shelf, and save.</p>
+    <form id="restock" class="fields" autocomplete="off">
+      <label>Barcode<input id="restock-ean" inputmode="numeric" maxlength="13" required placeholder="Scan or type"></label>
+      <label>Quantity<input id="restock-qty" type="number" min="1" max="10000" required value="1"></label>
+      <button id="restock-save">Add to stock</button>
+    </form>
+    <div id="restock-result" class="result" hidden></div>
+  </section>
+
+  <section class="half">
+    <h2 id="form-title">Add a product</h2>
+    <form id="product" class="fields" autocomplete="off">
+      <label>Barcode (EAN-13)<input id="p-ean" inputmode="numeric" maxlength="13" required placeholder="Scan or type"></label>
+      <label>Name<input id="p-name" required maxlength="120" placeholder="e.g. Milk 500 ml"></label>
+      <label>Price (KES)<input id="p-price" type="number" min="1" step="1" placeholder="Not sold in Scan & Go"></label>
+      <button id="p-save">Save product</button>
+    </form>
+    <div class="muted" id="p-id-note" style="margin-top:6px"></div>
+    <div id="product-result" class="result" hidden></div>
+  </section>
+
+  <section>
+    <h2>Catalogue</h2>
+    <div class="scroll" style="max-height:none" id="table"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n).toLocaleString("en-KE");
+let products = [];
+let shelfProducts = [];  // products the shelf sensors know, matched by barcode
+let editing = null;  // product_id being edited, or null for a new product
+
+function ean13Valid(code) {
+  if (!/^\d{13}$/.test(code)) return false;
+  const d = [...code].map(Number);
+  const sum = d.slice(0, 12).reduce((s, x, i) => s + x * (i % 2 ? 3 : 1), 0);
+  return (10 - (sum % 10)) % 10 === d[12];
+}
+const slug = (name) => name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+
+function show(el, text, ok) {
+  el.hidden = !text;
+  el.className = "result " + (ok ? "ok" : "bad");
+  el.textContent = text || "";
+}
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+
+async function load() {
+  try {
+    products = await api("api/products");
+    $("banner").hidden = true;
+  } catch (err) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Could not load products: " + err.message;
+    return;
+  }
+  $("table").innerHTML = products.length ? `<table>
+    <tr><th>Product</th><th>Barcode</th><th class="num">Price</th><th class="num">In stock</th></tr>
+    ${products.map((p) => `<tr class="pick" data-id="${esc(p.product_id)}" tabindex="0" title="Edit">
+      <td>${esc(p.name)}<div class="muted">${esc(p.product_id)}</div></td>
+      <td style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
+      <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}</td>
+      <td class="num">${p.stock}</td></tr>`).join("")}
+  </table>` : `<div class="empty">No products yet. Add the first one above.</div>`;
+}
+
+function edit(product) {
+  editing = product ? product.product_id : null;
+  $("form-title").textContent = product ? `Edit ${product.name}` : "Add a product";
+  $("p-ean").value = product ? product.ean13 : $("p-ean").value;
+  $("p-name").value = product ? product.name : "";
+  $("p-price").value = product && product.price_kes ? product.price_kes : "";
+  $("p-id-note").textContent = product ? `Product code: ${product.product_id}` : "";
+  show($("product-result"), "");
+}
+
+$("table").addEventListener("click", (e) => {
+  const row = e.target.closest("tr[data-id]");
+  if (row) { edit(products.find((p) => p.product_id === row.dataset.id)); $("p-name").focus(); }
+});
+$("table").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.matches("tr[data-id]")) e.target.click();
+});
+
+// Scanning a known barcode into the product form opens that product for editing.
+// A barcode the shelf sensors know fills in its name and keeps the same product code.
+// This runs as soon as 13 digits are in, while the cursor is still in the barcode box.
+function lookupBarcode() {
+  const ean = $("p-ean").value.trim();
+  if (ean.length !== 13) return;
+  const known = products.find((p) => p.ean13 === ean);
+  if (known) return edit(known);
+  if (editing) edit(null);
+  const shelf = shelfProducts.find((p) => p.ean13 === ean);
+  if (shelf && !$("p-name").value) $("p-name").value = shelf.name;
+  $("p-id-note").textContent = shelf ? `Matches shelf product ${shelf.product_id}` : "";
+}
+$("p-ean").addEventListener("input", lookupBarcode);
+$("p-ean").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); lookupBarcode(); $("p-name").focus(); }
+});
+
+$("product").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ean13 = $("p-ean").value.trim(), name = $("p-name").value.trim();
+  if (!ean13Valid(ean13)) return show($("product-result"), "That barcode isn't a valid EAN-13. Check the digits.", false);
+  const shelf = shelfProducts.find((p) => p.ean13 === ean13);
+  const id = editing || (shelf ? shelf.product_id : slug(name));
+  if (!id) return show($("product-result"), "Give the product a name with letters or digits.", false);
+  if (!editing && products.some((p) => p.product_id === id)) {
+    return show($("product-result"), `A product called "${id}" already exists. Pick it in the list to edit it.`, false);
+  }
+  const price = $("p-price").value ? Number($("p-price").value) : null;
+  $("p-save").disabled = true;
+  try {
+    await api(`api/products/${encodeURIComponent(id)}`, {method: "PUT", body: JSON.stringify({ean13, name, price_kes: price})});
+    edit(null);
+    $("p-ean").value = "";
+    show($("product-result"), `Saved ${name}${price ? ` at ${kes(price)}` : ""}.`, true);
+    await load();
+    $("p-ean").focus();
+  } catch (err) {
+    show($("product-result"), "Could not save: " + err.message, false);
+  } finally {
+    $("p-save").disabled = false;
+  }
+});
+
+$("restock").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ean13 = $("restock-ean").value.trim(), qty = Number($("restock-qty").value);
+  if (!ean13Valid(ean13)) return show($("restock-result"), "That barcode isn't a valid EAN-13. Check the digits.", false);
+  const product = products.find((p) => p.ean13 === ean13);
+  if (!product) return show($("restock-result"), "No product has that barcode yet. Add it on the right first.", false);
+  $("restock-save").disabled = true;
+  try {
+    // One id per restock, so a retry after a dropped connection isn't counted twice.
+    const scanId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+    const r = await api("api/restocks", {method: "POST", body: JSON.stringify({ean13, qty, scan_id: scanId})});
+    show($("restock-result"), `Added ${qty} × ${product.name}. In stock now: ${r.stock}.`, true);
+    $("restock-ean").value = "";
+    $("restock-qty").value = 1;
+    await load();
+    $("restock-ean").focus();
+  } catch (err) {
+    show($("restock-result"), "Could not add stock: " + err.message, false);
+  } finally {
+    $("restock-save").disabled = false;
+  }
+});
+// A handheld scanner types the barcode and presses Enter: move on to the quantity.
+$("restock-ean").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("restock-qty").select(); }
+});
+
+api("api/shelf-products").then((list) => { shelfProducts = list; }).catch(() => {});
+load();
+</script>
+</body>
+</html>

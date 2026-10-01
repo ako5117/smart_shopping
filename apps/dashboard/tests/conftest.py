@@ -32,6 +32,7 @@ class FakeInventory:
     def __init__(self):
         self.down = False
         self.counts = []
+        self.restocks = []
         self.products = [{"product_id": "sugar-1kg", "ean13": "6161000000026", "name": "Sugar 1 kg"},
                          {"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}]
         self.stock = {"sugar-1kg": 3, "milk-500ml": 20}
@@ -63,6 +64,28 @@ class FakeInventory:
                 return httpx.Response(422, json={"detail": "No open discrepancy with that id"})
             self.counts.append(body)
             return httpx.Response(200, json={"adjusted_by": body["counted_qty"] - 3, "stock": body["counted_qty"]})
+        if request.method == "PUT" and path.startswith("/products/"):
+            body = json.loads(request.content)
+            if any(p["ean13"] == body["ean13"] and p["product_id"] != body["product_id"] for p in self.products):
+                return httpx.Response(409, json={"detail": f"Barcode {body['ean13']} already belongs to another product"})
+            self.products = [p for p in self.products if p["product_id"] != body["product_id"]] + [body]
+            return httpx.Response(200, json={"product_id": body["product_id"]})
+        if request.method == "POST" and path == "/restocks":
+            body = json.loads(request.content)
+            self.restocks.append(body)
+            return httpx.Response(200, json={"product_id": "sugar-1kg", "created": True, "stock": 3 + body["qty"]})
+        if path == "/sales/lookup":
+            code = request.url.params["code"].upper()
+            hits = [s for s in self.sales if s["sale_id"].endswith(code)]
+            if request.url.params["store_id"] != "001" or not hits:
+                return httpx.Response(404, json={"detail": f"No order {code} in this store"})
+            return httpx.Response(200, json=hits[0])
+        if request.method == "POST" and path.endswith("/exit"):
+            sale = next((s for s in self.sales if s["sale_id"] == path.split("/")[2]), None)
+            if sale.get("exited_at"):
+                return httpx.Response(409, json={"detail": "already left the store"})
+            sale.update(exited_at="2026-10-01T10:40:00+00:00", exited_by=json.loads(request.content)["checked_by"])
+            return httpx.Response(200, json=sale)
         routes = {"/products": self.products, "/stock/001": self.stock, "/sales": self.sales,
                   "/sync/001": self.sync, "/discrepancies/001": self.discrepancies}
         if path in routes:

@@ -1,6 +1,10 @@
 # Store Dashboard
 
-One page for store staff, refreshed every 5 seconds:
+Three pages for store staff: **Overview**, **Products** and **Exit check**.
+
+## Overview
+
+Refreshed every 5 seconds:
 
 - **Today** — paid sales, items sold, sales awaiting M-Pesa payment, low stock, open differences, shelf alerts.
 - **Shelves** — each zone with the products assigned to it, their committed stock, and the last shelf event.
@@ -8,6 +12,23 @@ One page for store staff, refreshed every 5 seconds:
 - **Stock** — committed stock per product (from the ledger), with low stock highlighted.
 - **Differences with retailer's system** — open discrepancies and how far retailer sync is behind. Unknown differences have a form to record a shelf count, which becomes a stock adjustment.
 - **Recent sales** and **Shelf activity** feeds.
+
+## Products
+
+- **Restock:** scan a delivered product's barcode, enter the quantity, save. Each restock is counted once even if the connection drops and the page retries.
+- **Add or edit a product:** barcode, name and shelf price. Scanning a barcode the shelf sensors already know fills in the name and keeps the same product code, so the Overview's shelf zones line up. Click a product in the list to edit it.
+- **Prices** set here are what Scan & Go charges; changes reach it within 30 seconds. A product with no price can't be bought with Scan & Go.
+
+## Exit check
+
+Staff scan the QR code on the customer's Scan & Go pass (a handheld 2D scanner types it and presses Enter), or type the 8-character code shown under PAID. The page shows:
+
+- **PAID ✓** with the items, so staff can check the bag, and a **Confirm** button that records who checked it and when
+- **PASS ALREADY USED** if that order already left the store, with when and who checked it
+- **NOT PAID** if the order is unpaid or cancelled
+- **NOT FOUND** for an unknown code
+
+Once confirmed, the pass on the customer's phone turns grey (**CHECKED OUT**) within a few seconds.
 
 Shelf events shown here are provisional. Stock only changes at checkout, restock, or a recorded count (see [`docs/sensor-logic.md`](../../docs/sensor-logic.md)).
 
@@ -51,11 +72,19 @@ Open http://localhost:8020.
 | `GET` | `/` | The dashboard page |
 | `GET` | `/api/overview` | Everything the page shows, as JSON |
 | `POST` | `/api/discrepancies/{id}/count` | Record a staff count (passed to the Inventory Service) |
+| `GET` | `/products`, `/exit` | The Products and Exit check pages |
+| `GET` | `/api/products` | Products with prices and stock |
+| `PUT` | `/api/products/{product_id}` | Add or update a product and its price |
+| `POST` | `/api/restocks` | Add stock from a barcode scan |
+| `GET` | `/api/shelf-products` | Products the shelf catalogue knows, to reuse their codes |
+| `GET` | `/api/exit/lookup?code=` | Find an order from its pass code |
+| `POST` | `/api/exit/{sale_id}` | Record that the order left the store |
 
 ## Not yet
 
 - No login. Run it on the store network only until staff accounts exist.
 - Shelf alerts can't be acknowledged yet; they drop off as newer events arrive.
+- The exit check uses a handheld scanner or typed code; there's no in-browser camera scanner on this page yet.
 - One store per dashboard instance.
 
 ## Tests

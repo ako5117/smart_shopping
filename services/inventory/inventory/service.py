@@ -2,6 +2,7 @@
 (docs/data-model.md, STOCK_LEDGER). Current stock is always the sum of ledger entries,
 never a separately edited number."""
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -33,11 +34,18 @@ class Inventory:
 
     # ------------------------------------------------------------ catalogue
 
-    def upsert_product(self, product_id: str, ean13: str, name: str) -> None:
+    def upsert_product(self, product_id: str, ean13: str, name: str, price_kes: Optional[int] = None) -> None:
+        """Add or update a product. Leaving price_kes out keeps the current price."""
+        if price_kes is not None and price_kes <= 0:
+            raise ValueError("Price must be at least 1 KES")
+        clash = self.db.one("SELECT product_id FROM products WHERE ean13 = ? AND product_id != ?", (ean13, product_id))
+        if clash:
+            raise Conflict(f"Barcode {ean13} already belongs to {clash['product_id']}")
         with self.db.tx() as c:
-            c.execute("INSERT INTO products (product_id, ean13, name) VALUES (?, ?, ?) "
-                      "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name",
-                      (product_id, ean13, name))
+            c.execute("INSERT INTO products (product_id, ean13, name, price_kes) VALUES (?, ?, ?, ?) "
+                      "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name, "
+                      "price_kes = COALESCE(excluded.price_kes, products.price_kes)",
+                      (product_id, ean13, name, price_kes))
 
     def products(self) -> List[dict]:
         return self.db.all("SELECT * FROM products ORDER BY product_id")
@@ -118,9 +126,12 @@ class Inventory:
             c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at) "
                       "VALUES (?, ?, 'pending_payment', ?, ?)", (sale_id, store_id, ts, ts))
             for pid, qty in merged.items():
-                if not c.execute("SELECT 1 FROM products WHERE product_id = ?", (pid,)).fetchone():
+                product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
+                if not product:
                     raise NotFound(f"Unknown product {pid}")
-                c.execute("INSERT INTO sale_items (sale_id, product_id, qty) VALUES (?, ?, ?)", (sale_id, pid, qty))
+                # The price at the time of sale, so later price changes don't alter receipts.
+                c.execute("INSERT INTO sale_items (sale_id, product_id, qty, unit_price_kes) VALUES (?, ?, ?, ?)",
+                          (sale_id, pid, qty, product["price_kes"]))
         return self.sale(sale_id)
 
     def commit_sale(self, sale_id: str, payment_ref: str) -> dict:
@@ -166,14 +177,45 @@ class Inventory:
         sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))
         if not sale:
             raise NotFound(f"No sale {sale_id}")
-        sale["items"] = [{"product_id": p, "qty": q} for p, q in self._items(sale_id).items()]
+        sale["items"] = self.db.all("SELECT product_id, qty, unit_price_kes FROM sale_items WHERE sale_id = ? "
+                                    "ORDER BY product_id", (sale_id,))
         return sale
+
+    def find_sale_by_code(self, store_id: str, code: str) -> dict:
+        """Find a sale from the short code on a Scan & Go pass (the end of its sale_id), or its full id."""
+        code = code.strip().upper()
+        if len(code) < 6 or not re.fullmatch(r"[A-Z0-9-]+", code):
+            raise ValueError("Enter at least 6 letters or digits of the order code")
+        rows = self.db.all("SELECT sale_id FROM sales WHERE store_id = ? AND (sale_id = ? OR sale_id LIKE ?) "
+                           "ORDER BY created_at DESC LIMIT 2", (store_id, code, "%" + code))
+        if not rows:
+            raise NotFound(f"No order {code} in this store")
+        if len(rows) > 1 and rows[0]["sale_id"] != code:
+            raise Conflict(f"More than one order ends in {code}; enter the full order number")
+        return self.sale(rows[0]["sale_id"])
+
+    def record_exit(self, sale_id: str, checked_by: str) -> dict:
+        """Staff checked the customer's pass at the exit. A pass works once."""
+        sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))
+        if not sale:
+            raise NotFound(f"No sale {sale_id}")
+        if sale["status"] != "paid":
+            raise Conflict(f"Order {sale_id} is not paid")
+        if sale["exited_at"]:
+            raise Conflict(f"Order {sale_id} already left the store at {sale['exited_at']} (checked by {sale['exited_by']})")
+        with self.db.tx() as c:
+            cur = c.execute("UPDATE sales SET exited_at = ?, exited_by = ? WHERE sale_id = ? AND exited_at IS NULL",
+                            (now_iso(), checked_by, sale_id))
+            if cur.rowcount == 0:
+                raise Conflict(f"Order {sale_id} already left the store")
+        return self.sale(sale_id)
 
     def recent_sales(self, store_id: str, limit: int = 50) -> List[dict]:
         sales = self.db.all("SELECT * FROM sales WHERE store_id = ? ORDER BY created_at DESC, sale_id DESC LIMIT ?",
                             (store_id, limit))
         for s in sales:
-            s["items"] = [{"product_id": p, "qty": q} for p, q in self._items(s["sale_id"]).items()]
+            s["items"] = self.db.all("SELECT product_id, qty, unit_price_kes FROM sale_items WHERE sale_id = ? "
+                                     "ORDER BY product_id", (s["sale_id"],))
         return sales
 
     def _items(self, sale_id: str) -> Dict[str, int]:

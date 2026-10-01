@@ -15,9 +15,9 @@ class FakeInventory:
     def __init__(self):
         self.down = False
         self.products = [
-            {"product_id": "milk-500ml", "ean13": MILK, "name": "Milk 500 ml"},
-            {"product_id": "sugar-1kg", "ean13": SUGAR, "name": "Sugar 1 kg"},
-            {"product_id": "bread-400g", "ean13": BREAD, "name": "Bread 400 g"},  # no price
+            {"product_id": "milk-500ml", "ean13": MILK, "name": "Milk 500 ml", "price_kes": 65},
+            {"product_id": "sugar-1kg", "ean13": SUGAR, "name": "Sugar 1 kg", "price_kes": 180},
+            {"product_id": "bread-400g", "ean13": BREAD, "name": "Bread 400 g", "price_kes": None},
         ]
         self.sales = {}
 
@@ -29,7 +29,10 @@ class FakeInventory:
             return httpx.Response(200, json=self.products)
         if method == "POST" and path == "/sales":
             body = json.loads(request.content)
-            self.sales[body["sale_id"]] = {**body, "status": "pending_payment", "payment_ref": None}
+            prices = {p["product_id"]: p["price_kes"] for p in self.products}
+            items = [{**it, "unit_price_kes": prices.get(it["product_id"])} for it in body["items"]]
+            self.sales[body["sale_id"]] = {**body, "items": items, "status": "pending_payment", "payment_ref": None,
+                                           "exited_at": None}
             return httpx.Response(201, json=self.sales[body["sale_id"]])
         if path.startswith("/sales/"):
             parts = path.split("/")
@@ -96,11 +99,9 @@ def payments(inventory):
 
 
 @pytest.fixture
-def client(tmp_path, inventory, payments):
-    prices = tmp_path / "prices.json"
-    prices.write_text(json.dumps({"currency": "KES", "prices": {"milk-500ml": 65, "sugar-1kg": 180}}))
+def client(inventory, payments):
     settings = Settings(store_id="001", store_name="Test Store", inventory_url="http://inv", payments_url="http://pay",
-                        prices_path=str(prices), stk_limit_per_phone=3)
+                        stk_limit_per_phone=3)
     return TestClient(create_app(
         settings,
         inventory=httpx.Client(base_url="http://inv", transport=httpx.MockTransport(inventory.handler)),
