@@ -25,7 +25,9 @@ esac
 if [ ! -f .env ]; then
   say "First run: creating .env in demo mode"
   secret="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
+  db_password="$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')"
   sed -e "s|^CALLBACK_SECRET=.*|CALLBACK_SECRET=${secret}|" \
+      -e "s|^DB_PASSWORD=.*|DB_PASSWORD=${db_password}|" \
       -e "s|^STORE_NAME=.*|STORE_NAME=Smart Shopping Demo Store|" \
       .env.example > .env
   chmod 600 .env
@@ -47,6 +49,10 @@ if [ ! -f .demo-logins ]; then
   done
   printf 'manager %s\nstaff %s\n' "$manager_pw" "$staff_pw" > .demo-logins
   chmod 600 .demo-logins
+fi
+if ! grep -q '^DB_PASSWORD=.' .env; then  # .env from before the shared database
+  grep -q '^DB_PASSWORD=' .env || echo 'DB_PASSWORD=' >> .env
+  sed -i.bak "s|^DB_PASSWORD=.*|DB_PASSWORD=$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')|" .env && rm -f .env.bak
 fi
 grep -q '^COMPOSE_PROFILES=demo' .env || echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
 

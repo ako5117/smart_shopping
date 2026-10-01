@@ -18,12 +18,30 @@ services:
       - caddy-data:/data
     depends_on: [inventory, payments, dashboard, scan_and_go]
 
+  # The shared database. Inventory and Payments each keep their tables in their own schema.
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartshopping
+      POSTGRES_USER: smartshopping
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env to a long random string (see deploy/README.md)}
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartshopping -d smartshopping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   inventory:
     build: services/inventory
     restart: unless-stopped
     environment:
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: inventory
       UVICORN_ROOT_PATH: /inventory
-    volumes: [inventory-data:/data]
+    depends_on:
+      db: {condition: service_healthy}
 
   payments:
     build: services/payments
@@ -43,8 +61,11 @@ services:
       CALLBACK_SECRET: ${CALLBACK_SECRET:?Set CALLBACK_SECRET in .env to a long random string (see deploy/README.md)}
       INVENTORY_URL: http://inventory:8010
       UVICORN_ROOT_PATH: /pay
-    volumes: [payments-data:/data]
-    depends_on: [inventory]
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: payments
+    depends_on:
+      db: {condition: service_healthy}
+      inventory: {condition: service_started}
 
   dashboard:
     build:
@@ -90,6 +111,5 @@ services:
 
 volumes:
   caddy-data:
-  inventory-data:
-  payments-data:
+  db-data:
   dashboard-data:
