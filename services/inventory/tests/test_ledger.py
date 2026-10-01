@@ -40,7 +40,7 @@ def test_commit_is_idempotent(inv):
 
 def test_duplicate_items_in_a_sale_are_merged(inv):
     sale = inv.create_sale("SALE-2", STORE, [Item(MILK, 1), Item(MILK, 2)])
-    assert sale["items"] == [{"product_id": MILK, "qty": 3}]
+    assert sale["items"] == [{"product_id": MILK, "qty": 3, "unit_price_kes": None}]
 
 
 def test_same_sale_id_with_different_contents_conflicts(inv):
@@ -84,3 +84,10 @@ def test_adjustment_needs_a_reason(inv):
     with pytest.raises(ValueError):
         inv.adjust(STORE, MILK, -1, " ", "a1")
     assert inv.adjust(STORE, MILK, -1, "damaged", "a1")["stock"] == -1
+
+
+def test_sale_keeps_the_price_it_was_sold_at(inv):
+    inv.upsert_product(MILK, EAN[MILK], "Milk 500 ml", price_kes=65)
+    inv.create_sale("SALE-P", STORE, [Item(MILK, 2)])
+    inv.upsert_product(MILK, EAN[MILK], "Milk 500 ml", price_kes=70)
+    assert inv.sale("SALE-P")["items"] == [{"product_id": MILK, "qty": 2, "unit_price_kes": 65}]
