@@ -19,6 +19,7 @@ class Settings:
     public_base_url: str
     callback_secret: str
     db_path: str
+    inventory_url: str = ""
 
     @property
     def daraja_base_url(self) -> str:
@@ -45,4 +46,5 @@ def load_settings() -> Settings:
         public_base_url=os.getenv("PUBLIC_BASE_URL", ""),
         callback_secret=os.getenv("CALLBACK_SECRET", ""),
         db_path=os.getenv("PAYMENTS_DB_PATH", "payments.db"),
+        inventory_url=os.getenv("INVENTORY_URL", ""),
     )

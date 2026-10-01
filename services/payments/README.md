@@ -56,8 +56,11 @@ Tests use a mocked Daraja; no credentials or network needed.
 
 Production needs a real Paybill or Till linked to the app through **Go Live** on the Daraja portal, which issues a production passkey. The shortcode belongs to whoever receives the money — normally the store, not Awesomtech. For a Till, set `DARAJA_TRANSACTION_TYPE=CustomerBuyGoodsOnline` and `DARAJA_PARTY_B` to the till number.
 
+## Inventory
+
+When `INVENTORY_URL` is set, a confirmed payment calls `POST /sales/{sale_id}/commit` on the Inventory Service, which takes the items out of stock. The checkout app creates the sale in the Inventory Service (with its items) before starting the payment. The commit is retried three times; if the Inventory Service stays unreachable, the payment still stands and an error is logged so the sale can be committed again.
+
 ## Next
 
-- Notify the Inventory Service when a payment is paid, so the sale is committed to the stock ledger (the `on_paid` hook in `app/main.py`).
 - Move storage from SQLite to the shared database once it is set up.
 - Card payments (Phase 2).
