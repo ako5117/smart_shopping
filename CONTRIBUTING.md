@@ -15,13 +15,17 @@ Agreed at the 22 Sep 2026 team meeting.
 
 1. Push your branch and open a pull request into `main`.
 2. Describe what changed and how you tested it.
-3. At least one other team member reviews before merging.
+3. At least one other team member reviews before merging. If nobody has reviewed within 48 hours, the author may merge once all tests pass, and says so in the group chat.
 4. Squash or merge once approved; delete the branch afterwards.
 
 ## Commits
 
 - One logical change per commit.
 - Message: short summary in the imperative ("Add STK Push callback handler"), then a blank line and detail if needed.
+
+## Attribution
+
+- Commits are made under the team member's own name. No AI-tool authorship, co-author trailers or session links in commit messages, and no branch names that refer to a tool (e.g. `claude/...`). In Claude Code, turn off the co-author line in settings.
 
 ## Secrets
 
