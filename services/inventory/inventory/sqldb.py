@@ -15,7 +15,7 @@ A dropped PostgreSQL connection (database restart, network blip) is reopened and
 again, but only when nothing has been written yet: a read, or the BEGIN that starts a transaction. A
 connection lost in the middle of a transaction is reported as an error; the transaction never committed.
 
-The same file is used by services/inventory and services/payments; keep the copies identical.
+The same file is used by services/inventory, services/payments and services/dispatch; keep the copies identical.
 """
 
 import re

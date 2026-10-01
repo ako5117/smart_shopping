@@ -106,3 +106,15 @@ def test_online_orders_over_http(db):
     listed = c.get("/sales", params={"store_id": STORE, "channel": "online", "uncollected": True}).json()
     assert [(s["sale_id"], s["customer_name"]) for s in listed] == [("WEB-1", "Jane")]
     assert c.post("/sales/NOPE/ready", json={"ready_by": "x"}).status_code == 404
+
+
+def test_delivery_orders_carry_their_fee(inv):
+    inv.restock(STORE, EAN[MILK], 5, "s1")
+    sale = inv.create_sale("WEB-1", STORE, [Item(MILK, 1)], channel="online", fulfilment="delivery", delivery_fee_kes=150)
+    assert (sale["fulfilment"], sale["delivery_fee_kes"]) == ("delivery", 150)
+    assert inv.create_sale("WEB-2", STORE, [Item(MILK, 1)], channel="online")["fulfilment"] == "collect"
+    for bad in ({"channel": "in_store", "fulfilment": "delivery"},  # Scan & Go shoppers carry their own
+                {"channel": "online", "delivery_fee_kes": 100},  # a fee without a delivery
+                {"channel": "online", "fulfilment": "drone"}):
+        with pytest.raises(ValueError):
+            inv.create_sale("WEB-X", STORE, [Item(MILK, 1)], **bad)

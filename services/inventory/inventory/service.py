@@ -27,6 +27,7 @@ class NotEnoughStock(Conflict):
 
 
 CHANNELS = ("in_store", "online")
+FULFILMENTS = ("collect", "delivery")
 HOLD_MINUTES = 15  # an unpaid order holds its items this long; after that they count as available again
 
 
@@ -142,7 +143,8 @@ class Inventory:
     # ---------------------------------------------------------------- sales
 
     def create_sale(self, sale_id: str, store_id: str, items: List[Item], channel: str = "in_store",
-                    customer_name: str = "", check_stock: bool = False) -> dict:
+                    customer_name: str = "", check_stock: bool = False, fulfilment: str = "collect",
+                    delivery_fee_kes: int = 0) -> dict:
         """Called at checkout, before payment. Stock is not touched until the sale is paid.
 
         With check_stock (online orders, where the customer isn't holding the items), the sale is refused with
@@ -151,6 +153,12 @@ class Inventory:
         """
         if channel not in CHANNELS:
             raise ValueError(f"channel must be one of {', '.join(CHANNELS)}")
+        if fulfilment not in FULFILMENTS:
+            raise ValueError(f"fulfilment must be one of {', '.join(FULFILMENTS)}")
+        if fulfilment == "delivery" and channel != "online":
+            raise ValueError("Only online orders can be delivered")
+        if delivery_fee_kes < 0 or (delivery_fee_kes and fulfilment != "delivery"):
+            raise ValueError("A delivery fee only applies to deliveries")
         if not items:
             raise ValueError("A sale needs at least one item")
         merged: Dict[str, int] = {}
@@ -175,9 +183,9 @@ class Inventory:
                         short.append({"product_id": pid, "requested": qty, "available": available})
                 if short:
                     raise NotEnoughStock(short)
-            c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name) "
-                      "VALUES (?, ?, 'pending_payment', ?, ?, ?, ?)",
-                      (sale_id, store_id, ts, ts, channel, customer_name.strip()))
+            c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name, "
+                      "fulfilment, delivery_fee_kes) VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?)",
+                      (sale_id, store_id, ts, ts, channel, customer_name.strip(), fulfilment, delivery_fee_kes))
             for pid, qty in merged.items():
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
                 if not product:
