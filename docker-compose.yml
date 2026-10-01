@@ -11,10 +11,10 @@ services:
     ports: ["80:80", "443:443"]
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
-      STAFF_USER: ${STAFF_USER:-staff}
-      STAFF_PASSWORD_HASH: ${STAFF_PASSWORD_HASH:?Set STAFF_PASSWORD_HASH in .env (see deploy/README.md)}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
+      - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
     depends_on: [inventory, payments, dashboard, scan_and_go]
 

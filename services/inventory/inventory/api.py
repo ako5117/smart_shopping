@@ -6,7 +6,7 @@
 import os
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .db import Database
@@ -19,6 +19,7 @@ class ProductIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     name: str = Field(..., min_length=1, max_length=120)
     price_kes: Optional[int] = Field(None, gt=0, description="Shelf price in whole KES; omit to keep the current price")
+    changed_by: str = Field("", max_length=60, description="Who made the change (defaults to the signed-in staff member)")
 
 
 class RestockIn(BaseModel):
@@ -26,6 +27,7 @@ class RestockIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     qty: int = Field(..., gt=0)
     scan_id: str = Field(..., min_length=1, description="Unique per scan, so a re-sent scan is not counted twice")
+    recorded_by: str = Field("", max_length=60, description="Who restocked (defaults to the signed-in staff member)")
 
 
 class ItemIn(BaseModel):
@@ -55,6 +57,7 @@ class AdjustIn(BaseModel):
     qty_change: int
     reason: str = Field(..., min_length=3)
     ref: str
+    recorded_by: str = Field("", max_length=60, description="Who made the correction (defaults to the signed-in staff member)")
 
 
 class SnapshotIn(BaseModel):
@@ -70,6 +73,14 @@ class ExitIn(BaseModel):
 class CountIn(BaseModel):
     counted_qty: int = Field(..., ge=0)
     counted_by: str
+
+
+# Set by the proxy from the signed-in staff login (deploy/Caddyfile); used when a request doesn't name anyone.
+StaffUser = Header(None, alias="X-Staff-User", include_in_schema=False)
+
+
+def who(named: str, header: Optional[str]) -> str:
+    return (named or header or "").strip()
 
 
 def create_app(db: Optional[Database] = None) -> FastAPI:
@@ -96,15 +107,19 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         return inv.products()
 
     @app.put("/products/{product_id}")
-    def put_product(product_id: str, p: ProductIn):
+    def put_product(product_id: str, p: ProductIn, staff: Optional[str] = StaffUser):
         if p.product_id != product_id:
             raise HTTPException(422, "product_id in path and body differ")
-        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes)
+        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes, who(p.changed_by, staff))
         return {"product_id": product_id}
 
+    @app.get("/products/{product_id}/price-history")
+    def price_history(product_id: str):
+        return inv.price_history(product_id)
+
     @app.post("/restocks")
-    def restock(r: RestockIn):
-        return guard(inv.restock, r.store_id, r.ean13, r.qty, r.scan_id)
+    def restock(r: RestockIn, staff: Optional[str] = StaffUser):
+        return guard(inv.restock, r.store_id, r.ean13, r.qty, r.scan_id, who(r.recorded_by, staff))
 
     @app.get("/stock/{store_id}")
     def stock_levels(store_id: str):
@@ -148,8 +163,8 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
         return guard(inv.return_items, sale_id, r.product_id, r.qty, r.return_id)
 
     @app.post("/adjustments")
-    def adjust(a: AdjustIn):
-        return guard(inv.adjust, a.store_id, a.product_id, a.qty_change, a.reason, a.ref)
+    def adjust(a: AdjustIn, staff: Optional[str] = StaffUser):
+        return guard(inv.adjust, a.store_id, a.product_id, a.qty_change, a.reason, a.ref, who(a.recorded_by, staff))
 
     @app.post("/reconcile")
     def reconcile(s: SnapshotIn):

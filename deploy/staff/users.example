@@ -1,0 +1,1 @@
+# Staff logins: one line per person, "name bcrypt-hash". Managed by scripts/staff.sh.

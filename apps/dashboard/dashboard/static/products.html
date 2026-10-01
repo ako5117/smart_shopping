@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Products · Store Dashboard</title>
 <link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
 </head>
 <body>
 <header>
@@ -13,6 +14,7 @@
     <div class="muted">Prices here are what Scan &amp; Go charges (changes reach it within 30 seconds).</div>
   </div>
   <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="exit">Exit check</a></nav>
+  <span class="muted who" id="me"></span>
 </header>
 <main>
   <div id="banner" class="banner" hidden></div>
@@ -28,7 +30,12 @@
     <div id="restock-result" class="result" hidden></div>
   </section>
 
-  <section class="half">
+  <section class="half staff-note">
+    <h2>Products and prices</h2>
+    <p class="muted" style="margin:0">Only managers can add products or change prices. You can restock and look up products.</p>
+  </section>
+
+  <section class="half manager-only">
     <h2 id="form-title">Add a product</h2>
     <form id="product" class="fields" autocomplete="off">
       <label>Barcode (EAN-13)<input id="p-ean" inputmode="numeric" maxlength="13" required placeholder="Scan or type"></label>
@@ -89,7 +96,7 @@ async function load() {
     ${products.map((p) => `<tr class="pick" data-id="${esc(p.product_id)}" tabindex="0" title="Edit">
       <td>${esc(p.name)}<div class="muted">${esc(p.product_id)}</div></td>
       <td style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
-      <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}</td>
+      <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}${p.price_changed_by ? `<div class="muted">set by ${esc(p.price_changed_by)}</div>` : ""}</td>
       <td class="num">${p.stock}</td></tr>`).join("")}
   </table>` : `<div class="empty">No products yet. Add the first one above.</div>`;
 }

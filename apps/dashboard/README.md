@@ -2,6 +2,12 @@
 
 Three pages for store staff: **Overview**, **Products** and **Exit check**.
 
+**Who can do what.** Behind the proxy, each person signs in with their own login (`scripts/staff.sh`), and the proxy passes their name and role (`X-Staff-User`, `X-Staff-Role`):
+- **Staff** can see everything, restock, and do exit checks.
+- **Managers** can also add products, change prices, and record stock counts.
+
+The server enforces this, and the pages hide what someone can't do. Restocks, counts, price changes and exit checks are recorded under the signed-in name. Run directly without the proxy (development), the dashboard acts as a manager and asks for a name where one is needed.
+
 ## Overview
 
 Refreshed every 5 seconds:
@@ -73,6 +79,7 @@ Open http://localhost:8020.
 | `GET` | `/api/overview` | Everything the page shows, as JSON |
 | `POST` | `/api/discrepancies/{id}/count` | Record a staff count (passed to the Inventory Service) |
 | `GET` | `/products`, `/exit` | The Products and Exit check pages |
+| `GET` | `/api/me` | Who is signed in, and their role |
 | `GET` | `/api/products` | Products with prices and stock |
 | `PUT` | `/api/products/{product_id}` | Add or update a product and its price |
 | `POST` | `/api/restocks` | Add stock from a barcode scan |
@@ -82,7 +89,6 @@ Open http://localhost:8020.
 
 ## Not yet
 
-- No login. Run it on the store network only until staff accounts exist.
 - Shelf alerts can't be acknowledged yet; they drop off as newer events arrive.
 - The exit check uses a handheld scanner or typed code; there's no in-browser camera scanner on this page yet.
 - One store per dashboard instance.
