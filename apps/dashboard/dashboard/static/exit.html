@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Exit check · Store Dashboard</title>
 <link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
 <style>
   .verdict { border-radius: 12px; padding: 18px; display: grid; gap: 6px; }
   .verdict .big { font-size: 28px; font-weight: 800; letter-spacing: .02em; }
@@ -26,6 +27,7 @@
     <div class="muted">Scan the QR code on the customer's Scan &amp; Go pass, or type the 8-character code under PAID.</div>
   </div>
   <nav><a href="./">Overview</a><a href="products">Products</a><a href="exit" aria-current="page">Exit check</a></nav>
+  <span class="muted who" id="me"></span>
 </header>
 <main>
   <section class="two-thirds">
@@ -38,7 +40,8 @@
 
   <section class="third">
     <h2>Checked by</h2>
-    <label>Your name<input id="staff" maxlength="60" required placeholder="Name on the exit record" style="width:100%"></label>
+    <label class="when-anonymous">Your name<input id="staff" maxlength="60" placeholder="Name on the exit record" style="width:100%"></label>
+    <div class="muted" id="checked-as"></div>
     <h2 style="margin-top:16px">This shift</h2>
     <div id="log" class="muted">No checks yet.</div>
   </section>
@@ -53,6 +56,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 $("staff").value = store.get("exit.staff", "");
+window.me.then((m) => { if (m.name) $("checked-as").textContent = `Exit checks are recorded as ${m.name}.`; });
 $("staff").addEventListener("change", () => store.set("exit.staff", $("staff").value.trim()));
 
 let current = null;
@@ -106,8 +110,9 @@ $("lookup").addEventListener("submit", async (e) => {
 
 $("verdict").addEventListener("click", async (e) => {
   if (e.target.id !== "confirm" || !current) return;
-  const staff = $("staff").value.trim();
-  if (!staff) {
+  const signedIn = !!document.body.dataset.signedIn;
+  const staff = signedIn ? "" : $("staff").value.trim();
+  if (!signedIn && !staff) {
     $("staff").focus();
     if (!$("name-needed")) e.target.insertAdjacentHTML("afterend", '<div id="name-needed">Enter your name under "Checked by" first, then press Confirm.</div>');
     return;

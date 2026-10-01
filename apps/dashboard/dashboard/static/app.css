@@ -69,3 +69,9 @@
   .result.bad { background: var(--bad-bg); color: var(--bad); }
   tr.pick { cursor: pointer; }
   tr.pick:hover td { background: var(--chip); }
+  /* Signed-in staff (me.js) */
+  body[data-role="staff"] .manager-only { display: none !important; }
+  body[data-signed-in] .when-anonymous { display: none !important; }
+  .staff-note { display: none; }
+  body[data-role="staff"] .staff-note { display: block; }
+  .who { font-size: 12px; white-space: nowrap; }

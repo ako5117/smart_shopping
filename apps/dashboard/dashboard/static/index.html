@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Store Dashboard</title>
 <link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
 </head>
 <body>
 <header>
@@ -13,6 +14,7 @@
     <div class="muted" id="updated">Loading…</div>
   </div>
   <nav><a href="./" aria-current="page">Overview</a><a href="products">Products</a><a href="exit">Exit check</a></nav>
+  <span class="muted who" id="me"></span>
   <div class="status" id="status"></div>
 </header>
 <main>
@@ -132,10 +134,12 @@ function render(d) {
     ${d.discrepancies.map((x) => `<tr>
       <td>${esc(x.name)}<div class="muted">${x.category === "timing" ? "Timing: clears when sync catches up" : "Unknown cause"} · ${ago(x.created_at)}</div></td>
       <td class="num">${x.our_qty}</td><td class="num">${x.retailer_qty}</td>
-      <td>${x.category === "unknown" ? `<form class="count" data-id="${x.discrepancy_id}">
+      <td>${x.category !== "unknown" ? `<span class="muted">Wait</span>`
+        : document.body.dataset.role === "staff" ? `<span class="muted">A manager records the count</span>`
+        : `<form class="count" data-id="${x.discrepancy_id}">
         <input name="qty" type="number" min="0" required placeholder="Counted" aria-label="Counted quantity">
-        <input name="by" required placeholder="Your name" aria-label="Counted by">
-        <button>Save count</button></form>` : `<span class="muted">Wait</span>`}</td></tr>`).join("")}
+        ${document.body.dataset.signedIn ? "" : `<input name="by" required placeholder="Your name" aria-label="Counted by">`}
+        <button>Save count</button></form>`}</td></tr>`).join("")}
   </table>` : `<div class="empty">Counts agree.</div>`;
 
   $("sales").innerHTML = d.errors.inventory ? "" : d.sales.length ? `<table>
@@ -164,7 +168,7 @@ document.addEventListener("submit", async (e) => {
   try {
     const r = await fetch(`api/discrepancies/${form.dataset.id}/count`, {
       method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({counted_qty: Number(form.qty.value), counted_by: form.by.value}),
+      body: JSON.stringify({counted_qty: Number(form.qty.value), counted_by: form.by ? form.by.value : ""}),
     });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
     editing = false;

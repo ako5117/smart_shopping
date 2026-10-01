@@ -8,13 +8,14 @@ still works (and the other way round). The page shows which source failed.
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,7 +29,7 @@ STATIC = Path(__file__).parent / "static"
 
 class CountIn(BaseModel):
     counted_qty: int = Field(..., ge=0)
-    counted_by: str = Field(..., min_length=1)
+    counted_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
 
 
 class ProductIn(BaseModel):
@@ -44,7 +45,39 @@ class RestockIn(BaseModel):
 
 
 class ExitIn(BaseModel):
-    checked_by: str = Field(..., min_length=1, max_length=60)
+    checked_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
+
+
+@dataclass(frozen=True)
+class Staff:
+    """Who is using the dashboard. The proxy (deploy/Caddyfile) sets the headers from the staff login and
+    overwrites anything a browser sends. Without them the dashboard is being run directly, e.g. in
+    development, and acts as a manager with the name typed into each form."""
+    name: Optional[str]
+    role: str
+
+    @property
+    def is_manager(self) -> bool:
+        return self.role == "manager"
+
+
+def current_staff(user: Optional[str] = Header(None, alias="X-Staff-User", include_in_schema=False),
+                  role: Optional[str] = Header(None, alias="X-Staff-Role", include_in_schema=False)) -> Staff:
+    if not user:
+        return Staff(None, "manager")
+    return Staff(user, "manager" if role == "manager" else "staff")
+
+
+def require_manager(staff: Staff, what: str) -> None:
+    if not staff.is_manager:
+        raise HTTPException(403, f"Only managers can {what}. Ask a manager, or have them make you one.")
+
+
+def acting_name(staff: Staff, typed: str) -> str:
+    name = staff.name or typed.strip()
+    if not name:
+        raise HTTPException(422, "Enter your name.")
+    return name
 
 
 def _passthrough(r: httpx.Response):
@@ -217,13 +250,19 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
             return []
         return [{"product_id": p["product_id"], "ean13": p["ean13"], "name": p.get("name", p["product_id"])} for p in products]
 
+    @app.get("/api/me")
+    def me(staff: Staff = Depends(current_staff)):
+        return {"name": staff.name, "role": staff.role, "is_manager": staff.is_manager}
+
     @app.put("/api/products/{product_id}")
-    def save_product(product_id: str, body: ProductIn):
-        return call(inventory.save_product, product_id, body.model_dump())
+    def save_product(product_id: str, body: ProductIn, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "add products or change prices")
+        return call(inventory.save_product, product_id, {**body.model_dump(), "changed_by": staff.name or ""})
 
     @app.post("/api/restocks")
-    def restock(body: RestockIn):
-        return call(inventory.restock, {**body.model_dump(), "store_id": settings.store_id})
+    def restock(body: RestockIn, staff: Staff = Depends(current_staff)):
+        return call(inventory.restock, {**body.model_dump(), "store_id": settings.store_id,
+                                        "recorded_by": staff.name or ""})
 
     def priced(sale: dict) -> dict:
         products = catalogue()
@@ -240,17 +279,19 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
         return priced(call(inventory.find_sale, settings.store_id, code))
 
     @app.post("/api/exit/{sale_id}")
-    def exit_confirm(sale_id: str, body: ExitIn):
-        return priced(call(inventory.record_exit, sale_id, body.checked_by.strip()))
+    def exit_confirm(sale_id: str, body: ExitIn, staff: Staff = Depends(current_staff)):
+        return priced(call(inventory.record_exit, sale_id, acting_name(staff, body.checked_by)))
 
     @app.get("/api/overview")
     def overview():
         return build_overview(settings, inventory)
 
     @app.post("/api/discrepancies/{discrepancy_id}/count")
-    def record_count(discrepancy_id: int, body: CountIn):
+    def record_count(discrepancy_id: int, body: CountIn, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "correct stock counts")
+        name = acting_name(staff, body.counted_by)
         try:
-            r = inventory.record_count(discrepancy_id, body.counted_qty, body.counted_by.strip())
+            r = inventory.record_count(discrepancy_id, body.counted_qty, name)
         except httpx.HTTPError as e:
             raise HTTPException(502, f"Inventory Service unavailable: {e}")
         if r.status_code >= 400:
