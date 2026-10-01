@@ -8,12 +8,13 @@
 >
 > A local demo on `http://localhost` works fine with the M-Pesa simulator.
 
-`docker-compose.yml` at the repo root runs all four services behind [Caddy](https://caddyserver.com), which handles HTTPS and the staff login:
+`docker-compose.yml` at the repo root runs all the services behind [Caddy](https://caddyserver.com), which handles HTTPS and the staff login:
 
 | Path | Service | Login |
 |---|---|---|
 | `/` | Redirects to Scan & Go | — |
 | `/shop/` | Scan & Go | Public (customers' phones) |
+| `/store/` | Online shop: order online, collect in store | Public |
 | `/dashboard/` | Store dashboard: Overview, Products, Exit check | Any staff login |
 | `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Managers |
 | `/pay/...` | Payments Service API (`/pay/docs`) | Managers, except `/pay/payments/mpesa/callback/<secret>`, which Daraja must reach |

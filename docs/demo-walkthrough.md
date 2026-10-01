@@ -1,6 +1,6 @@
 # Demo walkthrough
 
-A 10–15 minute demo of Phase 1 for a partner or pilot store. It runs on one laptop. There's no shelf hardware, no Safaricom account and no real money:
+A 15–20 minute demo of Phase 1, and the first part of Phase 2 (the online shop), for a partner or pilot store. It runs on one laptop. There's no shelf hardware, no Safaricom account and no real money:
 - **M-Pesa** is a simulator that behaves like Daraja.
 - **Shelf sensors** are simulated. The real weight-and-camera logic runs on scripted shelf activity.
 
@@ -11,7 +11,7 @@ Everything else is the real software.
 1. Install [Docker Desktop](https://docs.docker.com/get-docker/) and clone the repo.
 2. Run `./scripts/demo.sh` (on Windows, from Git Bash or WSL). The first run builds everything (a few minutes) and prints:
    - the dashboard address, and two logins: `manager` (can change prices and correct counts) and `staff` (can restock and do exit checks)
-   - the Scan & Go address, including one for a phone on the same Wi-Fi
+   - the Scan & Go and online shop addresses, including ones for a phone on the same Wi-Fi
 3. Open two windows side by side:
    - **Staff:** http://localhost/dashboard/ (log in as `manager`)
    - **Customer:** http://localhost/shop/. Use a phone if you have one: open the "same Wi-Fi" address the script printed. Otherwise use a narrow browser window.
@@ -70,18 +70,34 @@ Everything else is the real software.
 - **Confirm:** press **Confirm**. It's recorded under whoever is signed in. The customer's pass turns grey and says **CHECKED OUT**.
 - **Try to reuse it:** check the same code again and it shows **PASS ALREADY USED**, with the time and the staff name.
 
-### 5. Back to the store view (Staff: Overview), 2 min
+### 5. The online shop (Customer: http://localhost/store/), 3 min
+
+Open the online shop in the customer window (or on the phone, using the "same Wi-Fi" address).
+
+- **Live availability:** the line under the search box reads "Live from the store shelves". Each product shows **In stock**, **Only N left** or **Out of stock**. What's promised online is the committed stock, less anything someone is paying for right now, less what shoppers in the store picked up in the last few minutes (the shelf sensors), less one kept back.
+- **Substitutes:** **Brown sugar 1 kg** is sold out, so the shop suggests **Sugar 1 kg** from the same category. Tap **Add** on the suggestion.
+- **Nearly gone:** **Brown bread 400 g** shows "Only 2 left". Add it and press **+**: the button stops at 2, and the shop suggests **Bread 400 g** instead.
+- **Order:** tap **Checkout**, enter a name and `0712 345 678`, then **Pay with M-Pesa**. The page moves to **Paid · we're packing it**, with a collection pass.
+- **The other channels see it at once:** back in the shop, Brown bread now shows **Out of stock**, because the online order took the last two. A Scan & Go shopper or another online customer can't be sold the same loaves.
+
+Now switch to the staff window:
+
+- **Online orders:** the order is under **To pack**, with the customer's name and where each item is: **Shelf A2** for the sugar, **Store room** for the brown bread, which isn't on a sensor shelf. Press **Packed: ready for collection**. Within a few seconds the customer's page says **Ready to collect**.
+- **Collection:** on **Exit check**, type the code from the customer's pass. It shows **ONLINE ORDER · PAID ✓**, who's collecting and who packed it. Press **Confirm** and the customer's pass turns grey: **Collected**.
+
+### 6. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.
 - **Stock:** dropped by exactly what was paid for, and nothing else.
 - **Recent sales:** shows the M-Pesa references.
 - **The shelf view keeps moving.** A misplaced item turns up under **Needs attention**: the shelf system noticed something left on the wrong shelf.
 
-### 6. Questions people usually ask
+### 7. Questions people usually ask
 
 - **"What if the internet drops?"** The shelf system runs in the store. Changes queue up and sync when the connection is back.
 - **"What if our counts and yours differ?"** The **Differences** panel shows each one. Staff count the shelf and the system corrects itself, with the reason recorded.
 - **"Do we have to replace our till?"** No. We connect to the store's existing POS.
+- **"Can the online shop sell something that isn't there?"** It promises less than the ledger says (see section 5), and the last check happens in the same step that records the order, so two customers can't both buy the last one. Delivery by rider is the next Phase 2 step; for now online orders are collected.
 - **"What's real here?"** All the software is. The two simulated pieces are M-Pesa (until the store's Paybill or Till is connected) and the shelf sensors (until the bench prototype is wired in).
 
 ## After the demo

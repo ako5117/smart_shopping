@@ -1,6 +1,6 @@
 # Store Dashboard
 
-Three pages for store staff: **Overview**, **Products** and **Exit check**.
+Four pages for store staff: **Overview**, **Products**, **Online orders** and **Exit check**.
 
 **Who can do what.** Behind the proxy, each person signs in with their own login (`scripts/staff.sh`), and the proxy passes their name and role (`X-Staff-User`, `X-Staff-Role`):
 - **Staff** can see everything, restock, and do exit checks.
@@ -24,6 +24,10 @@ Refreshed every 5 seconds:
 - **Restock:** scan a delivered product's barcode, enter the quantity, save. Each restock is counted once even if the connection drops and the page retries.
 - **Add or edit a product:** barcode, name and shelf price. Scanning a barcode the shelf sensors already know fills in the name and keeps the same product code, so the Overview's shelf zones line up. Click a product in the list to edit it.
 - **Prices** set here are what Scan & Go charges; changes reach it within 30 seconds. A product with no price can't be bought with Scan & Go.
+
+## Online orders
+
+Paid orders from the online shop (`apps/storefront`), oldest first, refreshed every 10 seconds. Each order shows the customer's name and each item's shelf zone (or "Store room" when it isn't on a sensor shelf). Any staff member can press **Packed: ready for collection**. That's recorded under their name, and the customer's page changes to **Ready to collect**. The order is handed over on the **Exit check** page, which shows it as an online order with who packed it.
 
 ## Exit check
 
@@ -78,7 +82,7 @@ Open http://localhost:8020.
 | `GET` | `/` | The dashboard page |
 | `GET` | `/api/overview` | Everything the page shows, as JSON |
 | `POST` | `/api/discrepancies/{id}/count` | Record a staff count (passed to the Inventory Service) |
-| `GET` | `/products`, `/exit` | The Products and Exit check pages |
+| `GET` | `/products`, `/orders`, `/exit` | The Products, Online orders and Exit check pages |
 | `GET` | `/api/me` | Who is signed in, and their role |
 | `GET` | `/api/products` | Products with prices and stock |
 | `PUT` | `/api/products/{product_id}` | Add or update a product and its price |
@@ -86,6 +90,8 @@ Open http://localhost:8020.
 | `GET` | `/api/shelf-products` | Products the shelf catalogue knows, to reuse their codes |
 | `GET` | `/api/exit/lookup?code=` | Find an order from its pass code |
 | `POST` | `/api/exit/{sale_id}` | Record that the order left the store |
+| `GET` | `/api/orders` | Paid online orders not collected yet, with shelf zones |
+| `POST` | `/api/orders/{sale_id}/ready` | Mark an online order packed |
 
 ## Not yet
 

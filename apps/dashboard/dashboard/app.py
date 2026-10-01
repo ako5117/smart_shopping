@@ -36,6 +36,7 @@ class ProductIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     name: str = Field(..., min_length=1, max_length=120)
     price_kes: Optional[int] = Field(None, gt=0)
+    category: Optional[str] = Field(None, max_length=40)
 
 
 class RestockIn(BaseModel):
@@ -46,6 +47,10 @@ class RestockIn(BaseModel):
 
 class ExitIn(BaseModel):
     checked_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
+
+
+class ReadyIn(BaseModel):
+    packed_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
 
 
 @dataclass(frozen=True)
@@ -220,6 +225,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     def exit_page():
         return FileResponse(STATIC / "exit.html")
 
+    @app.get("/orders")
+    def orders_page():
+        return FileResponse(STATIC / "orders.html")
+
     def call(fn, *args):
         try:
             return _passthrough(fn(*args))
@@ -257,19 +266,20 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.put("/api/products/{product_id}")
     def save_product(product_id: str, body: ProductIn, staff: Staff = Depends(current_staff)):
         require_manager(staff, "add products or change prices")
-        return call(inventory.save_product, product_id, {**body.model_dump(), "changed_by": staff.name or ""})
+        # A missing price or category keeps the current one.
+        return call(inventory.save_product, product_id, {**body.model_dump(exclude_none=True), "changed_by": staff.name or ""})
 
     @app.post("/api/restocks")
     def restock(body: RestockIn, staff: Staff = Depends(current_staff)):
         return call(inventory.restock, {**body.model_dump(), "store_id": settings.store_id,
                                         "recorded_by": staff.name or ""})
 
-    def priced(sale: dict) -> dict:
-        products = catalogue()
+    def priced(sale: dict, products: Optional[dict] = None) -> dict:
+        products = products or catalogue()
         lines = []
         for it in sale.get("items", []):
             p = products.get(it["product_id"], {})
-            price = p.get("price_kes")
+            price = it.get("unit_price_kes") or p.get("price_kes")  # what the customer paid
             lines.append({**it, "name": p.get("name", it["product_id"]), "price_kes": price,
                           "line_total": price * it["qty"] if price else None})
         return {**sale, "items": lines, "item_count": sum(l["qty"] for l in lines)}
@@ -281,6 +291,35 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.post("/api/exit/{sale_id}")
     def exit_confirm(sale_id: str, body: ExitIn, staff: Staff = Depends(current_staff)):
         return priced(call(inventory.record_exit, sale_id, acting_name(staff, body.checked_by)))
+
+    @app.get("/api/orders")
+    def online_orders():
+        """Paid online orders to pack (oldest first), with where each item sits on the shelves."""
+        try:
+            zones = load_catalogue(settings.shelf_config_path)["zones"]
+        except (OSError, ValueError):
+            zones = []
+        where = {}
+        for z in zones:
+            for pid in z.get("product_ids", []):
+                where.setdefault(pid, []).append(z["zone_id"])
+        try:
+            orders = inventory.online_orders(settings.store_id)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+        products, out = catalogue(), []
+        for sale in sorted(orders, key=lambda s: s["created_at"]):
+            sale = priced(sale, products)
+            for it in sale["items"]:
+                it["zones"] = where.get(it["product_id"], [])
+            sale["total"] = sum(it["line_total"] or 0 for it in sale["items"])
+            sale["stage"] = "ready" if sale.get("ready_at") else "packing"
+            out.append(sale)
+        return out
+
+    @app.post("/api/orders/{sale_id}/ready")
+    def order_ready(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
+        return priced(call(inventory.mark_ready, sale_id, acting_name(staff, body.packed_by)))
 
     @app.get("/api/overview")
     def overview():

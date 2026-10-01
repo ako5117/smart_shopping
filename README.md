@@ -33,7 +33,7 @@ smart_shopping/
 │   ├── data-model.md        # Shared data model (Mermaid ER)
 │   ├── sensor-logic.md      # Weight + optical sensing logic
 │   ├── reconciliation.md    # Keeping our counts and the retailer's in agreement
-│   └── demo-walkthrough.md  # 10–15 minute demo script for partners and pilot stores
+│   └── demo-walkthrough.md  # 15–20 minute demo script for partners and pilot stores
 ├── hardware/
 │   ├── bench-prototype.md   # Bench rig parts list, wiring, test plan
 │   └── firmware/shelf_node/ # ESP32 shelf node firmware
@@ -46,8 +46,9 @@ smart_shopping/
 ├── scripts/                 # demo.sh (one-command demo), seed_demo.py, backup.sh
 ├── tools/mpesa_simulator/   # Stand-in for Safaricom Daraja, for demos
 └── apps/
-    ├── dashboard/           # Store dashboard (shelves, stock, sales, differences)
-    └── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
+    ├── dashboard/           # Store dashboard (shelves, stock, sales, online orders, differences)
+    ├── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit
+    └── storefront/          # Online shop: live shelf availability, substitutes, M-Pesa, collect in store
 ```
 
 ## Try it

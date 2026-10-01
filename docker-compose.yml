@@ -16,7 +16,7 @@ services:
       # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
       - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
-    depends_on: [inventory, payments, dashboard, scan_and_go]
+    depends_on: [inventory, payments, dashboard, scan_and_go, storefront]
 
   # The shared database. Inventory and Payments each keep their tables in their own schema.
   db:
@@ -88,6 +88,21 @@ services:
       INVENTORY_URL: http://inventory:8010
       PAYMENTS_URL: http://payments:8000
       UVICORN_ROOT_PATH: /shop
+    depends_on: [inventory, payments]
+
+  # Online shop: order online, pay with M-Pesa, collect in store. Reads the shelf events (read-only) so it
+  # doesn't promise items shoppers have just picked up.
+  storefront:
+    build: apps/storefront
+    restart: unless-stopped
+    environment:
+      STORE_ID: ${STORE_ID:-001}
+      STORE_NAME: ${STORE_NAME:-Smart Shopping}
+      INVENTORY_URL: http://inventory:8010
+      PAYMENTS_URL: http://payments:8000
+      SHELF_EVENTS_PATH: /shelf/shelf_events.jsonl
+      UVICORN_ROOT_PATH: /store
+    volumes: [dashboard-data:/shelf:ro]
     depends_on: [inventory, payments]
 
   # Stand-in for Safaricom Daraja (tools/mpesa_simulator). Only runs with the "demo" profile.

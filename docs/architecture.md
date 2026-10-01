@@ -29,6 +29,7 @@ graph TD
 
     POS["Retailer POS / inventory system"]
     APP["Checkout app / store dashboard"]
+    WEB["Online shop (Phase 2)<br/>live availability, substitutes"]
     DAR["Safaricom Daraja"]
 
     ESP -->|weight events| MQ
@@ -41,6 +42,9 @@ graph TD
     PP <--> DB
     APP --> PP
     APP -->|pay| PAY
+    WEB -->|stock, holds, orders| INV
+    SS -.->|recent picks| WEB
+    WEB -->|pay| PAY
     PAY <-->|STK Push + callback| DAR
     PAY -->|payment confirmed| INV
     PAY -.->|sale completed| TAX

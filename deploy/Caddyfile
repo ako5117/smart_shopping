@@ -1,5 +1,6 @@
 # Front door for the Smart Shopping services.
 #   /shop/...       Scan & Go         public (customers' phones)
+#   /store/...      Online shop       public
 #   /dashboard/...  Store dashboard   any staff login
 #   /inventory/...  Inventory API     managers only
 #   /pay/...        Payments API      managers only, except the M-Pesa callback (Daraja must reach it)
@@ -23,6 +24,14 @@
 	redir /shop /shop/ 301
 	handle_path /shop/* {
 		reverse_proxy scan_and_go:8030 {
+			header_up -X-Staff-User
+			header_up -X-Staff-Role
+		}
+	}
+
+	redir /store /store/ 301
+	handle_path /store/* {
+		reverse_proxy storefront:8040 {
 			header_up -X-Staff-User
 			header_up -X-Staff-Role
 		}

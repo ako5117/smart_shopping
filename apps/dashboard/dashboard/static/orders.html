@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online orders · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
+<style>
+  .orders { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .order { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+  .order.packing { border-color: var(--warn); }
+  .order .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .order .code { font: 700 16px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+  .order ul { list-style: none; margin: 0; padding: 0; }
+  .order li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .order li:last-child { border-bottom: 0; }
+  .order button { padding: 8px 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Online orders</h1>
+    <div class="muted">Paid orders from the online shop, oldest first. Pack each one, mark it ready, then hand it over at the Exit check.</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products">Products</a><a href="orders" aria-current="page">Online orders</a><a href="exit">Exit check</a></nav>
+  <span class="muted who" id="me"></span>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+  <section class="when-anonymous">
+    <label style="max-width:320px">Your name (recorded when you mark an order packed)<input id="staff" maxlength="60" style="width:100%"></label>
+  </section>
+  <section>
+    <h2 id="to-pack">To pack</h2>
+    <div class="orders" id="packing"></div>
+  </section>
+  <section>
+    <h2 id="waiting">Ready, waiting for the customer</h2>
+    <div class="orders" id="ready"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
+const time = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+const ago = (iso) => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return isNaN(m) ? "" : m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ${m % 60} min ago`; };
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+$("staff").value = store.get("orders.staff", "");
+$("staff").addEventListener("change", () => store.set("orders.staff", $("staff").value.trim()));
+let timer = null;
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+
+function card(o) {
+  const items = o.items.map((i) => `<li><span>${i.qty} × ${esc(i.name)}</span>
+    <span>${i.zones.length ? i.zones.map((z) => `<span class="pill">Shelf ${esc(z)}</span>`).join(" ") : `<span class="muted">Store room</span>`}</span></li>`).join("");
+  const action = o.stage === "packing"
+    ? `<button data-ready="${esc(o.sale_id)}">Packed: ready for collection</button>`
+    : `<div class="muted">Packed by ${esc(o.ready_by)} at ${time(o.ready_at)}. Hand it over on the Exit check page.</div>`;
+  return `<div class="order ${o.stage}">
+    <div class="head"><span class="code">${esc(o.sale_id.slice(-8))}</span><span class="muted">paid ${ago(o.updated_at || o.created_at)}</span></div>
+    <div><b>${esc(o.customer_name || "Customer")}</b> · ${o.item_count} item${o.item_count === 1 ? "" : "s"} · ${kes(o.total)}</div>
+    <ul>${items}</ul>${action}
+  </div>`;
+}
+
+async function load() {
+  clearTimeout(timer);
+  try {
+    const orders = await api("api/orders");
+    $("banner").hidden = true;
+    const packing = orders.filter((o) => o.stage === "packing"), ready = orders.filter((o) => o.stage === "ready");
+    $("to-pack").textContent = `To pack (${packing.length})`;
+    $("waiting").textContent = `Ready, waiting for the customer (${ready.length})`;
+    $("packing").innerHTML = packing.map(card).join("") || `<div class="empty">Nothing to pack.</div>`;
+    $("ready").innerHTML = ready.map(card).join("") || `<div class="empty">No orders waiting.</div>`;
+  } catch (err) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Could not load orders: " + err.message;
+  }
+  timer = setTimeout(load, 10000);
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-ready]");
+  if (!b) return;
+  const signedIn = !!document.body.dataset.signedIn;
+  const name = signedIn ? "" : $("staff").value.trim();
+  if (!signedIn && !name) { $("staff").focus(); return; }
+  b.disabled = true;
+  try {
+    await api(`api/orders/${encodeURIComponent(b.dataset.ready)}/ready`, {method: "POST", body: JSON.stringify({packed_by: name})});
+  } catch (err) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Could not mark it ready: " + err.message;
+  }
+  load();
+});
+
+load();
+</script>
+</body>
+</html>
