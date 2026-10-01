@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Store Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
+    --accent: #1f7a4d; --warn: #b26a00; --warn-bg: #fff4e0; --bad: #b42318; --bad-bg: #fdecea;
+    --ok-bg: #e7f5ee; --chip: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
+      --accent: #4cc38a; --warn: #f0a640; --warn-bg: #3a2c12; --bad: #f2786d; --bad-bg: #3d1d1b;
+      --ok-bg: #173327; --chip: #262c35;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+           padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+         grid-template-columns: repeat(12, 1fr); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+            grid-column: span 12; min-width: 0; }
+  @media (min-width: 900px) { .half { grid-column: span 6; } .third { grid-column: span 4; } .two-thirds { grid-column: span 8; } }
+  .muted { color: var(--muted); }
+  .status { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { padding: 2px 9px; border-radius: 999px; font-size: 12px; background: var(--chip); white-space: nowrap; }
+  .pill.ok { background: var(--ok-bg); color: var(--accent); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+  .kpi { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .kpi.warn b { color: var(--warn); } .kpi.bad b { color: var(--bad); }
+  .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .zone { border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  .zone.attn { border-color: var(--warn); }
+  .zone .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .zone ul { list-style: none; margin: 0 0 6px; padding: 0; }
+  .zone li { display: flex; justify-content: space-between; gap: 8px; }
+  .low { color: var(--bad); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+  .event { display: grid; grid-template-columns: 84px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .event:last-child { border-bottom: 0; }
+  .type { font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .type.pick { color: var(--accent); } .type.misplaced, .type.moved { color: var(--warn); } .type.anomaly { color: var(--bad); }
+  form.count { display: flex; flex-wrap: wrap; gap: 6px; }
+  input { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px;
+          background: var(--bg); color: var(--text); width: 90px; }
+  button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--accent);
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .banner { grid-column: span 12; padding: 10px 14px; border-radius: 8px; background: var(--bad-bg); color: var(--bad); }
+  .empty { color: var(--muted); padding: 6px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Store <span id="store">…</span></h1>
+    <div class="muted" id="updated">Loading…</div>
+  </div>
+  <div class="status" id="status"></div>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+
+  <section>
+    <h2>Today</h2>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section class="two-thirds">
+    <h2>Shelves <span class="muted" style="text-transform:none;letter-spacing:0">· committed stock per zone</span></h2>
+    <div class="zones" id="zones"></div>
+  </section>
+
+  <section class="third">
+    <h2>Needs attention</h2>
+    <div class="scroll" id="review"></div>
+  </section>
+
+  <section class="half">
+    <h2>Stock</h2>
+    <div class="scroll" id="stock"></div>
+  </section>
+
+  <section class="half">
+    <h2>Differences with retailer's system</h2>
+    <div id="sync" class="muted" style="margin-bottom:8px"></div>
+    <div class="scroll" id="discrepancies"></div>
+  </section>
+
+  <section class="half">
+    <h2>Recent sales</h2>
+    <div class="scroll" id="sales"></div>
+  </section>
+
+  <section class="half">
+    <h2>Shelf activity</h2>
+    <div class="scroll" id="events"></div>
+  </section>
+</main>
+
+<script>
+const REFRESH_MS = 5000;
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const time = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+const ago = (iso) => {
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  if (isNaN(s)) return "";
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.round(s / 60) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  return Math.round(s / 86400) + " d ago";
+};
+const SOURCE_NAMES = {inventory: "Inventory Service", shelf_events: "Shelf event log", shelf_catalogue: "Shelf catalogue"};
+
+function describe(e, names) {
+  const what = e.product_id ? `${e.qty} × ${esc(names[e.product_id] || e.product_id)}` : `${e.weight_delta_g > 0 ? "+" : ""}${esc(e.weight_delta_g)} g, unidentified`;
+  const where = e.from_zone_id ? `${esc(e.from_zone_id)} → ${esc(e.zone_id)}` : esc(e.zone_id);
+  return `${what} <span class="muted">· ${where}</span>${e.note ? `<div class="muted">${esc(e.note)}</div>` : ""}`;
+}
+
+function render(d) {
+  const names = {};
+  d.stock.forEach((r) => (names[r.product_id] = r.name));
+  d.zones.forEach((z) => z.products.forEach((p) => (names[p.product_id] = p.name)));
+
+  $("store").textContent = d.store_id;
+  $("updated").textContent = "Updated " + time(d.generated_at);
+
+  const errs = Object.keys(d.errors);
+  $("banner").hidden = errs.length === 0;
+  $("banner").textContent = errs.length ? "Not reachable: " + errs.map((k) => SOURCE_NAMES[k] || k).join(", ") + ". Showing what is available." : "";
+
+  const pills = [];
+  pills.push(`<span class="pill ${d.errors.inventory ? "bad" : "ok"}">Inventory ${d.errors.inventory ? "offline" : "online"}</span>`);
+  pills.push(`<span class="pill ${d.errors.shelf_events ? "bad" : "ok"}">Shelf feed ${d.errors.shelf_events ? "error" : "ok"}</span>`);
+  if (d.sync) pills.push(`<span class="pill ${d.sync.last_error ? "bad" : d.sync.pending ? "warn" : "ok"}">Retailer sync: ${d.sync.pending ? d.sync.pending + " queued" : "up to date"}</span>`);
+  $("status").innerHTML = pills.join("");
+
+  const s = d.summary;
+  const kpi = (label, value, cls = "") => `<div class="kpi ${cls}"><b>${value ?? "–"}</b><span class="muted">${label}</span></div>`;
+  $("kpis").innerHTML = [
+    kpi("Paid sales", s.paid_sales_today),
+    kpi("Items sold", s.items_sold_today),
+    kpi("Awaiting payment", s.awaiting_payment),
+    kpi(`Low stock (≤ ${d.low_stock_threshold})`, s.low_stock, s.low_stock ? "bad" : ""),
+    kpi("Open differences", s.open_discrepancies, s.open_discrepancies ? "warn" : ""),
+    kpi("Shelf alerts", s.needs_attention, s.needs_attention ? "warn" : ""),
+  ].join("");
+
+  $("zones").innerHTML = d.zones.length ? d.zones.map((z) => `
+    <div class="zone ${z.attention ? "attn" : ""}">
+      <div class="head"><b>Zone ${esc(z.zone_id)}</b><span class="muted">Shelf ${esc(z.shelf_id)}</span></div>
+      <ul>${z.products.map((p) => `<li><span>${esc(p.name)}</span><span class="${p.low ? "low" : ""}">${p.committed_qty ?? "–"}</span></li>`).join("")}</ul>
+      <div class="muted">${z.last_event ? `Last: <span class="type ${esc(z.last_event.event_type)}">${esc(z.last_event.event_type)}</span> ${ago(z.last_event.ts)}` : "No activity yet"}
+      ${z.attention ? ` · <span style="color:var(--warn)">${z.attention} alert${z.attention > 1 ? "s" : ""}</span>` : ""}</div>
+    </div>`).join("") : `<div class="empty">No zones in the shelf catalogue.</div>`;
+
+  $("review").innerHTML = d.review.length ? d.review.map((e) => `
+    <div class="event"><div><div class="type ${esc(e.event_type)}">${esc(e.event_type)}</div><div class="muted">${time(e.ts)}</div></div>
+    <div>${describe(e, names)}${e.needs_review ? `<div class="muted">Check the shelf: confidence ${Math.round(e.confidence * 100)}%</div>` : ""}</div></div>`).join("")
+    : `<div class="empty">Nothing needs checking.</div>`;
+
+  $("stock").innerHTML = d.errors.inventory ? `<div class="empty">Inventory Service offline.</div>` : d.stock.length ? `<table>
+    <tr><th>Product</th><th class="num">In stock</th></tr>
+    ${d.stock.map((r) => `<tr><td>${esc(r.name)}<div class="muted">${esc(r.product_id)}</div></td><td class="num ${r.low ? "low" : ""}">${r.qty}</td></tr>`).join("")}
+  </table>` : `<div class="empty">No products yet.</div>`;
+
+  $("sync").innerHTML = d.sync ? (d.sync.pending
+      ? `${d.sync.pending} change${d.sync.pending > 1 ? "s" : ""} waiting to reach the retailer's system, oldest ${ago(d.sync.oldest_pending_at)}.` +
+        (d.sync.last_error ? ` <span style="color:var(--bad)">Last error: ${esc(d.sync.last_error)} (retry ${time(d.sync.next_attempt_at)})</span>` : "")
+      : "All changes have reached the retailer's system.") : "";
+  $("discrepancies").innerHTML = d.errors.inventory ? "" : d.discrepancies.length ? `<table>
+    <tr><th>Product</th><th class="num">Ours</th><th class="num">Theirs</th><th>Action</th></tr>
+    ${d.discrepancies.map((x) => `<tr>
+      <td>${esc(x.name)}<div class="muted">${x.category === "timing" ? "Timing: clears when sync catches up" : "Unknown cause"} · ${ago(x.created_at)}</div></td>
+      <td class="num">${x.our_qty}</td><td class="num">${x.retailer_qty}</td>
+      <td>${x.category === "unknown" ? `<form class="count" data-id="${x.discrepancy_id}">
+        <input name="qty" type="number" min="0" required placeholder="Counted" aria-label="Counted quantity">
+        <input name="by" required placeholder="Your name" aria-label="Counted by">
+        <button>Save count</button></form>` : `<span class="muted">Wait</span>`}</td></tr>`).join("")}
+  </table>` : `<div class="empty">Counts agree.</div>`;
+
+  $("sales").innerHTML = d.errors.inventory ? "" : d.sales.length ? `<table>
+    <tr><th>Time</th><th>Items</th><th>Status</th></tr>
+    ${d.sales.map((x) => `<tr><td>${time(x.created_at)}<div class="muted">${esc(x.sale_id)}</div></td>
+      <td>${x.items.map((i) => `${i.qty} × ${esc(i.name)}`).join("<br>")}</td>
+      <td><span class="pill ${x.status === "paid" ? "ok" : x.status === "cancelled" ? "" : "warn"}">${esc(x.status.replace("_", " "))}</span>
+      ${x.payment_ref ? `<div class="muted">${esc(x.payment_ref)}</div>` : ""}</td></tr>`).join("")}
+  </table>` : `<div class="empty">No sales yet.</div>`;
+
+  $("events").innerHTML = d.events.length ? d.events.map((e) => `
+    <div class="event"><div><div class="type ${esc(e.event_type)}">${esc(e.event_type)}</div><div class="muted">${time(e.ts)}</div></div>
+    <div>${describe(e, names)}</div></div>`).join("") : `<div class="empty">No shelf events yet.</div>`;
+}
+
+let editing = false;  // don't redraw while someone is typing a count
+document.addEventListener("focusin", (e) => { if (e.target.closest("form.count")) editing = true; });
+document.addEventListener("focusout", () => setTimeout(() => { editing = !!document.activeElement?.closest("form.count"); }, 0));
+
+document.addEventListener("submit", async (e) => {
+  const form = e.target.closest("form.count");
+  if (!form) return;
+  e.preventDefault();
+  const button = form.querySelector("button");
+  button.disabled = true;
+  try {
+    const r = await fetch(`/api/discrepancies/${form.dataset.id}/count`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({counted_qty: Number(form.qty.value), counted_by: form.by.value}),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+    editing = false;
+    await refresh();
+  } catch (err) {
+    alert("Could not save the count: " + err.message);
+    button.disabled = false;
+  }
+});
+
+async function refresh() {
+  if (editing) return;
+  try {
+    const r = await fetch("/api/overview");
+    if (!r.ok) throw new Error(r.statusText);
+    render(await r.json());
+  } catch (err) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Dashboard server not reachable: " + err.message;
+  }
+}
+refresh();
+setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
