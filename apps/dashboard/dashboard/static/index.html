@@ -220,7 +220,7 @@ document.addEventListener("submit", async (e) => {
   const button = form.querySelector("button");
   button.disabled = true;
   try {
-    const r = await fetch(`/api/discrepancies/${form.dataset.id}/count`, {
+    const r = await fetch(`api/discrepancies/${form.dataset.id}/count`, {
       method: "POST", headers: {"Content-Type": "application/json"},
       body: JSON.stringify({counted_qty: Number(form.qty.value), counted_by: form.by.value}),
     });
@@ -236,7 +236,7 @@ document.addEventListener("submit", async (e) => {
 async function refresh() {
   if (editing) return;
   try {
-    const r = await fetch("/api/overview");
+    const r = await fetch("api/overview");
     if (!r.ok) throw new Error(r.statusText);
     render(await r.json());
   } catch (err) {
