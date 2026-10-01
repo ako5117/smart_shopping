@@ -98,7 +98,8 @@ sequenceDiagram
 - **Shelf Service:** fuses the weight change with the image result into a shelf event. Runs at the site so it keeps working during internet outages.
 - **Local data store:** holds shelf events, restock scans and outgoing updates in an outbox until they are confirmed delivered. Every record carries an idempotency key so retries never double-count.
 - **Inventory Service:** owns the stock ledger. Stock only changes on restock, sale, or an approved adjustment.
-- **Product / Pricing Service:** catalogue keyed by EAN-13 barcode, including unit weight and the label the image classifier uses.
+- **Product / Pricing Service** (`services/catalog`): products keyed by EAN-13, categories, per-store prices and promotions; prices every basket server-side. Also suggests items often bought together (learned from paid baskets) and substitutes for online ordering. Shelf-specific product data (unit weight, classifier label) lives with the Shelf Service.
+- **Checkout app** (`apps/checkout`): phone page for scan, pay and receipt. Its small server coordinates Catalogue, Inventory and Payments; the phone never sets a price.
 - **Payments Service:** M-Pesa STK Push through Daraja. Card payments in Phase 2. See [`services/payments`](../services/payments).
 - **Tax / Receipt Service:** placeholder. Receives completed sales and will issue eTIMS e-receipts once the integration route is confirmed. A sale is never blocked by a receipt failure.
 - **Retailer adapter:** REST connection to the store's existing POS/inventory. Their systems are often slow, so sync is asynchronous. See [`reconciliation.md`](reconciliation.md).
