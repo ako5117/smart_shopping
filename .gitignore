@@ -9,3 +9,8 @@ __pycache__/
 *.pyc
 .vscode/
 .idea/
+
+# Local databases
+*.db
+.venv/
+.pytest_cache/
