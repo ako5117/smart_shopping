@@ -4,6 +4,7 @@ from dataclasses import dataclass
 BASE_URLS = {
     "sandbox": "https://sandbox.safaricom.co.ke",
     "production": "https://api.safaricom.co.ke",
+    "simulator": "http://localhost:8099",  # tools/mpesa_simulator; override with DARAJA_SIM_URL
 }
 
 
@@ -23,6 +24,8 @@ class Settings:
 
     @property
     def daraja_base_url(self) -> str:
+        if self.daraja_env == "simulator":
+            return os.getenv("DARAJA_SIM_URL", BASE_URLS["simulator"])
         return BASE_URLS[self.daraja_env]
 
     @property
