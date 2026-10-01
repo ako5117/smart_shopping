@@ -44,7 +44,7 @@ def test_reconcile_and_count_over_http():
 def test_read_endpoints_for_dashboard():
     c = client()
     assert c.get("/products").json() == [{"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml",
-                                          "price_kes": None}]
+                                          "price_kes": None, "price_changed_by": None, "price_changed_at": None}]
     c.post("/restocks", json={"store_id": "001", "ean13": "6161000000040", "qty": 5, "scan_id": "s1"})
     for sale_id in ("S1", "S2"):
         c.post("/sales", json={"sale_id": sale_id, "store_id": "001", "items": [{"product_id": "milk-500ml", "qty": 1}]})
@@ -64,8 +64,9 @@ def test_prices_on_products():
     assert c.get("/products").json()[0]["price_kes"] is None
     assert c.put("/products/milk-500ml", json={**milk, "price_kes": 65}).status_code == 200
     assert c.put("/products/milk-500ml", json={**milk, "name": "Fresh milk 500 ml"}).status_code == 200  # price kept
-    assert c.get("/products").json() == [{"product_id": "milk-500ml", "ean13": "6161000000040",
-                                          "name": "Fresh milk 500 ml", "price_kes": 65}]
+    [p] = c.get("/products").json()
+    assert {k: p[k] for k in ("product_id", "ean13", "name", "price_kes")} == {
+        "product_id": "milk-500ml", "ean13": "6161000000040", "name": "Fresh milk 500 ml", "price_kes": 65}
     assert c.put("/products/milk-500ml", json={**milk, "price_kes": 0}).status_code == 422
     clash = {"product_id": "milk-1l", "ean13": "6161000000040", "name": "Milk 1 L"}
     assert c.put("/products/milk-1l", json=clash).status_code == 409  # barcode already used
@@ -103,3 +104,27 @@ def test_older_database_files_get_new_columns(tmp_path):
     db = Database(str(path))
     assert db.one("SELECT * FROM products") == {"product_id": "milk-500ml", "ean13": "6161000000040",
                                                 "name": "Milk 500 ml", "price_kes": None}
+
+
+def test_who_did_what_is_recorded():
+    c = client()
+    milk = {"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}
+    c.put("/products/milk-500ml", json={**milk, "price_kes": 65}, headers={"X-Staff-User": "adrian"})
+    c.put("/products/milk-500ml", json={**milk, "price_kes": 65}, headers={"X-Staff-User": "mary"})  # no change
+    c.put("/products/milk-500ml", json={**milk, "price_kes": 70, "changed_by": "wayne"})
+    history = c.get("/products/milk-500ml/price-history").json()
+    assert [(h["old_price_kes"], h["new_price_kes"], h["changed_by"]) for h in history] == [(65, 70, "wayne"),
+                                                                                            (None, 65, "adrian")]
+    [p] = c.get("/products").json()
+    assert p["price_changed_by"] == "wayne" and p["price_changed_at"]
+
+    c.post("/restocks", json={"store_id": "001", "ean13": "6161000000040", "qty": 5, "scan_id": "s1"},
+           headers={"X-Staff-User": "mary"})
+    c.post("/adjustments", json={"store_id": "001", "product_id": "milk-500ml", "qty_change": -1,
+                                 "reason": "damaged", "ref": "a1", "recorded_by": "john"})
+    [d] = c.post("/reconcile", json={"store_id": "001", "stock": {"milk-500ml": 9}}).json()["differences"]
+    did = c.get("/discrepancies/001").json()[0]["discrepancy_id"]
+    c.post(f"/discrepancies/{did}/count", json={"counted_qty": 3, "counted_by": "adrian"})
+    history = c.get("/stock/001/milk-500ml").json()["history"]
+    assert [(h["entry_type"], h["qty_change"], h["recorded_by"]) for h in history] == [
+        ("adjustment", -1, "adrian"), ("adjustment", -1, "john"), ("restock", 5, "mary")]

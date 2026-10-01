@@ -5,6 +5,7 @@ ADDED_COLUMNS = {
     "products": [("price_kes", "INTEGER CHECK (price_kes IS NULL OR price_kes > 0)")],
     "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT")],
     "sale_items": [("unit_price_kes", "INTEGER")],
+    "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
 
 import sqlite3
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
     reason TEXT NOT NULL DEFAULT '',
     source_ref TEXT NOT NULL DEFAULT '',
     idempotency_key TEXT UNIQUE NOT NULL,
-    occurred_at TEXT NOT NULL
+    occurred_at TEXT NOT NULL,
+    recorded_by TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_stock ON stock_ledger(store_id, product_id);
 CREATE TABLE IF NOT EXISTS sales (
@@ -53,6 +55,14 @@ CREATE TABLE IF NOT EXISTS outbox (
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TEXT NOT NULL,
     last_error TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS price_changes (
+    change_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id TEXT NOT NULL REFERENCES products(product_id),
+    old_price_kes INTEGER,
+    new_price_kes INTEGER NOT NULL,
+    changed_by TEXT NOT NULL DEFAULT '',
+    changed_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS discrepancies (
     discrepancy_id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -34,21 +34,35 @@ class Inventory:
 
     # ------------------------------------------------------------ catalogue
 
-    def upsert_product(self, product_id: str, ean13: str, name: str, price_kes: Optional[int] = None) -> None:
-        """Add or update a product. Leaving price_kes out keeps the current price."""
+    def upsert_product(self, product_id: str, ean13: str, name: str, price_kes: Optional[int] = None,
+                       changed_by: str = "") -> None:
+        """Add or update a product. Leaving price_kes out keeps the current price. Price changes are logged."""
         if price_kes is not None and price_kes <= 0:
             raise ValueError("Price must be at least 1 KES")
         clash = self.db.one("SELECT product_id FROM products WHERE ean13 = ? AND product_id != ?", (ean13, product_id))
         if clash:
             raise Conflict(f"Barcode {ean13} already belongs to {clash['product_id']}")
+        old = self.db.one("SELECT price_kes FROM products WHERE product_id = ?", (product_id,))
         with self.db.tx() as c:
             c.execute("INSERT INTO products (product_id, ean13, name, price_kes) VALUES (?, ?, ?, ?) "
                       "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name, "
                       "price_kes = COALESCE(excluded.price_kes, products.price_kes)",
                       (product_id, ean13, name, price_kes))
+            old_price = old["price_kes"] if old else None
+            if price_kes is not None and price_kes != old_price:
+                c.execute("INSERT INTO price_changes (product_id, old_price_kes, new_price_kes, changed_by, changed_at) "
+                          "VALUES (?, ?, ?, ?, ?)", (product_id, old_price, price_kes, changed_by, now_iso()))
 
     def products(self) -> List[dict]:
-        return self.db.all("SELECT * FROM products ORDER BY product_id")
+        """Every product, with who last changed its price and when."""
+        return self.db.all(
+            "SELECT p.*, pc.changed_by AS price_changed_by, pc.changed_at AS price_changed_at FROM products p "
+            "LEFT JOIN price_changes pc ON pc.change_id = "
+            "(SELECT MAX(change_id) FROM price_changes WHERE product_id = p.product_id) ORDER BY p.product_id")
+
+    def price_history(self, product_id: str, limit: int = 50) -> List[dict]:
+        return self.db.all("SELECT * FROM price_changes WHERE product_id = ? ORDER BY change_id DESC LIMIT ?",
+                           (product_id, limit))
 
     def product_by_ean(self, ean13: str) -> dict:
         p = self.db.one("SELECT * FROM products WHERE ean13 = ?", (ean13,))
@@ -59,36 +73,37 @@ class Inventory:
     # --------------------------------------------------------------- ledger
 
     def _record(self, c, store_id: str, product_id: str, entry_type: str, qty_change: int,
-                idempotency_key: str, reason: str = "", source_ref: str = "") -> Optional[int]:
+                idempotency_key: str, reason: str = "", source_ref: str = "", recorded_by: str = "") -> Optional[int]:
         """Write one ledger entry and queue it for the retailer's system. Returns None if the key was seen before."""
         cur = c.execute(
             "INSERT OR IGNORE INTO stock_ledger (store_id, product_id, entry_type, qty_change, reason, source_ref, "
-            "idempotency_key, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (store_id, product_id, entry_type, qty_change, reason, source_ref, idempotency_key, now_iso()))
+            "idempotency_key, occurred_at, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (store_id, product_id, entry_type, qty_change, reason, source_ref, idempotency_key, now_iso(), recorded_by))
         if cur.rowcount == 0:
             return None
         c.execute("INSERT INTO outbox (entry_id, status, next_attempt_at) VALUES (?, 'queued', ?)",
                   (cur.lastrowid, now_iso()))
         return cur.lastrowid
 
-    def restock(self, store_id: str, ean13: str, qty: int, scan_id: str) -> dict:
+    def restock(self, store_id: str, ean13: str, qty: int, scan_id: str, recorded_by: str = "") -> dict:
         if qty <= 0:
             raise ValueError("Restock quantity must be positive")
         product = self.product_by_ean(ean13)
         with self.db.tx() as c:
             created = self._record(c, store_id, product["product_id"], "restock", qty, f"restock:{scan_id}",
-                                   source_ref=scan_id)
+                                   source_ref=scan_id, recorded_by=recorded_by)
         return {"product_id": product["product_id"], "created": created is not None,
                 "stock": self.stock(store_id, product["product_id"])}
 
-    def adjust(self, store_id: str, product_id: str, qty_change: int, reason: str, ref: str) -> dict:
+    def adjust(self, store_id: str, product_id: str, qty_change: int, reason: str, ref: str,
+               recorded_by: str = "") -> dict:
         if not reason.strip():
             raise ValueError("An adjustment needs a reason")
         if qty_change == 0:
             raise ValueError("Adjustment of zero does nothing")
         with self.db.tx() as c:
             created = self._record(c, store_id, product_id, "adjustment", qty_change, f"adjust:{ref}",
-                                   reason=reason, source_ref=ref)
+                                   reason=reason, source_ref=ref, recorded_by=recorded_by)
         return {"created": created is not None, "stock": self.stock(store_id, product_id)}
 
     def stock(self, store_id: str, product_id: str) -> int:

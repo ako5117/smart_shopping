@@ -146,7 +146,7 @@ def resolve_with_count(db: Database, inventory, discrepancy_id: int, counted_qty
     change = counted_qty - inventory.stock(d["store_id"], d["product_id"])
     if change:
         inventory.adjust(d["store_id"], d["product_id"], change, f"stock count by {counted_by}",
-                         f"count:{discrepancy_id}")
+                         f"count:{discrepancy_id}", recorded_by=counted_by)
     with db.tx() as c:
         c.execute("UPDATE discrepancies SET status = 'resolved', resolution = ?, resolved_at = ? WHERE discrepancy_id = ?",
                   (f"counted {counted_qty} by {counted_by}", now_iso(), discrepancy_id))
