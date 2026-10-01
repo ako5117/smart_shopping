@@ -2,12 +2,12 @@
 
     uvicorn scan_and_go.app:create_app --factory --port 8030
 
-The browser only talks to this app. Prices and totals are always worked out here from the price list,
-never taken from the phone. Stock leaves the ledger only when the Payments Service confirms payment
+The browser only talks to this app. Prices come from the Inventory Service, which records each item's
+price on the sale; the total charged is worked out from that, never taken from the phone. Stock leaves the ledger only when the Payments Service confirms payment
 (it commits the sale in the Inventory Service).
 """
 
-import json
+import io
 import logging
 import re
 import secrets
@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import httpx
+import segno
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
@@ -85,22 +86,20 @@ class RateLimiter:
 
 
 class Catalogue:
-    """Product names and barcodes from the Inventory Service, prices from the price list. Cached for a minute."""
+    """Products, barcodes and prices from the Inventory Service, cached briefly so each scan stays fast."""
 
-    def __init__(self, inventory: httpx.Client, prices_path: str, ttl_s: int = 60):
-        self.inventory, self.prices_path, self.ttl_s = inventory, prices_path, ttl_s
+    def __init__(self, inventory: httpx.Client, ttl_s: int = 30):
+        self.inventory, self.ttl_s = inventory, ttl_s
         self._loaded_at = -ttl_s
         self._by_id: Dict[str, dict] = {}
         self._by_ean: Dict[str, dict] = {}
         self.lock = threading.Lock()
 
     def _load(self) -> None:
-        with open(self.prices_path, encoding="utf-8") as f:
-            prices = json.load(f)["prices"]
         r = self.inventory.get("/products")
         r.raise_for_status()
         products = [{"product_id": p["product_id"], "ean13": p["ean13"], "name": p["name"],
-                     "price": int(prices[p["product_id"]]) if p["product_id"] in prices else None}
+                     "price": p.get("price_kes")}
                     for p in r.json()]
         self._by_id = {p["product_id"]: p for p in products}
         self._by_ean = {p["ean13"]: p for p in products}
@@ -125,7 +124,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     settings = settings or load_settings()
     inventory = inventory or httpx.Client(base_url=settings.inventory_url, timeout=10.0)
     payments = payments or httpx.Client(base_url=settings.payments_url, timeout=40.0)
-    catalogue = Catalogue(inventory, settings.prices_path)
+    catalogue = Catalogue(inventory)
     limiter = RateLimiter(settings.stk_limit_per_phone, settings.stk_limit_window_s)
     app = FastAPI(title="Smart Shopping - Scan & Go")
 
@@ -152,8 +151,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         lines = []
         for it in sale["items"]:
             p = catalogue.by_id(it["product_id"]) or {"name": it["product_id"], "price": None}
-            lines.append({"product_id": it["product_id"], "name": p["name"], "qty": it["qty"], "price": p["price"],
-                          "line_total": (p["price"] or 0) * it["qty"]})
+            price = it.get("unit_price_kes") or p["price"]  # the price saved on the sale wins
+            lines.append({"product_id": it["product_id"], "name": p["name"], "qty": it["qty"], "price": price,
+                          "line_total": (price or 0) * it["qty"]})
         return {"lines": lines, "total": sum(l["line_total"] for l in lines)}
 
     @app.get("/health")
@@ -194,8 +194,6 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             if not p or p["price"] is None:
                 raise HTTPException(409, "Something in your basket can't be bought with Scan & Go. Please remove it.")
             lines.append((p, qty))
-        total = sum(p["price"] * qty for p, qty in lines)
-
         sale_id = "SG-" + secrets.token_hex(8).upper()
         r = upstream("Inventory", lambda: inventory.post("/sales", json={
             "sale_id": sale_id, "store_id": settings.store_id,
@@ -203,6 +201,12 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         if r.status_code >= 400:
             log.error("Inventory refused sale %s: %s %s", sale_id, r.status_code, r.text[:200])
             raise HTTPException(502, "The store system couldn't start your order. Please pay at a till.")
+        # Charge the prices the Inventory Service saved on the sale, not this app's cached copy.
+        sale = r.json()
+        if any(not it.get("unit_price_kes") for it in sale.get("items", [])):
+            upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+            raise HTTPException(409, "Something in your basket can't be bought with Scan & Go. Please remove it.")
+        total = sum(it["unit_price_kes"] * it["qty"] for it in sale["items"])
 
         try:
             payment = start_payment(sale_id, body.phone, total)
@@ -210,6 +214,15 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
             raise
         return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total}
+
+    @app.get("/api/orders/{order_id}/qr.svg")
+    def order_qr(order_id: str):
+        """QR code of the order number, scanned by staff at the exit. Holds nothing that isn't on the pass."""
+        if not ORDER_ID.match(order_id):
+            raise HTTPException(404, "Order not found")
+        out = io.BytesIO()
+        segno.make(order_id, error="m").save(out, kind="svg", scale=6, border=2, dark="#000", light="#fff", xmldecl=False)
+        return Response(out.getvalue(), media_type="image/svg+xml", headers={"Cache-Control": "private, max-age=86400"})
 
     @app.post("/api/orders/{order_id}/pay", status_code=201)
     def pay_again(order_id: str, body: PayIn):
@@ -253,6 +266,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "phone": mask_phone(payment.get("phone_number", "")),
             "amount": payment.get("amount"),
             "paid_at": payment.get("updated_at") if payment["status"] == "paid" else None,
+            "exited_at": sale.get("exited_at"),
             "result": payment.get("result_desc"),
             **priced_sale(sale),
         }

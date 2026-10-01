@@ -15,9 +15,10 @@ from . import sync
 
 
 class ProductIn(BaseModel):
-    product_id: str
+    product_id: str = Field(..., pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
     ean13: str = Field(..., pattern=r"^\d{13}$")
-    name: str
+    name: str = Field(..., min_length=1, max_length=120)
+    price_kes: Optional[int] = Field(None, gt=0, description="Shelf price in whole KES; omit to keep the current price")
 
 
 class RestockIn(BaseModel):
@@ -62,6 +63,10 @@ class SnapshotIn(BaseModel):
     tolerance: int = Field(0, ge=0)
 
 
+class ExitIn(BaseModel):
+    checked_by: str = Field(..., min_length=1, max_length=60)
+
+
 class CountIn(BaseModel):
     counted_qty: int = Field(..., ge=0)
     counted_by: str
@@ -94,7 +99,7 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def put_product(product_id: str, p: ProductIn):
         if p.product_id != product_id:
             raise HTTPException(422, "product_id in path and body differ")
-        guard(inv.upsert_product, p.product_id, p.ean13, p.name)
+        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes)
         return {"product_id": product_id}
 
     @app.post("/restocks")
@@ -118,6 +123,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500)):
         return inv.recent_sales(store_id, limit)
 
+    @app.get("/sales/lookup")
+    def lookup_sale(store_id: str, code: str):
+        return guard(inv.find_sale_by_code, store_id, code)
+
     @app.get("/sales/{sale_id}")
     def get_sale(sale_id: str):
         return guard(inv.sale, sale_id)
@@ -125,6 +134,10 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/sales/{sale_id}/commit")
     def commit_sale(sale_id: str, body: CommitIn):
         return guard(inv.commit_sale, sale_id, body.payment_ref)
+
+    @app.post("/sales/{sale_id}/exit")
+    def exit_sale(sale_id: str, body: ExitIn):
+        return guard(inv.record_exit, sale_id, body.checked_by.strip())
 
     @app.post("/sales/{sale_id}/cancel")
     def cancel_sale(sale_id: str):

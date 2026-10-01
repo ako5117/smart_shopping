@@ -1,5 +1,12 @@
 """SQLite storage. Swapped for the shared database once it is set up."""
 
+# Columns added after the first release; ALTER TABLE brings older database files up to date.
+ADDED_COLUMNS = {
+    "products": [("price_kes", "INTEGER CHECK (price_kes IS NULL OR price_kes > 0)")],
+    "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT")],
+    "sale_items": [("unit_price_kes", "INTEGER")],
+}
+
 import sqlite3
 from contextlib import contextmanager
 
@@ -7,7 +14,8 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS products (
     product_id TEXT PRIMARY KEY,
     ean13 TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    price_kes INTEGER CHECK (price_kes IS NULL OR price_kes > 0)
 );
 CREATE TABLE IF NOT EXISTS stock_ledger (
     entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,12 +35,15 @@ CREATE TABLE IF NOT EXISTS sales (
     status TEXT NOT NULL CHECK (status IN ('pending_payment', 'paid', 'cancelled')),
     payment_ref TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    exited_at TEXT,
+    exited_by TEXT
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),
     product_id TEXT NOT NULL REFERENCES products(product_id),
     qty INTEGER NOT NULL CHECK (qty > 0),
+    unit_price_kes INTEGER,
     PRIMARY KEY (sale_id, product_id)
 );
 CREATE TABLE IF NOT EXISTS outbox (
@@ -65,6 +76,11 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        for table, columns in ADDED_COLUMNS.items():
+            have = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            for name, decl in columns:
+                if name not in have:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
 
     @contextmanager
     def tx(self):

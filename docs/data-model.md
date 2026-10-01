@@ -90,6 +90,8 @@ erDiagram
         string session_id FK
         decimal total_amount
         string status "pending_payment | paid | cancelled"
+        datetime exited_at "Scan & Go exit check"
+        string exited_by
         datetime completed_at
     }
     PAYMENT {
