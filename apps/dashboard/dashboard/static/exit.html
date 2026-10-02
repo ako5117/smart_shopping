@@ -84,6 +84,8 @@ function showSale(sale) {
     verdict("bad", "NOT PAID", `<div>This order is ${sale.status === "cancelled" ? "cancelled" : "waiting for payment"}. Send the customer to a till.</div>${itemsList(sale)}`);
   } else if (sale.exited_at) {
     verdict("warn", "PASS ALREADY USED", `<div>This order left the store at ${time(sale.exited_at)}, checked by ${esc(sale.exited_by)}. Ask for another receipt or send the customer to a till.</div>${itemsList(sale)}`);
+  } else if (sale.fulfilment === "delivery") {
+    verdict("warn", "DELIVERY ORDER", `<div>This order is delivered by a rider. Hand it to the rider on the <a href="orders">Online orders</a> page, not here.</div>${itemsList(sale)}`);
   } else if (sale.channel === "online") {
     current = sale;
     const packed = sale.ready_at ? `Packed by ${esc(sale.ready_by)} at ${time(sale.ready_at)}.`

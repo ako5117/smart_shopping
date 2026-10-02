@@ -34,21 +34,28 @@ if [ ! -f .env ]; then
 fi
 
 if [ ! -f .demo-logins ]; then
-  say "Creating demo logins: 'manager' (prices, counts) and 'staff' (restock, exit check)"
-  manager_pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
-  staff_pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
-  for login in manager staff; do
-    pw="$manager_pw"; [ "$login" = staff ] && pw="$staff_pw"
+  say "Creating demo logins: 'manager' (prices, counts), 'staff' (restock, exit check) and 'rider' (deliveries)"
+  : > .demo-logins
+  for login in manager staff rider; do
+    pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
     if ./scripts/staff.sh list | grep -q "^$login "; then
       ./scripts/staff.sh password "$login" --password "$pw"
-    elif [ "$login" = manager ]; then
-      ./scripts/staff.sh add manager --manager --password "$pw"
     else
-      ./scripts/staff.sh add staff --password "$pw"
+      case "$login" in
+        manager) ./scripts/staff.sh add manager --manager --password "$pw" ;;
+        rider) ./scripts/staff.sh add rider --rider --password "$pw" ;;
+        *) ./scripts/staff.sh add staff --password "$pw" ;;
+      esac
     fi
+    echo "$login $pw" >> .demo-logins
   done
-  printf 'manager %s\nstaff %s\n' "$manager_pw" "$staff_pw" > .demo-logins
   chmod 600 .demo-logins
+fi
+if ! grep -q '^rider ' .demo-logins; then  # logins made before riders existed
+  pw="$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
+  if ./scripts/staff.sh list | grep -q "^rider "; then ./scripts/staff.sh password rider --password "$pw"
+  else ./scripts/staff.sh add rider --rider --password "$pw"; fi
+  echo "rider $pw" >> .demo-logins
 fi
 if ! grep -q '^DB_PASSWORD=.' .env; then  # .env from before the shared database
   grep -q '^DB_PASSWORD=' .env || echo 'DB_PASSWORD=' >> .env
@@ -74,6 +81,7 @@ docker compose exec -T inventory python /tmp/seed_demo.py --url http://localhost
 lan_ip="$( (hostname -I 2>/dev/null || ipconfig getifaddr en0 2>/dev/null || true) | awk '{print $1}')"
 manager_pw="$(awk '$1=="manager"{print $2}' .demo-logins 2>/dev/null)"
 staff_pw="$(awk '$1=="staff"{print $2}' .demo-logins 2>/dev/null)"
+rider_pw="$(awk '$1=="rider"{print $2}' .demo-logins 2>/dev/null)"
 say "Demo is running"
 cat <<EOF
   Store dashboard   http://localhost/dashboard/
@@ -81,6 +89,8 @@ cat <<EOF
                     staff   / ${staff_pw:-?}   (can restock and do exit checks)
   Scan & Go         http://localhost/shop/${lan_ip:+     on a phone on the same Wi-Fi: http://${lan_ip}/shop/}
   Online shop       http://localhost/store/${lan_ip:+    on a phone on the same Wi-Fi: http://${lan_ip}/store/}
+  Rider app         http://localhost/rider/${lan_ip:+    on a phone on the same Wi-Fi: http://${lan_ip}/rider/}
+                    rider   / ${rider_pw:-?}
 
   M-Pesa simulator: any phone number pays after 3 s; ending 000 cancels; ending 111 fails.
   Shelf sensors are simulated: new shelf activity every few seconds on the dashboard.

@@ -11,6 +11,7 @@ class Settings:
     shelf_config_path: str
     low_stock_threshold: int = 5
     event_limit: int = 200
+    dispatch_url: str = ""  # Dispatch Service; empty: no deliveries
 
 
 def load_settings() -> Settings:
@@ -21,4 +22,5 @@ def load_settings() -> Settings:
         shelf_events_path=os.getenv("SHELF_EVENTS_PATH", "shelf_events.jsonl"),
         shelf_config_path=os.getenv("SHELF_CONFIG_PATH", "config.example.json"),
         low_stock_threshold=int(os.getenv("LOW_STOCK_THRESHOLD", "5")),
+        dispatch_url=os.getenv("DISPATCH_URL", ""),
     )

@@ -27,7 +27,16 @@ Refreshed every 5 seconds:
 
 ## Online orders
 
-Paid orders from the online shop (`apps/storefront`), oldest first, refreshed every 10 seconds. Each order shows the customer's name and each item's shelf zone (or "Store room" when it isn't on a sensor shelf). Any staff member can press **Packed: ready for collection**. That's recorded under their name, and the customer's page changes to **Ready to collect**. The order is handed over on the **Exit check** page, which shows it as an online order with who packed it.
+Paid orders from the online shop (`apps/storefront`), oldest first, refreshed every 10 seconds. Each order shows the customer's name and each item's shelf zone (or "Store room" when it isn't on a sensor shelf). Any staff member can press **Packed**. That's recorded under their name.
+
+- **Collections:** the customer's page changes to **Ready to collect**. The order is handed over on the **Exit check** page, which shows it as an online order with who packed it.
+- **Deliveries** (when `DISPATCH_URL` is set): the card shows the area, address and directions.
+  - Staff pick a rider and press **Assign**. Riders on shift can also accept jobs themselves on their phone.
+  - Once the order is packed and has a rider, **Hand to …** records the parcel going out with that rider.
+  - The order then moves to **Out for delivery** until the rider enters the customer's code.
+  - If the rider reports a problem, or the code locks after wrong tries, the card turns red with the customer's phone number. Staff call the customer, then press **Rider tries again** (or **Unlock the code**).
+  - The **Exit check** refuses delivery orders, so one can't be handed to someone at the counter by mistake.
+  - The **Riders** list shows who has signed in, who's on shift and how many jobs each has.
 
 ## Exit check
 
@@ -90,8 +99,9 @@ Open http://localhost:8020.
 | `GET` | `/api/shelf-products` | Products the shelf catalogue knows, to reuse their codes |
 | `GET` | `/api/exit/lookup?code=` | Find an order from its pass code |
 | `POST` | `/api/exit/{sale_id}` | Record that the order left the store |
-| `GET` | `/api/orders` | Paid online orders not collected yet, with shelf zones |
+| `GET` | `/api/orders` | Paid online orders still in the store, orders out for delivery, and the riders, with shelf zones |
 | `POST` | `/api/orders/{sale_id}/ready` | Mark an online order packed |
+| `POST` | `/api/orders/{sale_id}/assign`, `/unassign`, `/hand-over`, `/retry` | Deliveries: give the job to a rider (`{"rider_id"}`), take it back, hand the parcel over, send the rider again |
 
 ## Not yet
 

@@ -16,13 +16,20 @@
   .order li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
   .order li:last-child { border-bottom: 0; }
   .order button { padding: 8px 12px; }
+  .order select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+  .order .deliver { border-top: 1px dashed var(--line); padding-top: 8px; display: grid; gap: 6px; }
+  .order .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .order.failed { border-color: var(--bad); }
+  .order .deliver .pill { white-space: normal; }
+  .order { min-width: 0; overflow-wrap: anywhere; }
+  .riders { display: flex; flex-wrap: wrap; gap: 6px; }
 </style>
 </head>
 <body>
 <header>
   <div>
     <h1>Online orders</h1>
-    <div class="muted">Paid orders from the online shop, oldest first. Pack each one, mark it ready, then hand it over at the Exit check.</div>
+    <div class="muted">Paid orders from the online shop, oldest first. Pack each one and mark it ready. Collections are handed over at the Exit check; deliveries go to their rider from here.</div>
   </div>
   <nav><a href="./">Overview</a><a href="products">Products</a><a href="orders" aria-current="page">Online orders</a><a href="exit">Exit check</a></nav>
   <span class="muted who" id="me"></span>
@@ -37,8 +44,17 @@
     <div class="orders" id="packing"></div>
   </section>
   <section>
-    <h2 id="waiting">Ready, waiting for the customer</h2>
+    <h2 id="waiting">Ready, waiting for the customer or a rider</h2>
     <div class="orders" id="ready"></div>
+  </section>
+  <section id="out-section" hidden>
+    <h2 id="out-title">Out for delivery</h2>
+    <div class="orders" id="out"></div>
+  </section>
+  <section id="riders-section" hidden>
+    <h2>Riders</h2>
+    <div class="riders" id="riders"></div>
+    <div class="muted" style="margin-top:6px">Riders sign in at /rider/ on their phone. Add a rider login with <code>scripts/staff.sh add &lt;name&gt; --rider</code>.</div>
   </section>
 </main>
 
@@ -54,7 +70,7 @@ const store = {
 };
 $("staff").value = store.get("orders.staff", "");
 $("staff").addEventListener("change", () => store.set("orders.staff", $("staff").value.trim()));
-let timer = null;
+let timer = null, riders = [];
 
 async function api(path, options = {}) {
   const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
@@ -63,29 +79,78 @@ async function api(path, options = {}) {
   return body;
 }
 
+function riderPicker(o) {
+  const d = o.delivery;
+  const options = riders.map((r) => `<option value="${esc(r.rider_id)}" ${r.rider_id === d.rider_id ? "selected" : ""}>
+    ${esc(r.rider_id)}${r.on_shift ? "" : " (off shift)"}${r.active_jobs ? ` · ${r.active_jobs} job${r.active_jobs === 1 ? "" : "s"}` : ""}</option>`).join("");
+  return riders.length ? `<div class="row"><select data-rider-for="${esc(o.sale_id)}">${d.rider_id ? "" : `<option value="">Choose a rider…</option>`}${options}</select>
+    <button data-assign="${esc(o.sale_id)}">${d.rider_id ? "Change" : "Assign"}</button>
+    ${d.rider_id ? `<button class="secondary" style="background:transparent;color:var(--accent)" data-unassign="${esc(o.sale_id)}">Unassign</button>` : ""}</div>`
+    : `<div class="muted">No riders yet.</div>`;
+}
+
+function deliveryBlock(o) {
+  const d = o.delivery;
+  if (o.fulfilment !== "delivery") return "";
+  if (!d) return `<div class="deliver"><span class="pill warn">Delivery</span><div class="muted">Delivery details unavailable.</div></div>`;
+  const where = `<div><span class="pill">Delivery · ${esc(d.area)}</span> ${esc(d.address)}${d.notes ? ` <span class="muted">(${esc(d.notes)})</span>` : ""}</div>`;
+  let body = "";
+  if (d.status === "unassigned" || d.status === "assigned") {
+    body = riderPicker(o);
+    if (d.status === "assigned" && o.stage === "ready") {
+      body += `<button data-handover="${esc(o.sale_id)}">Hand to ${esc(d.rider_id)}</button>`;
+    } else if (d.status === "assigned") {
+      body += `<div class="muted">${esc(d.rider_id)} will collect it once it's packed.</div>`;
+    } else {
+      body += `<div class="muted">Riders on shift can also accept it on their phone.</div>`;
+    }
+  } else if (d.status === "picked_up") {
+    body = `<div>With <b>${esc(d.rider_id)}</b> since ${time(d.picked_up_at)} · handed over by ${esc(d.handed_over_by)}</div>` +
+      (d.locked ? `<div class="pill bad">Delivery code locked after wrong tries. Call the customer: ${esc(d.customer_phone)}</div>
+        <button data-retry="${esc(o.sale_id)}">Unlock the code</button>` : "");
+  } else if (d.status === "failed") {
+    body = `<div class="pill bad">${esc(d.rider_id)} couldn't deliver: “${esc(d.fail_reason)}”</div>
+      <div>Call the customer on <b>${esc(d.customer_phone)}</b>, then:</div>
+      <button data-retry="${esc(o.sale_id)}">Rider tries again</button>`;
+  }
+  return `<div class="deliver">${where}${body}</div>`;
+}
+
 function card(o) {
   const items = o.items.map((i) => `<li><span>${i.qty} × ${esc(i.name)}</span>
     <span>${i.zones.length ? i.zones.map((z) => `<span class="pill">Shelf ${esc(z)}</span>`).join(" ") : `<span class="muted">Store room</span>`}</span></li>`).join("");
+  const isDelivery = o.fulfilment === "delivery";
   const action = o.stage === "packing"
-    ? `<button data-ready="${esc(o.sale_id)}">Packed: ready for collection</button>`
-    : `<div class="muted">Packed by ${esc(o.ready_by)} at ${time(o.ready_at)}. Hand it over on the Exit check page.</div>`;
-  return `<div class="order ${o.stage}">
+    ? `<button data-ready="${esc(o.sale_id)}">Packed: ready for ${isDelivery ? "the rider" : "collection"}</button>`
+    : o.exited_at ? ""
+    : `<div class="muted">Packed by ${esc(o.ready_by)} at ${time(o.ready_at)}.${isDelivery ? "" : " Hand it over on the Exit check page."}</div>`;
+  const failed = o.delivery && (o.delivery.status === "failed" || o.delivery.locked);
+  return `<div class="order ${o.stage}${failed ? " failed" : ""}">
     <div class="head"><span class="code">${esc(o.sale_id.slice(-8))}</span><span class="muted">paid ${ago(o.updated_at || o.created_at)}</span></div>
     <div><b>${esc(o.customer_name || "Customer")}</b> · ${o.item_count} item${o.item_count === 1 ? "" : "s"} · ${kes(o.total)}</div>
-    <ul>${items}</ul>${action}
+    <ul>${items}</ul>${action}${deliveryBlock(o)}
   </div>`;
 }
 
 async function load() {
   clearTimeout(timer);
   try {
-    const orders = await api("api/orders");
-    $("banner").hidden = true;
+    const body = await api("api/orders");
+    if (document.activeElement && document.activeElement.tagName === "SELECT") { timer = setTimeout(load, 10000); return; }
+    riders = body.riders;
+    $("banner").hidden = !body.dispatch_error;
+    $("banner").textContent = body.dispatch_error || "";
+    const orders = body.orders;
     const packing = orders.filter((o) => o.stage === "packing"), ready = orders.filter((o) => o.stage === "ready");
     $("to-pack").textContent = `To pack (${packing.length})`;
-    $("waiting").textContent = `Ready, waiting for the customer (${ready.length})`;
+    $("waiting").textContent = `Ready, waiting for the customer or a rider (${ready.length})`;
     $("packing").innerHTML = packing.map(card).join("") || `<div class="empty">Nothing to pack.</div>`;
     $("ready").innerHTML = ready.map(card).join("") || `<div class="empty">No orders waiting.</div>`;
+    $("out-section").hidden = $("riders-section").hidden = !body.deliveries_on;
+    $("out-title").textContent = `Out for delivery (${body.out.length})`;
+    $("out").innerHTML = body.out.map(card).join("") || `<div class="empty">No riders out.</div>`;
+    $("riders").innerHTML = riders.map((r) => `<span class="pill ${r.on_shift ? "ok" : ""}">${esc(r.rider_id)} · ${r.on_shift ? "on shift" : "off shift"}${r.active_jobs ? ` · ${r.active_jobs} job${r.active_jobs === 1 ? "" : "s"}` : ""}</span>`).join("")
+      || `<span class="muted">No riders have signed in yet.</span>`;
   } catch (err) {
     $("banner").hidden = false;
     $("banner").textContent = "Could not load orders: " + err.message;
@@ -94,17 +159,27 @@ async function load() {
 }
 
 document.addEventListener("click", async (e) => {
-  const b = e.target.closest("button[data-ready]");
+  const b = e.target.closest("button[data-ready], button[data-assign], button[data-unassign], button[data-handover], button[data-retry]");
   if (!b) return;
   const signedIn = !!document.body.dataset.signedIn;
   const name = signedIn ? "" : $("staff").value.trim();
   if (!signedIn && !name) { $("staff").focus(); return; }
+  const sale = b.dataset.ready || b.dataset.assign || b.dataset.unassign || b.dataset.handover || b.dataset.retry;
+  const [action, body, failure] =
+    b.dataset.ready ? ["ready", {}, "mark it ready"]
+    : b.dataset.assign ? ["assign", {rider_id: document.querySelector(`select[data-rider-for="${CSS.escape(sale)}"]`).value}, "assign the rider"]
+    : b.dataset.unassign ? ["unassign", {}, "unassign the rider"]
+    : b.dataset.handover ? ["hand-over", {}, "hand it over"]
+    : ["retry", {}, "send it out again"];
+  if (action === "assign" && !body.rider_id) return;
   b.disabled = true;
   try {
-    await api(`api/orders/${encodeURIComponent(b.dataset.ready)}/ready`, {method: "POST", body: JSON.stringify({packed_by: name})});
+    await api(`api/orders/${encodeURIComponent(sale)}/${action}`, {method: "POST", body: JSON.stringify({...body, packed_by: name})});
   } catch (err) {
     $("banner").hidden = false;
-    $("banner").textContent = "Could not mark it ready: " + err.message;
+    $("banner").textContent = `Could not ${failure}: ${err.message}`;
+    b.disabled = false;
+    return;
   }
   load();
 });

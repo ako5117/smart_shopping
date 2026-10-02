@@ -26,7 +26,7 @@ Every write is idempotent: a re-sent restock scan, a repeated commit, or a retri
 | `GET` | `/stock/{store_id}/{product_id}` | Stock of one product, with recent history |
 | `GET` | `/availability/{store_id}` | Per product: committed `stock`, and how much unpaid orders are `held` (orders under 15 minutes old) |
 | `GET` | `/sales?store_id=&limit=` | Most recent sales in a store, newest first. Optional filters: `channel`, `status`, `uncollected=true` |
-| `POST` | `/sales` | Create a sale at checkout (before payment). `channel` is `in_store` (Scan & Go, the default) or `online`, with `customer_name`. With `check_stock: true` the sale is refused (`409`, with `detail.short`) unless every item is available, checked in the same transaction |
+| `POST` | `/sales` | Create a sale at checkout (before payment). `channel` is `in_store` (Scan & Go, the default) or `online`, with `customer_name`. Online orders have `fulfilment` `collect` (the default) or `delivery`, with its `delivery_fee_kes`. With `check_stock: true` the sale is refused (`409`, with `detail.short`) unless every item is available, checked in the same transaction |
 | `POST` | `/sales/{sale_id}/ready` | Online order packed and waiting for collection: `{"ready_by": "Mary"}` |
 | `GET` | `/sales/lookup?store_id=&code=` | Find an order from the code on a Scan & Go pass (its last 6+ characters, or the full id) |
 | `POST` | `/sales/{sale_id}/exit` | Staff checked the pass at the exit: `{"checked_by": "Mary"}`. A pass works once; unpaid orders are refused |

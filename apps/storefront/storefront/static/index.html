@@ -89,6 +89,17 @@
   .pass .qr img { width: 180px; height: 180px; max-width: 100%; }
   .pass.done { background: var(--done-bg); color: var(--done-text); }
   .warnbox { background: var(--warn-bg); color: var(--warn); }
+  .choice { display: grid; gap: 8px; margin-bottom: 6px; }
+  .choice label { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid var(--line);
+                  border-radius: 10px; font-weight: 500; cursor: pointer; }
+  .choice label:has(input:checked) { border-color: var(--accent); background: var(--ok-bg); }
+  .choice input { width: auto; margin: 0; }
+  .choice .fee { margin-left: auto; color: var(--muted); font-size: 14px; white-space: nowrap; }
+  select, textarea { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px;
+                     background: var(--bg); color: var(--text); }
+  .pass .pin { font: 800 40px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .3em; margin: 8px 0 4px; }
+  .rider { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .rider a { color: var(--accent); font-weight: 600; text-decoration: none; }
   .banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   [hidden] { display: none !important; }
 </style>
@@ -115,13 +126,29 @@
     <div class="card">
       <h2>Your order</h2>
       <div id="lines"></div>
+      <div class="line" id="fee-line" hidden><span>Delivery</span><span class="num" id="fee-amount"></span></div>
       <div class="line"><b>Total</b><b class="num" id="checkout-total"></b></div>
     </div>
     <div class="card">
-      <h2>Collect from <span id="collect-store"></span></h2>
-      <p class="muted small" style="margin-top:0">We'll pack your order and tell you here when it's ready. Show the pass on this
-        page when you collect. Your items are held for <span id="hold-min">15</span> minutes while you pay.</p>
+      <h2>How would you like it?</h2>
+      <div class="choice">
+        <label><input type="radio" name="fulfil" value="collect" checked> <span>Collect from <span id="collect-store"></span></span><span class="fee">Free</span></label>
+        <label id="deliver-option" hidden><input type="radio" name="fulfil" value="delivery"> <span>Deliver to me</span><span class="fee" id="deliver-from"></span></label>
+      </div>
+      <p class="muted small" id="fulfil-hint" style="margin:8px 0 0"></p>
       <form id="order-form">
+        <div id="delivery-fields" hidden>
+          <label for="area">Area</label>
+          <select id="area"></select>
+          <label for="address">Address</label>
+          <input id="address" maxlength="200" autocomplete="street-address" placeholder="Building, house or flat number, street">
+          <label for="notes">Directions for the rider (optional)</label>
+          <input id="notes" maxlength="300" placeholder="e.g. Blue gate opposite the school">
+          <div class="row" style="display:flex;gap:10px;align-items:center;margin-top:10px">
+            <button type="button" class="secondary small" id="locate">Share my location</button>
+            <span class="muted small" id="loc-status">Helps the rider find you</span>
+          </div>
+        </div>
         <label for="name">Your name</label>
         <input id="name" autocomplete="name" maxlength="60" required>
         <label for="phone">M-Pesa number</label>
@@ -151,16 +178,19 @@
 
   <!-- 4. Order status and collection pass -->
   <section id="order-view" hidden>
-    <div class="steps" id="steps"><div data-s="paid">Paid</div><div data-s="packing">Packing</div><div data-s="ready">Ready</div><div data-s="collected">Collected</div></div>
+    <div class="steps" id="steps"></div>
     <div class="pass" id="pass">
       <div class="big" id="pass-title"></div>
       <div class="code" id="pass-code"></div>
       <div class="qr"><img id="pass-qr" alt="Order QR code, scanned when you collect" width="180" height="180"></div>
+      <div class="pin" id="pass-pin" hidden></div>
       <div id="pass-hint"></div>
     </div>
+    <div class="card rider" id="rider-card" hidden><span id="rider-text"></span><a id="rider-call" href="#">Call</a></div>
     <div class="card">
       <h2 id="receipt-store"></h2>
       <div id="receipt-lines"></div>
+      <div class="line" id="receipt-fee-line" hidden><span>Delivery</span><span class="num" id="receipt-fee"></span></div>
       <div class="line"><b>Total</b><b class="num" id="receipt-total"></b></div>
       <p class="muted small" id="receipt-meta" style="margin-bottom:0"></p>
     </div>
@@ -192,6 +222,9 @@ let basket = store.get("web.basket", {});   // {product_id: qty}
 let order = store.get("web.order", null);   // {order_id, payment_id, total, phone, paid}
 let products = {}, categories = [], category = "", view = "shop";
 let catalogueTimer = null, pollTimer = null;
+let delivery = {available: false, areas: []}, geo = null, holdMinutes = 15;
+const fulfil = () => document.querySelector('input[name="fulfil"]:checked').value;
+const fee = () => fulfil() === "delivery" ? (delivery.areas.find((a) => a.area === $("area").value)?.fee || 0) : 0;
 
 function say(text, kind = "bad") {
   const m = $("msg");
@@ -276,9 +309,10 @@ function renderShop() {
       <div class="actions">${action}</div>${subs}
     </div>`;
   }).join("") : `<p class="muted">No products match.</p>`;
-  const banner = order && order.paid && order.stage !== "collected";
+  const banner = order && order.paid && !DONE_STAGES.includes(order.stage);
   $("order-banner").hidden = !banner;
-  if (banner) $("order-banner-text").textContent = `Order ${order.order_id.slice(-8)}: ${order.stage === "ready" ? "ready to collect" : "being packed"}`;
+  if (banner) $("order-banner-text").textContent = `Order ${order.order_id.slice(-8)}: ` +
+    ({ready: order.fulfilment === "delivery" ? "packed, waiting for the rider" : "ready to collect", on_the_way: "on the way"}[order.stage] || "being packed");
 }
 
 function renderCheckout() {
@@ -295,7 +329,10 @@ function renderCheckout() {
       <div>${stepper(pid, qty)}</div><div></div>${problem}
     </div>`;
   }).join("") : `<p class="muted" style="margin:0">Your basket is empty.</p>`;
-  $("checkout-total").textContent = kes(total());
+  $("fee-line").hidden = fulfil() !== "delivery";
+  $("fee-amount").textContent = kes(fee());
+  $("checkout-total").textContent = kes(total() + fee());
+  $("pay-button").textContent = `Pay ${kes(total() + fee())} with M-Pesa`;
   const blocked = !ids.length || ids.some((pid) => products[pid].status === "out" || basket[pid] > products[pid].max);
   $("pay-button").disabled = blocked;
 }
@@ -340,9 +377,36 @@ $("checkout").addEventListener("click", () => {
   say("");
   $("name").value = store.get("web.name", "");
   $("phone").value = store.get("web.phone", "");
+  const saved = store.get("web.delivery", null);
+  if (saved && !$("address").value) {
+    $("area").value = saved.area; $("address").value = saved.address; $("notes").value = saved.notes || "";
+  }
   show("checkout");
+  renderFulfil();
 });
 $("back-to-shop").addEventListener("click", () => { say(""); show("shop"); });
+
+function renderFulfil() {
+  const d = fulfil() === "delivery";
+  $("delivery-fields").hidden = !d;
+  for (const id of ["area", "address"]) $(id).required = d;
+  $("fulfil-hint").textContent = d
+    ? "We'll pack your order and a rider brings it. Give the rider the 4-digit code shown on your order page."
+    : "We'll pack your order and tell you here when it's ready. Show the pass on this page when you collect.";
+  $("fulfil-hint").textContent += ` Your items are held for ${holdMinutes} minutes while you pay.`;
+  render();
+}
+document.querySelectorAll('input[name="fulfil"]').forEach((r) => r.addEventListener("change", renderFulfil));
+$("area").addEventListener("change", renderFulfil);
+$("locate").addEventListener("click", () => {
+  if (!navigator.geolocation) return ($("loc-status").textContent = "This browser can't share its location.");
+  $("loc-status").textContent = "Finding you…";
+  navigator.geolocation.getCurrentPosition(
+    (p) => { geo = {lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6)};
+             $("loc-status").textContent = "Location added ✓"; },
+    () => { geo = null; $("loc-status").textContent = "Couldn't get your location. The address is enough."; },
+    {enableHighAccuracy: true, timeout: 10000});
+});
 
 $("order-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -350,10 +414,14 @@ $("order-form").addEventListener("submit", async (e) => {
   say("");
   try {
     const name = $("name").value.trim(), phone = $("phone").value.trim();
-    const r = await api("api/orders", {method: "POST", body: JSON.stringify({
-      name, phone, items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))})});
+    const body = {name, phone, fulfilment: fulfil(), items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
+    if (body.fulfilment === "delivery") {
+      body.delivery = {area: $("area").value, address: $("address").value.trim(), notes: $("notes").value.trim(), ...(geo || {})};
+    }
+    const r = await api("api/orders", {method: "POST", body: JSON.stringify(body)});
     store.set("web.name", name);
     store.set("web.phone", phone);
+    if (body.delivery) store.set("web.delivery", {area: body.delivery.area, address: body.delivery.address, notes: body.delivery.notes});
     order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, paid: false};
     store.set("web.order", order);
     waitForPayment();
@@ -377,7 +445,7 @@ async function poll() {
   try {
     const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
     if (s.stage === "cancelled") return forgetOrder("That order was cancelled. Nothing was charged.");
-    if (["packing", "ready", "collected"].includes(s.stage)) return showOrder(s);
+    if (["packing", "ready", "collected", "on_the_way", "delivered"].includes(s.stage)) return showOrder(s);
     if (s.stage === "payment_failed" && view === "wait") {
       $("retry-box").hidden = false;
       $("retry-text").textContent = s.payment_status === "cancelled"
@@ -417,27 +485,55 @@ function forgetOrder(message) {
 }
 $("abandon").addEventListener("click", () => forgetOrder(""));
 
-const STAGES = ["paid", "packing", "ready", "collected"];
+const STEPS = {
+  collect: [["paid", "Paid"], ["packing", "Packing"], ["ready", "Ready"], ["collected", "Collected"]],
+  delivery: [["paid", "Paid"], ["packing", "Packing"], ["on_the_way", "On the way"], ["delivered", "Delivered"]],
+};
+const DONE_STAGES = ["collected", "delivered"];
 function showOrder(s) {
   clearTimeout(pollTimer);
   if (!order.paid) { basket = {}; store.set("web.basket", basket); }
-  order = {...order, paid: true, stage: s.stage};
+  order = {...order, paid: true, stage: s.stage, fulfilment: s.fulfilment};
   store.set("web.order", order);
   if (view !== "order") show("order");
-  const reached = {packing: 1, ready: 2, collected: 3}[s.stage];
-  $("steps").querySelectorAll("div").forEach((d) => d.classList.toggle("done", STAGES.indexOf(d.dataset.s) <= reached));
-  $("pass").classList.toggle("done", s.stage === "collected");
-  $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage];
+  const isDelivery = s.fulfilment === "delivery", d = s.delivery || {};
+  const steps = STEPS[isDelivery ? "delivery" : "collect"];
+  const reached = {packing: 1, ready: isDelivery ? 1 : 2, collected: 3, on_the_way: 2, delivered: 3}[s.stage];
+  $("steps").innerHTML = steps.map(([key, label], i) => `<div class="${i <= reached ? "done" : ""}">${label}</div>`).join("");
+  $("pass").classList.toggle("done", DONE_STAGES.includes(s.stage));
+  const when = (iso) => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
   $("pass-code").textContent = s.order_id.slice(-8);
-  const qr = `api/orders/${encodeURIComponent(s.order_id)}/qr.svg`;
-  if (!$("pass-qr").src.endsWith(qr)) $("pass-qr").src = qr;
-  $("pass-qr").parentElement.hidden = s.stage === "collected";
-  const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
-  $("pass-hint").textContent = {
-    packing: "We'll show “Ready to collect” here when it's packed.",
-    ready: `Ready since ${when(s.ready_at)}. Show this screen at the counter, ${s.customer_name}.`,
-    collected: `Collected at ${when(s.collected_at)}. Thank you!`,
-  }[s.stage];
+  $("pass-qr").parentElement.hidden = isDelivery || s.stage === "collected";
+  if (!isDelivery) {
+    const qr = `api/orders/${encodeURIComponent(s.order_id)}/qr.svg`;
+    if (!$("pass-qr").src.endsWith(qr)) $("pass-qr").src = qr;
+  }
+  $("pass-pin").hidden = !isDelivery || s.stage === "delivered" || !d.pin;
+  $("pass-pin").textContent = d.pin || "";
+  if (isDelivery) {
+    $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Packed · waiting for the rider",
+      on_the_way: "On the way", delivered: "Delivered"}[s.stage];
+    $("pass-hint").textContent = d.status === "failed"
+      ? "The rider couldn't complete the delivery. The store will call you."
+      : s.stage === "delivered" ? `Delivered at ${when(d.delivered_at)}. Thank you!`
+      : `Your delivery code. Give it to the rider when your order arrives at ${d.address}.`;
+  } else {
+    $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage];
+    $("pass-hint").textContent = {
+      packing: "We'll show “Ready to collect” here when it's packed.",
+      ready: `Ready since ${when(s.ready_at)}. Show this screen at the counter, ${s.customer_name}.`,
+      collected: `Collected at ${when(s.collected_at)}. Thank you!`,
+    }[s.stage];
+  }
+  const rider = isDelivery && s.stage !== "delivered" ? d.rider : null;
+  $("rider-card").hidden = !rider;
+  if (rider) {
+    $("rider-text").textContent = `Your rider: ${rider.name}`;
+    $("rider-call").hidden = !rider.phone;
+    $("rider-call").href = "tel:" + rider.phone;
+  }
+  $("receipt-fee-line").hidden = !s.delivery_fee;
+  $("receipt-fee").textContent = kes(s.delivery_fee);
   $("receipt-store").textContent = s.store_name;
   $("receipt-lines").innerHTML = s.lines.map((l) => `
     <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("");
@@ -447,11 +543,11 @@ function showOrder(s) {
     paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.phone, "Order " + s.order_id,
   ].filter(Boolean).join(" · ");
-  if (s.stage !== "collected") pollTimer = setTimeout(poll, ORDER_POLL_MS);
+  if (!DONE_STAGES.includes(s.stage)) pollTimer = setTimeout(poll, ORDER_POLL_MS);
 }
 
 $("back-from-order").addEventListener("click", () => {
-  if (order?.stage === "collected") { order = null; store.del("web.order"); }
+  if (DONE_STAGES.includes(order?.stage)) { order = null; store.del("web.order"); }
   show("shop");
 });
 $("view-order").addEventListener("click", () => { show("order"); poll(); });
@@ -461,7 +557,13 @@ $("view-order").addEventListener("click", () => { show("order"); poll(); });
 api("api/store").then((s) => {
   $("store-name").textContent = s.name;
   $("collect-store").textContent = s.name;
-  $("hold-min").textContent = s.hold_minutes;
+  delivery = s.delivery;
+  holdMinutes = s.hold_minutes;
+  $("deliver-option").hidden = !delivery.available;
+  if (delivery.available) {
+    $("deliver-from").textContent = "from " + kes(Math.min(...delivery.areas.map((a) => a.fee)));
+    $("area").innerHTML = delivery.areas.map((a) => `<option value="${esc(a.area)}">${esc(a.area)} · ${kes(a.fee)}</option>`).join("");
+  }
   document.title = `${s.name} · Online shop`;
 }).catch(() => {});
 show("shop");

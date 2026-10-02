@@ -45,6 +45,9 @@ class InventoryClient:
         """Paid online orders not collected yet: to pack, or packed and waiting."""
         return self._get("/sales", store_id=store_id, channel="online", status="paid", uncollected="true", limit=200)
 
+    def get_sale(self, sale_id: str) -> dict:
+        return self._get(f"/sales/{sale_id}")
+
     def mark_ready(self, sale_id: str, ready_by: str) -> httpx.Response:
         return self.http.post(f"/sales/{sale_id}/ready", json={"ready_by": ready_by})
 
@@ -54,6 +57,27 @@ class InventoryClient:
     def record_count(self, discrepancy_id: int, counted_qty: int, counted_by: str) -> httpx.Response:
         return self.http.post(f"/discrepancies/{discrepancy_id}/count",
                               json={"counted_qty": counted_qty, "counted_by": counted_by})
+
+
+class DispatchClient:
+    """The Dispatch Service: deliveries of online orders and the store's riders."""
+
+    def __init__(self, base_url: str, http: Optional[httpx.Client] = None):
+        self.http = http or httpx.Client(base_url=base_url, timeout=5.0)
+
+    def deliveries(self, store_id: str, statuses: List[str]) -> List[dict]:
+        r = self.http.get("/deliveries", params={"store_id": store_id, "status": ",".join(statuses)})
+        r.raise_for_status()
+        return r.json()
+
+    def riders(self) -> List[dict]:
+        r = self.http.get("/riders")
+        r.raise_for_status()
+        return r.json()
+
+    def act(self, sale_id: str, action: str, body: dict) -> httpx.Response:
+        """assign, release, hand-over or retry a delivery."""
+        return self.http.post(f"/deliveries/{sale_id}/{action}", json=body)
 
 
 def load_catalogue(path: str) -> dict:

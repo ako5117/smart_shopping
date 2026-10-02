@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
-from .sources import InventoryClient, load_catalogue, read_shelf_events
+from .sources import DispatchClient, InventoryClient, load_catalogue, read_shelf_events
 
 log = logging.getLogger("dashboard")
 STATIC = Path(__file__).parent / "static"
@@ -51,6 +51,10 @@ class ExitIn(BaseModel):
 
 class ReadyIn(BaseModel):
     packed_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
+
+
+class AssignIn(ReadyIn):
+    rider_id: str = Field(..., min_length=1, max_length=60)
 
 
 @dataclass(frozen=True)
@@ -202,9 +206,12 @@ def build_overview(settings: Settings, inventory: InventoryClient, now: Optional
     }
 
 
-def create_app(settings: Optional[Settings] = None, inventory: Optional[InventoryClient] = None) -> FastAPI:
+def create_app(settings: Optional[Settings] = None, inventory: Optional[InventoryClient] = None,
+               dispatch: Optional[DispatchClient] = None) -> FastAPI:
     settings = settings or load_settings()
     inventory = inventory or InventoryClient(settings.inventory_url)
+    if dispatch is None and settings.dispatch_url:
+        dispatch = DispatchClient(settings.dispatch_url)
     app = FastAPI(title="Smart Shopping - Store Dashboard")
 
     @app.get("/health")
@@ -294,7 +301,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
 
     @app.get("/api/orders")
     def online_orders():
-        """Paid online orders to pack (oldest first), with where each item sits on the shelves."""
+        """Paid online orders, oldest first: still in the store (to pack, or ready for the customer or a rider),
+        and out with a rider. Each item says where it sits on the shelves."""
         try:
             zones = load_catalogue(settings.shelf_config_path)["zones"]
         except (OSError, ValueError):
@@ -307,19 +315,68 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
             orders = inventory.online_orders(settings.store_id)
         except httpx.HTTPError as e:
             raise HTTPException(502, f"Inventory Service unavailable: {e}")
-        products, out = catalogue(), []
-        for sale in sorted(orders, key=lambda s: s["created_at"]):
+
+        deliveries, riders, dispatch_error = {}, [], None
+        if dispatch is not None:
+            try:
+                deliveries = {d["sale_id"]: d for d in dispatch.deliveries(
+                    settings.store_id, ["unassigned", "assigned", "picked_up", "failed"])}
+                riders = dispatch.riders()
+            except httpx.HTTPError as e:
+                log.warning("Dispatch unavailable: %s", e)
+                dispatch_error = "Deliveries can't be shown right now: the Dispatch Service is unavailable."
+
+        products = catalogue()
+
+        def view(sale: dict) -> dict:
             sale = priced(sale, products)
             for it in sale["items"]:
                 it["zones"] = where.get(it["product_id"], [])
-            sale["total"] = sum(it["line_total"] or 0 for it in sale["items"])
+            sale["total"] = sum(it["line_total"] or 0 for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
             sale["stage"] = "ready" if sale.get("ready_at") else "packing"
-            out.append(sale)
-        return out
+            sale["delivery"] = deliveries.get(sale["sale_id"])
+            return sale
+
+        in_store = [view(s) for s in sorted(orders, key=lambda s: s["created_at"])]
+        out = []
+        for d in deliveries.values():
+            if d["status"] in ("picked_up", "failed"):
+                try:
+                    out.append(view(inventory.get_sale(d["sale_id"])))
+                except httpx.HTTPError as e:
+                    log.warning("Inventory unavailable for %s: %s", d["sale_id"], e)
+        return {"orders": in_store, "out": sorted(out, key=lambda s: s["created_at"]), "riders": riders,
+                "deliveries_on": dispatch is not None, "dispatch_error": dispatch_error}
 
     @app.post("/api/orders/{sale_id}/ready")
     def order_ready(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
         return priced(call(inventory.mark_ready, sale_id, acting_name(staff, body.packed_by)))
+
+    def deliver_action(sale_id: str, action: str, body: dict):
+        if dispatch is None:
+            raise HTTPException(404, "Deliveries aren't set up for this store.")
+        try:
+            return _passthrough(dispatch.act(sale_id, action, body))
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Dispatch Service unavailable: {e}")
+
+    @app.post("/api/orders/{sale_id}/assign")
+    def assign_rider(sale_id: str, body: AssignIn, staff: Staff = Depends(current_staff)):
+        return deliver_action(sale_id, "assign", {"rider_id": body.rider_id, "by": acting_name(staff, body.packed_by)})
+
+    @app.post("/api/orders/{sale_id}/unassign")
+    def unassign_rider(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
+        return deliver_action(sale_id, "release", {"by": acting_name(staff, body.packed_by)})
+
+    @app.post("/api/orders/{sale_id}/hand-over")
+    def hand_over(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
+        """The packed order goes out with its rider. Recorded as leaving the store, like an exit check."""
+        return deliver_action(sale_id, "hand-over", {"by": acting_name(staff, body.packed_by)})
+
+    @app.post("/api/orders/{sale_id}/retry")
+    def retry_delivery(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
+        """After a failed delivery or locked code: staff spoke to the customer, the rider tries again."""
+        return deliver_action(sale_id, "retry", {"by": acting_name(staff, body.packed_by)})
 
     @app.get("/api/overview")
     def overview():

@@ -3,12 +3,13 @@
 #
 #   ./scripts/staff.sh add mary              add staff; prompts for a password (or --password 'x')
 #   ./scripts/staff.sh add adrian --manager  add a manager: can change prices, correct stock, use the APIs
+#   ./scripts/staff.sh add otieno --rider    add a rider: uses the rider app (/rider/) only
 #   ./scripts/staff.sh password mary         set a new password
-#   ./scripts/staff.sh role mary manager     make someone a manager (or: role mary staff)
+#   ./scripts/staff.sh role mary manager     make someone a manager (or: role mary staff / rider)
 #   ./scripts/staff.sh remove mary
 #   ./scripts/staff.sh list
 #
-# Logins live in deploy/staff/users ("name bcrypt-hash"), roles in deploy/staff/roles ("name manager").
+# Logins live in deploy/staff/users ("name bcrypt-hash"), roles in deploy/staff/roles ("name manager" / "name rider").
 # Both are git-ignored. Changes take effect at once if the stack is running.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -65,8 +66,10 @@ case "$cmd" in
     pw="$(password_arg "$@" || ask_password "$name")"
     h="$(hash_password "$pw")"   # exits here on a bad password, before anything is written
     echo "$name $h" >> "$USERS"
-    if [[ " $* " == *" --manager "* ]]; then echo "$name manager" >> "$ROLES"; fi
-    echo "Added $name ($([[ " $* " == *" --manager "* ]] && echo manager || echo staff))."
+    role=staff
+    if [[ " $* " == *" --manager "* ]]; then role=manager; elif [[ " $* " == *" --rider "* ]]; then role=rider; fi
+    [ "$role" = staff ] || echo "$name $role" >> "$ROLES"
+    echo "Added $name ($role)."
     reload ;;
   password)
     name="${1:-}"; valid_name "$name"; shift
@@ -81,9 +84,9 @@ case "$cmd" in
     exists "$name" || die "No login called $name."
     without "$name" "$ROLES"
     case "$role" in
-      manager) echo "$name manager" >> "$ROLES" ;;
+      manager|rider) echo "$name $role" >> "$ROLES" ;;
       staff) ;;
-      *) die "Role must be manager or staff." ;;
+      *) die "Role must be manager, staff or rider." ;;
     esac
     echo "$name is now $role."
     reload ;;
@@ -96,8 +99,9 @@ case "$cmd" in
   list)
     grep -v '^#' "$USERS" | awk '{print $1}' | while read -r n; do
       [ -n "$n" ] || continue
-      if grep -q "^$n manager" "$ROLES"; then echo "$n  manager"; else echo "$n  staff"; fi
+      r="$(awk -v n="$n" '$1==n{print $2}' "$ROLES" | tail -n 1)"
+      echo "$n  ${r:-staff}"
     done ;;
   *)
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

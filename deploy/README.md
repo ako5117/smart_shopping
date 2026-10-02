@@ -14,9 +14,11 @@
 |---|---|---|
 | `/` | Redirects to Scan & Go | — |
 | `/shop/` | Scan & Go | Public (customers' phones) |
-| `/store/` | Online shop: order online, collect in store | Public |
+| `/store/` | Online shop: order online, collect in store or have it delivered | Public |
+| `/rider/` | Rider app: deliveries on the rider's phone | Riders (and managers) |
 | `/dashboard/` | Store dashboard: Overview, Products, Exit check | Any staff login |
 | `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Managers |
+| `/dispatch/...` | Dispatch Service API (`/dispatch/docs`) | Managers |
 | `/pay/...` | Payments Service API (`/pay/docs`) | Managers, except `/pay/payments/mpesa/callback/<secret>`, which Daraja must reach |
 
 Services talk to each other inside Docker's network (`http://inventory:8010`, `http://payments:8000`). Inventory and Payments keep their data in one PostgreSQL database (the `db` service), each in its own schema. Only Caddy is published; the database is reachable only inside Docker. The Shelf Service isn't included: it reads the shelf nodes over MQTT and runs in the store.
@@ -28,25 +30,28 @@ Everyone has their own login. Logins are managed with `scripts/staff.sh` and kep
 ```bash
 ./scripts/staff.sh add adrian --manager   # asks for a password (at least 8 characters)
 ./scripts/staff.sh add mary               # ordinary staff
+./scripts/staff.sh add otieno --rider     # a rider: the rider app only
 ./scripts/staff.sh list
 ./scripts/staff.sh password mary          # new password
-./scripts/staff.sh role mary manager      # or: role mary staff
+./scripts/staff.sh role mary manager      # or: role mary staff / rider
 ./scripts/staff.sh remove mary
 ```
 
 Changes take effect immediately, with no restart. **Add at least one manager before the first start**: the proxy won't start with no logins.
 
-| | Staff | Manager |
-|---|---|---|
-| Overview, restock, exit check | ✓ | ✓ |
-| Add products, change prices | | ✓ |
-| Record a stock count (correct a difference) | | ✓ |
-| Raw Inventory and Payments APIs (`/inventory/`, `/pay/`) | | ✓ |
+| | Rider | Staff | Manager |
+|---|---|---|---|
+| Rider app (`/rider/`): accept and deliver orders | ✓ | | ✓ |
+| Dashboard: overview, restock, exit check, pack and dispatch online orders | | ✓ | ✓ |
+| Add products, change prices | | | ✓ |
+| Record a stock count (correct a difference) | | | ✓ |
+| Raw Inventory, Dispatch and Payments APIs (`/inventory/`, `/dispatch/`, `/pay/`) | | | ✓ |
 
 The dashboard records who did what:
 - each restock and stock correction
 - each price change, with the old and new price
 - each exit check
+- each packed online order, rider assignment and handover to a rider
 
 The signed-in name comes from the login, so nobody types a name, and the proxy overwrites anything a browser sends in its place.
 

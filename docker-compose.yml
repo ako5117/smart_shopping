@@ -16,7 +16,7 @@ services:
       # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
       - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
-    depends_on: [inventory, payments, dashboard, scan_and_go, storefront]
+    depends_on: [inventory, payments, dispatch, dashboard, scan_and_go, storefront, rider]
 
   # The shared database. Inventory and Payments each keep their tables in their own schema.
   db:
@@ -67,6 +67,20 @@ services:
       db: {condition: service_healthy}
       inventory: {condition: service_started}
 
+  # Deliveries of online orders and the store's riders.
+  dispatch:
+    build: services/dispatch
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: dispatch
+      INVENTORY_URL: http://inventory:8010
+      DELIVERY_AREAS: ${DELIVERY_AREAS:-}
+      UVICORN_ROOT_PATH: /dispatch
+    depends_on:
+      db: {condition: service_healthy}
+      inventory: {condition: service_started}
+
   dashboard:
     build:
       context: .
@@ -75,9 +89,10 @@ services:
     environment:
       STORE_ID: ${STORE_ID:-001}
       INVENTORY_URL: http://inventory:8010
+      DISPATCH_URL: http://dispatch:8050
       UVICORN_ROOT_PATH: /dashboard
     volumes: [dashboard-data:/data]
-    depends_on: [inventory]
+    depends_on: [inventory, dispatch]
 
   scan_and_go:
     build: apps/scan_and_go
@@ -100,10 +115,23 @@ services:
       STORE_NAME: ${STORE_NAME:-Smart Shopping}
       INVENTORY_URL: http://inventory:8010
       PAYMENTS_URL: http://payments:8000
+      DISPATCH_URL: http://dispatch:8050
       SHELF_EVENTS_PATH: /shelf/shelf_events.jsonl
       UVICORN_ROOT_PATH: /store
     volumes: [dashboard-data:/shelf:ro]
-    depends_on: [inventory, payments]
+    depends_on: [inventory, payments, dispatch]
+
+  # Riders' phone app: their deliveries, and the customer's code to finish each one.
+  rider:
+    build: apps/rider
+    restart: unless-stopped
+    environment:
+      STORE_ID: ${STORE_ID:-001}
+      STORE_NAME: ${STORE_NAME:-Smart Shopping}
+      DISPATCH_URL: http://dispatch:8050
+      INVENTORY_URL: http://inventory:8010
+      UVICORN_ROOT_PATH: /rider
+    depends_on: [dispatch, inventory]
 
   # Stand-in for Safaricom Daraja (tools/mpesa_simulator). Only runs with the "demo" profile.
   mpesa_sim:

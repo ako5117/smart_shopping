@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from dashboard.app import create_app
 from dashboard.config import Settings
-from dashboard.sources import InventoryClient
+from dashboard.sources import DispatchClient, InventoryClient
 
 CATALOGUE = {
     "products": [
@@ -61,6 +61,7 @@ class FakeInventory:
              "ready_at": "2026-10-01T09:10:00+00:00", "ready_by": "mary", "exited_at": None,
              "items": [{"product_id": "bread-400g", "qty": 1, "unit_price_kes": 70}]},
         ]
+        self.delivered = []  # paid online orders that left the store with a rider
         self.discrepancies = [{"discrepancy_id": 7, "store_id": "001", "product_id": "sugar-1kg", "our_qty": 3,
                                "retailer_qty": 5, "category": "unknown", "status": "open",
                                "created_at": "2026-10-01T07:00:00+00:00"}]
@@ -107,11 +108,51 @@ class FakeInventory:
                 return httpx.Response(409, json={"detail": "already left the store"})
             sale.update(exited_at="2026-10-01T10:40:00+00:00", exited_by=json.loads(request.content)["checked_by"])
             return httpx.Response(200, json=sale)
+        if request.method == "GET" and path.startswith("/sales/WEB-"):
+            sale = next((s for s in self.online + self.delivered if s["sale_id"] == path.split("/")[2]), None)
+            return httpx.Response(200, json=sale) if sale else httpx.Response(404, json={"detail": "No sale"})
         routes = {"/products": self.products, "/stock/001": self.stock, "/sales": self.sales,
                   "/sync/001": self.sync, "/discrepancies/001": self.discrepancies}
         if path in routes:
             return httpx.Response(200, json=routes[path])
         return httpx.Response(404, json={"detail": "not found"})
+
+
+class FakeDispatch:
+    def __init__(self, inventory: FakeInventory):
+        self.inventory = inventory
+        self.down = False
+        self.calls = []
+        self.riders = [{"rider_id": "otieno", "phone": "0722000111", "on_shift": True, "active_jobs": 0},
+                       {"rider_id": "akinyi", "phone": "", "on_shift": False, "active_jobs": 0}]
+        self.deliveries = {}
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            raise httpx.ConnectError("connection refused", request=request)
+        path = request.url.path
+        if path == "/riders":
+            return httpx.Response(200, json=self.riders)
+        if path == "/deliveries":
+            statuses = request.url.params["status"].split(",")
+            return httpx.Response(200, json=[d for d in self.deliveries.values() if d["status"] in statuses])
+        _, _, sale_id, action = path.split("/")
+        body = json.loads(request.content)
+        self.calls.append((sale_id, action, body))
+        d = self.deliveries.get(sale_id)
+        if not d:
+            return httpx.Response(404, json={"detail": "No delivery"})
+        if action == "assign":
+            d.update(status="assigned", rider_id=body["rider_id"])
+        elif action == "release":
+            d.update(status="unassigned", rider_id=None)
+        elif action == "hand-over":
+            if d["status"] != "assigned":
+                return httpx.Response(409, json={"detail": "Can't hand over this delivery: it has no rider yet."})
+            d["status"] = "picked_up"
+        elif action == "retry":
+            d.update(status="picked_up", fail_reason="", locked=False)
+        return httpx.Response(200, json=d)
 
 
 @pytest.fixture
@@ -142,6 +183,18 @@ def inventory(fake):
 @pytest.fixture
 def client(settings, inventory):
     return TestClient(create_app(settings, inventory))
+
+
+@pytest.fixture
+def dispatch_fake(fake):
+    return FakeDispatch(fake)
+
+
+@pytest.fixture
+def delivery_client(settings, inventory, dispatch_fake):
+    dispatch = DispatchClient("http://dispatch.test", http=httpx.Client(
+        base_url="http://dispatch.test", transport=httpx.MockTransport(dispatch_fake.handler)))
+    return TestClient(create_app(settings, inventory, dispatch))
 
 
 def write_events(path, events):
