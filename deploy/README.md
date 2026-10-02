@@ -211,4 +211,5 @@ For a copy from Spaces, download it first, e.g. from the Spaces page in the Digi
 ## Notes
 
 - Production M-Pesa needs the store's own Paybill or Till; see `services/payments/README.md`.
+- **Payments that need a person** are logged loudly by the Payments Service: a customer who paid twice (`PAID TWICE`, refund the second payment), a paid order the Inventory Service couldn't be told about (`SALE NOT COMMITTED`), and a card amount that didn't match (`CARD AMOUNT MISMATCH`). Check now and then: `docker compose logs payments | grep -E 'PAID TWICE|NOT COMMITTED|MISMATCH|refund'`.
 - Staff logins use the browser's built-in sign-in box (HTTP Basic over HTTPS). There's no "log out" button: closing the browser signs out.

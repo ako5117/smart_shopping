@@ -197,20 +197,35 @@ class Inventory:
         return self.sale(sale_id)
 
     def commit_sale(self, sale_id: str, payment_ref: str) -> dict:
-        """Called when payment is confirmed. Idempotent: committing twice changes nothing."""
+        """Called when payment is confirmed. Idempotent: committing the same payment twice changes nothing.
+
+        A different payment for a sale that's already paid (the customer started a second payment while the first
+        was still going through, and both went through) is refused with Conflict, so it's logged as needing a refund.
+        """
         sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))
         if not sale:
             raise NotFound(f"No sale {sale_id}")
         if sale["status"] == "paid":
-            return self.sale(sale_id)
+            return self._already_paid(sale, payment_ref)
         if sale["status"] == "cancelled":
             raise Conflict(f"Sale {sale_id} was cancelled; a payment arrived for it and needs a manual refund check")
         with self.db.tx() as c:
             for it in self._items(sale_id).items():
                 self._record(c, sale["store_id"], it[0], "sale", -it[1], f"sale:{sale_id}:{it[0]}", source_ref=sale_id)
-            c.execute("UPDATE sales SET status = 'paid', payment_ref = ?, updated_at = ? WHERE sale_id = ?",
-                      (payment_ref, now_iso(), sale_id))
+            cur = c.execute("UPDATE sales SET status = 'paid', payment_ref = ?, updated_at = ? "
+                            "WHERE sale_id = ? AND status = 'pending_payment'", (payment_ref, now_iso(), sale_id))
+            changed = cur.rowcount == 1
+        if not changed:  # another payment committed it meanwhile
+            return self._already_paid(self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,)), payment_ref)
         return self.sale(sale_id)
+
+    def _already_paid(self, sale: dict, payment_ref: str) -> dict:
+        if sale["status"] == "paid" and sale["payment_ref"] == payment_ref:
+            return self.sale(sale["sale_id"])
+        if sale["status"] == "paid":
+            raise Conflict(f"PAID TWICE: sale {sale['sale_id']} was already paid ({sale['payment_ref']}); "
+                           f"payment {payment_ref} is a second payment and needs a refund")
+        raise Conflict(f"Sale {sale['sale_id']} is {sale['status']}; payment {payment_ref} needs a manual refund check")
 
     def cancel_sale(self, sale_id: str) -> dict:
         sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))

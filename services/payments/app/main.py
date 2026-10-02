@@ -9,6 +9,7 @@ from typing import Callable, Optional
 import httpx
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from .cards import PAYSTACK_URL, CardGatewayError, PaystackGateway
@@ -201,7 +202,9 @@ def create_app(
             reference = None
         payment = store.get(reference) if reference else None
         if payment and payment["method"] == "card" and payment["status"] == "pending":
-            _finalise_card(payment)
+            # Verifying with the provider and telling the Inventory Service can take seconds: off the event loop,
+            # so other payments aren't held up meanwhile.
+            await run_in_threadpool(_finalise_card, payment)
         return {"received": True}
 
     @app.post("/payments/mpesa/stk-push", status_code=202)
@@ -236,7 +239,9 @@ def create_app(
             log.error("Malformed M-Pesa callback")
             # Acknowledge anyway so Daraja does not keep retrying a payload we cannot read.
             return {"ResultCode": 0, "ResultDesc": "Accepted"}
-        _finalise(parsed["checkout_request_id"], parsed["result_code"], parsed["result_desc"], parsed["receipt_number"])
+        # Telling the Inventory Service can take seconds (or retry for longer if it's down): off the event loop.
+        await run_in_threadpool(_finalise, parsed["checkout_request_id"], parsed["result_code"], parsed["result_desc"],
+                                parsed["receipt_number"])
         return {"ResultCode": 0, "ResultDesc": "Accepted"}
 
     @app.get("/payments/{payment_id}")
