@@ -38,6 +38,38 @@ def test_commit_is_idempotent(inv):
     assert sale["status"] == "paid" and inv.stock(STORE, SUGAR) == 8 and inv.stock(STORE, FLOUR) == -1
 
 
+def test_a_second_payment_for_a_paid_sale_is_refused(inv):
+    """The customer paid twice (a second payment started while the first was going through): flag it for a refund."""
+    inv.restock(STORE, EAN[SUGAR], 10, "s1")
+    inv.create_sale("SALE-1", STORE, [Item(SUGAR, 2)])
+    inv.commit_sale("SALE-1", "NLJ7RT61SV")
+    with pytest.raises(Conflict, match="PAID TWICE.*NLJ7RT61SV.*CARD-123.*refund"):
+        inv.commit_sale("SALE-1", "CARD-123")
+    assert inv.sale("SALE-1")["payment_ref"] == "NLJ7RT61SV" and inv.stock(STORE, SUGAR) == 8
+
+
+def test_second_payment_committing_at_the_same_moment_is_refused(inv):
+    """Both payments read the sale as unpaid before either committed it."""
+    inv.restock(STORE, EAN[SUGAR], 10, "s1")
+    inv.create_sale("SALE-1", STORE, [Item(SUGAR, 2)])
+    unpaid = inv.db.one("SELECT * FROM sales WHERE sale_id = ?", ("SALE-1",))
+    inv.commit_sale("SALE-1", "NLJ7RT61SV")
+    real_one = inv.db.one
+    calls = []
+
+    def stale_first_read(sql, args=()):
+        calls.append(sql)
+        return dict(unpaid) if len(calls) == 1 else real_one(sql, args)
+
+    inv.db.one = stale_first_read
+    try:
+        with pytest.raises(Conflict, match="PAID TWICE"):
+            inv.commit_sale("SALE-1", "CARD-123")
+    finally:
+        inv.db.one = real_one
+    assert inv.sale("SALE-1")["payment_ref"] == "NLJ7RT61SV" and inv.stock(STORE, SUGAR) == 8
+
+
 def test_duplicate_items_in_a_sale_are_merged(inv):
     sale = inv.create_sale("SALE-2", STORE, [Item(MILK, 1), Item(MILK, 2)])
     assert sale["items"] == [{"product_id": MILK, "qty": 3, "unit_price_kes": None}]
