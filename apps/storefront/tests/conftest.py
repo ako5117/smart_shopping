@@ -68,6 +68,7 @@ class FakeInventory:
                                            "fulfilment": body.get("fulfilment", "collect"),
                                            "delivery_fee_kes": body.get("delivery_fee_kes", 0),
                                            "customer_name": body.get("customer_name", ""),
+                                           "customer_phone": body.get("customer_phone", ""),
                                            "status": "pending_payment", "payment_ref": None, "exited_at": None,
                                            "ready_at": None, "created_at": NOW.isoformat()}
             return httpx.Response(201, json=self.sales[body["sale_id"]])

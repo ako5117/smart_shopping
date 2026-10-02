@@ -32,6 +32,8 @@ graph TD
     WEB["Online shop (Phase 2)<br/>live availability, substitutes"]
     DIS["Dispatch Service (Phase 2)<br/>riders, deliveries"]
     RID["Rider app"]
+    NOT["Notification Service<br/>texts to customers"]
+    SMS["SMS provider<br/>Africa's Talking"]
     DAR["Safaricom Daraja"]
     CARD["Card provider (Paystack)<br/>hosted checkout"]
 
@@ -52,6 +54,10 @@ graph TD
     RID -->|accept, deliver| DIS
     DIS -->|order paid? handed over| INV
     DIS <--> DB
+    NOT -.->|watches orders| INV
+    NOT -.->|watches deliveries| DIS
+    NOT -->|paid, ready, on the way| SMS
+    NOT <--> DB
     PAY <-->|STK Push + callback| DAR
     PAY <-->|checkout, verify, signed webhook| CARD
     PAY -->|payment confirmed| INV

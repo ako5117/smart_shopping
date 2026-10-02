@@ -80,6 +80,21 @@ class DispatchClient:
         return self.http.post(f"/deliveries/{sale_id}/{action}", json=body)
 
 
+class NotifyClient:
+    """The Notification Service: texts sent to online customers."""
+
+    def __init__(self, base_url: str, http: Optional[httpx.Client] = None):
+        self.http = http or httpx.Client(base_url=base_url, timeout=5.0)
+
+    def messages(self, limit: int = 50) -> List[dict]:
+        r = self.http.get("/messages", params={"limit": limit})
+        r.raise_for_status()
+        return r.json()
+
+    def resend(self, message_id: int) -> httpx.Response:
+        return self.http.post(f"/messages/{message_id}/resend")
+
+
 def load_catalogue(path: str) -> dict:
     """Products and zones from the Shelf Service catalogue (services/shelf/config.example.json format)."""
     with open(path, encoding="utf-8") as f:

@@ -63,6 +63,7 @@ if ! grep -q '^DB_PASSWORD=.' .env; then  # .env from before the shared database
 fi
 if grep -q '^COMPOSE_PROFILES=demo' .env; then
   grep -q '^CARD_PROVIDER=' .env || echo 'CARD_PROVIDER=simulator' >> .env  # .env from before card payments
+  grep -q '^SMS_PROVIDER=' .env || echo 'SMS_PROVIDER=simulator' >> .env  # .env from before texts
 else
   echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
 fi

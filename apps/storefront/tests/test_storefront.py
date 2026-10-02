@@ -59,7 +59,7 @@ def test_order_is_priced_and_held(client, inventory, payments):
     assert o["order_id"].startswith("WEB-") and len(o["order_id"]) == 20
     assert o["total"] == 3 * 65 + 120
     sale = inventory.sales[o["order_id"]]
-    assert (sale["channel"], sale["customer_name"]) == ("online", "Jane")
+    assert (sale["channel"], sale["customer_name"], sale["customer_phone"]) == ("online", "Jane", "0712345678")
     assert [(i["product_id"], i["qty"]) for i in sale["items"]] == [("milk-500ml", 3), ("yoghurt-500ml", 1)]
     assert payments.pushes == [{"sale_id": o["order_id"], "phone": "0712345678", "amount": 315}]
     assert catalogue(client)["milk-500ml"]["max"] == 10 - 3 - 1  # held while the customer pays

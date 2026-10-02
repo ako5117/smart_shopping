@@ -356,6 +356,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         sale_id = "WEB-" + secrets.token_hex(8).upper()
         r = upstream("Inventory", lambda: inventory.post("/sales", json={
             "sale_id": sale_id, "store_id": settings.store_id, "channel": "online", "customer_name": body.name.strip(),
+            "customer_phone": body.phone.strip(),
             "check_stock": True, "fulfilment": body.fulfilment, "delivery_fee_kes": fee,
             "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
         if r.status_code == 409 and isinstance(r.json().get("detail"), dict):

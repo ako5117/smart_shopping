@@ -20,9 +20,9 @@ services:
       # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
       - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
-    depends_on: [inventory, payments, dispatch, dashboard, scan_and_go, storefront, rider]
+    depends_on: [inventory, payments, dispatch, notify, dashboard, scan_and_go, storefront, rider]
 
-  # The shared database. Inventory and Payments each keep their tables in their own schema.
+  # The shared database. Each service keeps its tables in its own schema.
   db:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -110,6 +110,34 @@ services:
       db: {condition: service_healthy}
       inventory: {condition: service_started}
 
+  # Texts customers when their online order is paid, ready to collect, and on its way. Internal only:
+  # staff see the texts on the dashboard. SMS_PROVIDER empty turns texts off.
+  notify:
+    build: services/notify
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8070/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: notify
+      STORE_ID: ${STORE_ID:-001}
+      STORE_NAME: ${STORE_NAME:-Smart Shopping}
+      INVENTORY_URL: http://inventory:8010
+      DISPATCH_URL: http://dispatch:8050
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      AT_USERNAME: ${AT_USERNAME:-}
+      AT_API_KEY: ${AT_API_KEY:-}
+      AT_SENDER_ID: ${AT_SENDER_ID:-}
+    depends_on:
+      db: {condition: service_healthy}
+      inventory: {condition: service_started}
+      dispatch: {condition: service_started}
+
   dashboard:
     build:
       context: .
@@ -126,9 +154,10 @@ services:
       STORE_ID: ${STORE_ID:-001}
       INVENTORY_URL: http://inventory:8010
       DISPATCH_URL: http://dispatch:8050
+      NOTIFY_URL: http://notify:8070
       UVICORN_ROOT_PATH: /dashboard
     volumes: [dashboard-data:/data]
-    depends_on: [inventory, dispatch]
+    depends_on: [inventory, dispatch, notify]
 
   scan_and_go:
     build: apps/scan_and_go

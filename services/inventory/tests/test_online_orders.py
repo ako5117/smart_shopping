@@ -110,8 +110,9 @@ def test_online_orders_over_http(db):
 
 def test_delivery_orders_carry_their_fee(inv):
     inv.restock(STORE, EAN[MILK], 5, "s1")
-    sale = inv.create_sale("WEB-1", STORE, [Item(MILK, 1)], channel="online", fulfilment="delivery", delivery_fee_kes=150)
-    assert (sale["fulfilment"], sale["delivery_fee_kes"]) == ("delivery", 150)
+    sale = inv.create_sale("WEB-1", STORE, [Item(MILK, 1)], channel="online", fulfilment="delivery", delivery_fee_kes=150,
+                           customer_phone=" 0712345678 ")
+    assert (sale["fulfilment"], sale["delivery_fee_kes"], sale["customer_phone"]) == ("delivery", 150, "0712345678")
     assert inv.create_sale("WEB-2", STORE, [Item(MILK, 1)], channel="online")["fulfilment"] == "collect"
     for bad in ({"channel": "in_store", "fulfilment": "delivery"},  # Scan & Go shoppers carry their own
                 {"channel": "online", "delivery_fee_kes": 100},  # a fee without a delivery

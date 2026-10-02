@@ -7,7 +7,8 @@ ADDED_COLUMNS = {
     "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT"),
               ("channel", "TEXT NOT NULL DEFAULT 'in_store'"), ("customer_name", "TEXT NOT NULL DEFAULT ''"),
               ("ready_at", "TEXT"), ("ready_by", "TEXT"),
-              ("fulfilment", "TEXT NOT NULL DEFAULT 'collect'"), ("delivery_fee_kes", "INTEGER NOT NULL DEFAULT 0")],
+              ("fulfilment", "TEXT NOT NULL DEFAULT 'collect'"), ("delivery_fee_kes", "INTEGER NOT NULL DEFAULT 0"),
+              ("customer_phone", "TEXT NOT NULL DEFAULT ''")],
     "sale_items": [("unit_price_kes", "INTEGER")],
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
@@ -51,7 +52,8 @@ CREATE TABLE IF NOT EXISTS sales (
     ready_at TEXT,  -- online orders: packed and waiting for collection or a rider
     ready_by TEXT,
     fulfilment TEXT NOT NULL DEFAULT 'collect',  -- online orders: collect (at the store) or delivery (by a rider)
-    delivery_fee_kes INTEGER NOT NULL DEFAULT 0
+    delivery_fee_kes INTEGER NOT NULL DEFAULT 0,
+    customer_phone TEXT NOT NULL DEFAULT ''  -- online orders: for order updates by SMS
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),

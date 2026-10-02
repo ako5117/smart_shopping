@@ -39,6 +39,7 @@ Full logic: [`sensor-logic.md`](sensor-logic.md).
 - Online storefront reads live shelf data to show real availability and suggest substitutes. **Started:** [`apps/storefront`](../apps/storefront) — order online, pay with M-Pesa, collect in store.
 - Rider dispatch for remote orders. **Started:** [`services/dispatch`](../services/dispatch) and [`apps/rider`](../apps/rider). The store's own riders deliver, with a 4-digit code as proof of delivery.
 - Card payments. **Started:** hosted card checkout (Paystack) in the online shop and Scan & Go.
+- Texts to customers. **Started:** [`services/notify`](../services/notify) texts online customers by SMS (Africa's Talking) when their order is paid, ready to collect, and on its way.
 
 ## Later — Warehouse / logistics
 
