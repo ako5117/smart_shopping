@@ -1,13 +1,17 @@
-# All Phase 1 services behind one HTTPS front door.
-# Local:        cp .env.example .env && docker compose up -d --build   ->  http://localhost
-# DigitalOcean: same, with SITE_ADDRESS set to your domain (see deploy/README.md)
-# Demo without Safaricom or shelf hardware: set COMPOSE_PROFILES=demo and DARAJA_ENV=simulator in .env
-# (or just run scripts/demo.sh)
+# All the services behind one HTTPS front door.
+# Local demo:   ./scripts/demo.sh  ->  http://localhost (simulators instead of Safaricom, Paystack and shelf hardware)
+# DigitalOcean: scripts/server-setup.sh, scripts/configure.sh, then scripts/deploy.sh (see deploy/README.md)
+
+# Docker keeps every container's output; cap it so a busy store can't fill the disk (50 MB per service).
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "10m", max-file: "5"}
 
 services:
   proxy:
     image: caddy:2.10-alpine
     restart: unless-stopped
+    logging: *logging
     ports: ["80:80", "443:443"]
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
@@ -22,6 +26,7 @@ services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: smartshopping
       POSTGRES_USER: smartshopping
@@ -36,6 +41,13 @@ services:
   inventory:
     build: services/inventory
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
       DATABASE_SCHEMA: inventory
@@ -46,6 +58,13 @@ services:
   payments:
     build: services/payments
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       DARAJA_ENV: ${DARAJA_ENV:-sandbox}
       DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY:-}
@@ -74,6 +93,13 @@ services:
   dispatch:
     build: services/dispatch
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
       DATABASE_SCHEMA: dispatch
@@ -89,6 +115,13 @@ services:
       context: .
       dockerfile: apps/dashboard/Dockerfile
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8020/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       STORE_ID: ${STORE_ID:-001}
       INVENTORY_URL: http://inventory:8010
@@ -100,6 +133,13 @@ services:
   scan_and_go:
     build: apps/scan_and_go
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8030/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       STORE_ID: ${STORE_ID:-001}
       STORE_NAME: ${STORE_NAME:-Smart Shopping}
@@ -113,6 +153,13 @@ services:
   storefront:
     build: apps/storefront
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8040/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       STORE_ID: ${STORE_ID:-001}
       STORE_NAME: ${STORE_NAME:-Smart Shopping}
@@ -128,6 +175,13 @@ services:
   rider:
     build: apps/rider
     restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8060/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       STORE_ID: ${STORE_ID:-001}
       STORE_NAME: ${STORE_NAME:-Smart Shopping}
@@ -141,6 +195,7 @@ services:
     profiles: [demo]
     build: tools/mpesa_simulator
     restart: unless-stopped
+    logging: *logging
     environment:
       SIM_DELAY_S: ${SIM_DELAY_S:-3}
 
@@ -150,15 +205,18 @@ services:
     profiles: [demo]
     build: tools/card_simulator
     restart: unless-stopped
+    logging: *logging
     environment:
       CARD_SIM_PUBLIC_URL: /card-sim
-      CARD_SIM_WEBHOOK_URL: http://proxy/pay/payments/card/webhook
+      # Like Paystack, it posts through the front door: the proxy inside Docker locally, the domain on a server.
+      CARD_SIM_WEBHOOK_URL: ${PUBLIC_BASE_URL:-http://proxy}/pay/payments/card/webhook
 
   # Simulated shelf sensors (services/shelf, live mode). Writes shelf events where the dashboard reads them.
   shelf_sim:
     profiles: [demo]
     build: services/shelf
     restart: unless-stopped
+    logging: *logging
     environment:
       PYTHONUNBUFFERED: "1"
     command: ["python", "-m", "shelf.simulator", "--config", "config.example.json",

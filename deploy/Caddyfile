@@ -17,6 +17,17 @@
 {$SITE_ADDRESS} {
 	encode gzip
 
+	# Browser hardening. HSTS only takes effect over HTTPS (a real domain); camera and location are allowed
+	# for this site only (Scan & Go's scanner, the shop's "Share my location").
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(self), geolocation=(self), microphone=(), payment=()"
+		-Server
+	}
+
 	map {http.auth.user.id} {staff_role} {
 		import /etc/caddy/staff/roles
 		default staff
