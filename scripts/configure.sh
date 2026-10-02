@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 ENV_FILE="${ENV_FILE:-.env}"
 
 die() { echo "$*" >&2; exit 1; }
-current() { [ -f "$ENV_FILE" ] && grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true; }
+current() { if [ -f "$ENV_FILE" ]; then grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true; fi; }
 random() { od -An -tx1 -N24 /dev/urandom | tr -d ' \n'; }
 
 ask() {  # ask VAR "Question" [default]; an existing value in .env wins over the default

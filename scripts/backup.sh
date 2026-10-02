@@ -26,7 +26,7 @@ echo "$(date '+%F %T') backed up the database to $FILE ($(du -h "$FILE" | cut -f
 find "$BACKUP_DIR" -name 'smartshopping-*.dump' -mtime +14 -delete
 
 # Off-site copy: a backup on the same disk doesn't survive losing the Droplet.
-val() { [ -f .env ] && grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; }
+val() { if [ -f .env ]; then grep -E "^$1=" .env | tail -n 1 | cut -d= -f2- || true; fi; }
 BUCKET="$(val SPACES_BUCKET)"
 if [ -n "$BUCKET" ]; then
   REGION="$(val SPACES_REGION)"
