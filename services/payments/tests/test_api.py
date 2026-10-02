@@ -79,3 +79,17 @@ def test_refresh_keeps_pending_while_customer_has_not_responded(client, fake):
     payment_id = start_payment(client)
     fake.query_response = (500, {"errorCode": "500.001.1001", "errorMessage": "The transaction is being processed"})
     assert client.post(f"/payments/{payment_id}/refresh").json()["status"] == "pending"
+
+
+def test_callback_secret_is_hidden_in_the_access_log():
+    import logging
+
+    from app.main import HideCallbackSecret
+    record = logging.LogRecord("uvicorn.access", logging.INFO, __file__, 1, '%s - "%s %s HTTP/%s" %d',
+                               ("172.18.0.2:0", "POST", "/pay/payments/mpesa/callback/4e7024a17cb1?x=1", "1.1", 200), None)
+    HideCallbackSecret().filter(record)
+    assert record.getMessage() == '172.18.0.2:0 - "POST /pay/payments/mpesa/callback/***?x=1 HTTP/1.1" 200'
+    other = logging.LogRecord("uvicorn.access", logging.INFO, __file__, 1, '%s - "%s %s HTTP/%s" %d',
+                              ("1.2.3.4:0", "GET", "/payments/abc", "1.1", 200), None)
+    HideCallbackSecret().filter(other)
+    assert "/payments/abc" in other.getMessage()

@@ -6,7 +6,7 @@
 > - the Scan & Go camera won't open, because browsers only allow the camera on HTTPS pages
 > - real M-Pesa callbacks won't arrive, because Daraja only calls HTTPS addresses
 >
-> A local demo on `http://localhost` works fine with the M-Pesa simulator.
+> A local demo on `http://localhost` works fine with the simulators.
 
 `docker-compose.yml` at the repo root runs all the services behind [Caddy](https://caddyserver.com), which handles HTTPS and the staff login:
 
@@ -120,56 +120,89 @@ Then open:
 
 ## DigitalOcean
 
-1. **Create a Droplet** with the Docker image from the Marketplace (Ubuntu with Docker preinstalled). The Basic 1 GB plan runs the whole stack; 2 GB gives room to grow. Tick **Backups** while creating it (see below).
-2. **Point a domain at it.** Add an `A` record, e.g. `shop.awesomtech.co.ke`, to the Droplet's IP, and wait until it resolves.
-3. **On the Droplet:**
-   ```bash
-   git clone https://github.com/ako5117/smart_shopping.git && cd smart_shopping
-   cp .env.example .env && nano .env
-   ```
-   Set these in `.env`:
-   - `SITE_ADDRESS=shop.awesomtech.co.ke`
-   - `PUBLIC_BASE_URL=https://shop.awesomtech.co.ke`
-   - `CALLBACK_SECRET` and `DB_PASSWORD`
-   - for real M-Pesa, the `DARAJA_*` values (see "Demo mode" above)
-   Then add the logins: `./scripts/staff.sh add <your-name> --manager`, plus one per staff member.
-4. **Start it:**
-   ```bash
-   docker compose up -d --build
-   ```
-   Ports 80 and 443 must be open in the Droplet's firewall. Caddy gets the certificate on first start.
-5. **Load products** on the dashboard's Products page, or run `scripts/seed_demo.py` for demo data.
+Four scripts do the work on the server:
 
-**Updating:**
+| Script | What it does |
+|---|---|
+| `scripts/server-setup.sh` | Once, on a fresh Droplet. Installs Docker, sets the firewall to SSH, HTTP and HTTPS only, adds 2 GB of swap, turns on automatic security updates, sets Nairobi time, and schedules the nightly backup. |
+| `scripts/configure.sh` | Asks a few questions and writes `.env`: domain, live store or partner demo, store name, M-Pesa, cards, delivery areas, off-site backups. It generates the passwords. Run it again to change answers; it keeps the database password. |
+| `scripts/preflight.sh` | Checks everything before a deploy: settings, logins, DNS, disk, memory and backups. It refuses on anything that would break the store or take real money wrongly. |
+| `scripts/deploy.sh` | Preflight, then a database backup, then pulls the latest code, builds, starts, waits until every service is healthy, and checks the public pages. It prints the command to go back to the previous version. |
+
+### Which Droplet
+
+The whole stack uses about **400 MB of memory** when running (measured: Postgres about 65 MB, each service 40–50 MB, the proxy about 12 MB). Building the images needs more, and that's what swap is for.
+
+| Plan | Price | Fits |
+|---|---|---|
+| Basic, 1 GB / 1 CPU | $6 a month | A pilot store. Builds are slow, and lean on swap. |
+| **Basic, 2 GB / 1 CPU** | **$12 a month** | **Recommended:** room for builds, growth and the demo simulators. |
+| + Droplet backups | +20% ($2.40 on 2 GB) | Weekly image of the whole server. |
+| + Spaces | $5 a month (250 GB) | Off-site copies of the nightly database backups. |
+
+Prices are DigitalOcean's list prices; check its pricing page when ordering. Choose a region near Kenya with low latency: **Frankfurt (fra1)** or **London (lon1)**. Choose **Ubuntu 24.04**.
+
+### First deploy
+
+1. **Create the Droplet** (Ubuntu 24.04, 2 GB). Add your SSH key and tick **Backups**. In **Networking → Firewalls**, you can also add a DigitalOcean cloud firewall allowing only 22, 80 and 443. The server's own firewall does the same, so this is a second layer.
+2. **Point the domain at it.** Add an `A` record, e.g. `shop.awesomtech.co.ke`, pointing at the Droplet's IP.
+3. **On the Droplet** (`ssh root@<ip>`):
+   ```bash
+   git clone https://github.com/ako5117/smart_shopping.git /opt/smart_shopping
+   cd /opt/smart_shopping
+   ./scripts/server-setup.sh
+   ./scripts/configure.sh                     # live store, or "demo" for a partner demo
+   ./scripts/staff.sh add <your-name> --manager
+   ./scripts/deploy.sh
+   ```
+   `deploy.sh` stops at the first check if something's missing, such as the domain not resolving yet or no manager login, and says what to do. Caddy gets the HTTPS certificate on the first start; that needs the domain to point at the Droplet and ports 80 and 443 open.
+4. **Add the people:** a login per member of staff (`./scripts/staff.sh add mary`) and per rider (`./scripts/staff.sh add otieno --rider`). Remove anyone who leaves: `./scripts/staff.sh remove mary`.
+5. **Load products** on the dashboard's Products page (prices, categories), and restock to set the starting stock.
+
+### Updating, and going back
+
 ```bash
-git pull && docker compose up -d --build
+cd /opt/smart_shopping
+./scripts/deploy.sh                 # backs up the database first, then updates to the latest code
+./scripts/deploy.sh --ref <commit>  # back to an earlier version (the previous one is printed after each deploy)
 ```
+
+The database is never rolled back by a deploy. If an update went wrong with the data too, restore the backup that `deploy.sh` took just before (see below).
+
+### Going live checklist
+
+- **M-Pesa:** do the **Go Live** process on the Daraja portal for the store's own Paybill or Till.
+  - In `./scripts/configure.sh`, choose `production` and enter the production consumer key and secret, the shortcode and the passkey. For a Till, choose `CustomerBuyGoodsOnline` and enter the till number.
+  - Safaricom sends results to `https://<domain>/pay/payments/mpesa/callback/<secret>`, which is already set up.
+  - The Daraja **security credential** (the encrypted initiator password) isn't needed: it's only for refunds, payouts and balance queries, which aren't built yet. Don't put it anywhere until they are.
+- **Cards** (optional): use a Paystack live key (`sk_live_...`), and set the webhook URL on the Paystack dashboard to `https://<domain>/pay/payments/card/webhook`. Run one test-key payment end to end first.
+- **Delivery areas** and fees for the store (`./scripts/configure.sh`).
+- **Logins:** everyone has their own. Remove the demo logins (`manager`, `staff`, `rider`) if the server was a demo first.
+- **Backups:** `./scripts/preflight.sh` shows whether the nightly backup is scheduled and whether copies go off-site.
+- **A real purchase:** buy something cheap with Scan & Go and the online shop, check it on the dashboard, then refund it by hand.
 
 ## Your data, and backing it up
 
-Products, stock, sales, payments and who-did-what all live in one PostgreSQL database, kept in the Docker volume `db-data`. It survives restarts, rebuilds and `git pull` updates.
+Products, stock, sales, payments, deliveries and who-did-what all live in one PostgreSQL database, kept in the Docker volume `db-data`. It survives restarts, rebuilds and updates.
 
 > ⚠️ **`docker compose down -v` deletes all data.** The `-v` removes the volumes. To stop the stack, use `docker compose down` (without `-v`) or `docker compose stop`.
 
-Use one or both of these:
+There are three layers:
 
-- **DigitalOcean backups:** an image of the whole Droplet, weekly (+20% of the Droplet price) or daily (+30%). Turn it on under the Droplet's **Backups** tab. Restoring rolls back the whole server.
-- **Nightly database backups:** `scripts/backup.sh` runs `pg_dump`, which is safe while the services are running. It saves `smartshopping-<date>.dump` to `./backups` and keeps 14 days. Add it to cron on the Droplet:
-  ```bash
-  crontab -e
-  # then add this line:
-  30 2 * * * cd /root/smart_shopping && ./scripts/backup.sh >> /var/log/smart-shopping-backup.log 2>&1
-  ```
-  Copy `./backups` off the server now and then (e.g. to DigitalOcean Spaces or a laptop). A backup on the same disk doesn't survive losing the Droplet.
+- **Nightly database backup:** `scripts/backup.sh`, scheduled for 02:30 by `server-setup.sh`. It runs `pg_dump`, which is safe while the services are running. It keeps 14 days in `/opt/smart_shopping/backups`, and logs to `/var/log/smart-shopping-backup.log`. `deploy.sh` also takes one before every update.
+- **Off-site copies:** with a Spaces bucket set in `configure.sh` (create the bucket and an access key under **Spaces Object Storage** on DigitalOcean), each backup is also copied to `smart-shopping/` in the bucket. A backup on the Droplet's own disk doesn't survive losing the Droplet. Set a lifecycle rule on the bucket to delete copies after 90 days.
+- **Droplet backups:** a weekly image of the whole server, +20% of the Droplet price. Restoring rolls back everything, code and data.
 
-To restore a backup (this replaces the current data):
+To restore a database backup (this replaces the current data):
 ```bash
-docker compose stop inventory payments
+cd /opt/smart_shopping
+docker compose stop inventory payments dispatch
 docker compose exec -T db pg_restore -U smartshopping -d smartshopping --clean --if-exists < backups/smartshopping-2026-10-01_0230.dump
-docker compose start inventory payments
+docker compose start inventory payments dispatch
 ```
+For a copy from Spaces, download it first, e.g. from the Spaces page in the DigitalOcean control panel, into `backups/`.
 
-**Managed database (optional, later):** with several stores, DigitalOcean Managed PostgreSQL (from about $15 a month) takes over backups, updates and failover. Point `DATABASE_URL` for `inventory` and `payments` at it (add `?sslmode=require`) and drop the `db` service.
+**Managed database (optional, later):** with several stores, DigitalOcean Managed PostgreSQL (from about $15 a month) takes over backups, updates and failover. Point `DATABASE_URL` for `inventory`, `payments` and `dispatch` at it (add `?sslmode=require`) and drop the `db` service.
 
 ## Notes
 
