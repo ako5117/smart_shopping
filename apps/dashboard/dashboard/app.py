@@ -8,6 +8,7 @@ still works (and the other way round). The page shows which source failed.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,10 +22,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
-from .sources import DispatchClient, InventoryClient, load_catalogue, read_shelf_events
+from .sources import DispatchClient, InventoryClient, NotifyClient, load_catalogue, read_shelf_events
 
 log = logging.getLogger("dashboard")
 STATIC = Path(__file__).parent / "static"
+DELIVERY_CODE = re.compile(r"(\b[Dd]elivery code (?:is )?)\d{4}\b")
 
 
 class CountIn(BaseModel):
@@ -207,11 +209,13 @@ def build_overview(settings: Settings, inventory: InventoryClient, now: Optional
 
 
 def create_app(settings: Optional[Settings] = None, inventory: Optional[InventoryClient] = None,
-               dispatch: Optional[DispatchClient] = None) -> FastAPI:
+               dispatch: Optional[DispatchClient] = None, notify: Optional[NotifyClient] = None) -> FastAPI:
     settings = settings or load_settings()
     inventory = inventory or InventoryClient(settings.inventory_url)
     if dispatch is None and settings.dispatch_url:
         dispatch = DispatchClient(settings.dispatch_url)
+    if notify is None and settings.notify_url:
+        notify = NotifyClient(settings.notify_url)
     app = FastAPI(title="Smart Shopping - Store Dashboard")
 
     @app.get("/health")
@@ -377,6 +381,32 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     def retry_delivery(sale_id: str, body: ReadyIn, staff: Staff = Depends(current_staff)):
         """After a failed delivery or locked code: staff spoke to the customer, the rider tries again."""
         return deliver_action(sale_id, "retry", {"by": acting_name(staff, body.packed_by)})
+
+    @app.get("/api/texts")
+    def texts():
+        """The latest texts to online customers: what was sent, to whom, and whether it went."""
+        if notify is None:
+            return {"on": False, "messages": [], "error": None}
+        try:
+            messages = notify.messages(50)
+        except httpx.HTTPError as e:
+            log.warning("Notification Service unavailable: %s", e)
+            return {"on": True, "messages": [], "error": "Texts can't be shown right now: the Notification Service is unavailable."}
+        for m in messages:  # the delivery code is the customer's alone (see services/dispatch/README.md)
+            m["body"] = DELIVERY_CODE.sub(r"\1****", m["body"])
+        return {"on": True, "messages": messages, "error": None}
+
+    @app.post("/api/texts/{message_id}/resend")
+    def resend_text(message_id: int, staff: Staff = Depends(current_staff)):
+        """Send a text again: it failed, or the customer says it never came."""
+        if notify is None:
+            raise HTTPException(404, "Texts to customers aren't set up for this store.")
+        try:
+            m = _passthrough(notify.resend(message_id))
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Notification Service unavailable: {e}")
+        log.info("Text %s resent by %s", message_id, staff.name or "a staff member")
+        return {**m, "body": DELIVERY_CODE.sub(r"\1****", m["body"])}
 
     @app.get("/api/overview")
     def overview():

@@ -23,6 +23,10 @@
   .order .deliver .pill { white-space: normal; }
   .order { min-width: 0; overflow-wrap: anywhere; }
   .riders { display: flex; flex-wrap: wrap; gap: 6px; }
+  .texts { width: 100%; border-collapse: collapse; }
+  .texts td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .texts td.body { overflow-wrap: anywhere; }
+  .texts button { padding: 4px 10px; }
 </style>
 </head>
 <body>
@@ -55,6 +59,12 @@
     <h2>Riders</h2>
     <div class="riders" id="riders"></div>
     <div class="muted" style="margin-top:6px">Riders sign in at /rider/ on their phone. Add a rider login with <code>scripts/staff.sh add &lt;name&gt; --rider</code>.</div>
+  </section>
+  <section id="texts-section" hidden>
+    <h2>Texts to customers</h2>
+    <div class="muted" style="margin-bottom:6px">Customers are texted when their order is paid, ready to collect, and on its way. Newest first.</div>
+    <div id="texts-error" class="banner" hidden></div>
+    <table class="texts"><tbody id="texts"></tbody></table>
   </section>
 </main>
 
@@ -155,8 +165,44 @@ async function load() {
     $("banner").hidden = false;
     $("banner").textContent = "Could not load orders: " + err.message;
   }
+  loadTexts();
   timer = setTimeout(load, 10000);
 }
+
+const TEXT_KIND = {paid: "Paid", ready: "Ready", on_the_way: "On the way"};
+async function loadTexts() {
+  try {
+    const body = await api("api/texts");
+    $("texts-section").hidden = !body.on;
+    $("texts-error").hidden = !body.error;
+    $("texts-error").textContent = body.error || "";
+    $("texts").innerHTML = body.messages.map((m) => {
+      const state = m.status === "sent" ? `<span class="pill ok">Sent ${time(m.sent_at)}</span>`
+        : m.status === "failed" ? `<span class="pill bad">Failed</span> <span class="muted">${esc(m.error)}</span>`
+        : `<span class="pill warn">Sending${m.attempts ? ` (try ${m.attempts + 1})` : ""}</span>`;
+      const again = m.to_number.startsWith("+254") && m.status !== "queued"
+        ? `<button class="secondary" data-resend="${m.message_id}">Send again</button>` : "";
+      return `<tr><td><b>${esc(m.sale_id.slice(-8))}</b><br><span class="muted">${esc(TEXT_KIND[m.kind] || m.kind)}</span></td>
+        <td>${esc(m.to_number)}<br>${state}</td><td class="body">${esc(m.body)}</td><td>${again}</td></tr>`;
+    }).join("") || `<tr><td class="empty">No texts yet.</td></tr>`;
+  } catch (err) {
+    $("texts-error").hidden = false;
+    $("texts-error").textContent = "Could not load texts: " + err.message;
+  }
+}
+
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button[data-resend]");
+  if (!t) return;
+  t.disabled = true;
+  try {
+    await api(`api/texts/${encodeURIComponent(t.dataset.resend)}/resend`, {method: "POST"});
+  } catch (err) {
+    $("texts-error").hidden = false;
+    $("texts-error").textContent = "Could not resend: " + err.message;
+  }
+  loadTexts();
+});
 
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-ready], button[data-assign], button[data-unassign], button[data-handover], button[data-retry]");

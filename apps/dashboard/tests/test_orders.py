@@ -1,3 +1,11 @@
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from dashboard.app import create_app
+from dashboard.sources import NotifyClient
+
+
 def test_online_orders_to_pack(client):
     body = client.get("/api/orders").json()
     assert body["deliveries_on"] is False and body["out"] == []
@@ -85,3 +93,64 @@ def test_dispatch_down_still_shows_orders(delivery_client, fake, dispatch_fake):
 def test_no_dispatch_service_no_delivery_actions(client):
     assert client.post("/api/orders/WEB-00000000000000B2/assign", json={"rider_id": "otieno"},
                        headers={"X-Staff-User": "mary"}).status_code == 404
+
+
+class FakeNotify:
+    def __init__(self):
+        self.down = False
+        self.messages = [
+            {"message_id": 2, "kind": "ready", "sale_id": "WEB-00000000000000A1", "to_number": "+254712345678",
+             "body": "Shop: order 000000A1 is ready.", "status": "failed", "attempts": 1, "error": "Blocked",
+             "sent_at": None},
+            {"message_id": 1, "kind": "paid", "sale_id": "WEB-00000000000000A1", "to_number": "+254712345678",
+             "body": "Shop: order 000000A1 is paid, KES 350. Your delivery code is 0427. Give it to the rider.",
+             "status": "sent", "attempts": 1, "error": "",
+             "sent_at": "2026-10-01T09:00:00+00:00"}]
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            raise httpx.ConnectError("connection refused", request=request)
+        if request.url.path == "/messages":
+            return httpx.Response(200, json=self.messages)
+        message_id = int(request.url.path.split("/")[2])
+        m = next((m for m in self.messages if m["message_id"] == message_id), None)
+        if m is None:
+            return httpx.Response(404, json={"detail": f"No text {message_id}"})
+        m.update(status="queued", attempts=0, error="")
+        return httpx.Response(200, json=m)
+
+
+@pytest.fixture
+def notify_fake():
+    return FakeNotify()
+
+
+@pytest.fixture
+def texts_client(settings, inventory, notify_fake):
+    notify = NotifyClient("http://notify.test", http=httpx.Client(
+        base_url="http://notify.test", transport=httpx.MockTransport(notify_fake.handler)))
+    return TestClient(create_app(settings, inventory, notify=notify))
+
+
+def test_texts_off_without_notify(client):
+    assert client.get("/api/texts").json() == {"on": False, "messages": [], "error": None}
+    assert client.post("/api/texts/1/resend").status_code == 404
+
+
+def test_texts_listed_and_resent(texts_client, notify_fake):
+    body = texts_client.get("/api/texts").json()
+    assert body["on"] is True and [m["status"] for m in body["messages"]] == ["failed", "sent"]
+    # Staff don't see the delivery code: it's the customer's alone.
+    assert body["messages"][1]["body"] == "Shop: order 000000A1 is paid, KES 350. Your delivery code is ****. Give it to the rider."
+    assert "0427" not in texts_client.post("/api/texts/1/resend").text
+    r = texts_client.post("/api/texts/2/resend", headers={"X-Staff-User": "mary", "X-Staff-Role": "staff"})
+    assert r.status_code == 200 and r.json()["status"] == "queued"
+    assert texts_client.post("/api/texts/99/resend").status_code == 404
+
+
+def test_notify_down(texts_client, notify_fake):
+    notify_fake.down = True
+    body = texts_client.get("/api/texts").json()
+    assert body["messages"] == [] and "unavailable" in body["error"]
+    assert texts_client.post("/api/texts/2/resend").status_code == 502
+    assert texts_client.get("/api/orders").status_code == 200  # orders still work
