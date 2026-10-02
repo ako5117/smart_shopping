@@ -44,7 +44,7 @@ smart_shopping/
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
 ├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide
-├── scripts/                 # demo.sh (one-command demo), seed_demo.py, backup.sh
+├── scripts/                 # demo.sh, server-setup.sh, configure.sh, preflight.sh, deploy.sh, backup.sh, staff.sh
 ├── tools/mpesa_simulator/   # Stand-in for Safaricom Daraja, for demos
 ├── tools/card_simulator/    # Stand-in for Paystack's card checkout, for demos
 └── apps/
@@ -56,7 +56,9 @@ smart_shopping/
 
 ## Try it
 
-With Docker installed: `./scripts/demo.sh` starts everything with demo data, the M-Pesa simulator and simulated shelf sensors. Then follow [`docs/demo-walkthrough.md`](docs/demo-walkthrough.md).
+With Docker installed: `./scripts/demo.sh` starts everything with demo data, the M-Pesa and card simulators and simulated shelf sensors. Then follow [`docs/demo-walkthrough.md`](docs/demo-walkthrough.md).
+
+To run it on a DigitalOcean Droplet with HTTPS, see [`deploy/README.md`](deploy/README.md): four scripts set up the server, write the settings, check them, and deploy. The tests run on every pull request (`.github/workflows/tests.yml`).
 
 ## Tooling
 
