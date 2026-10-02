@@ -94,6 +94,9 @@ class FakePayments:
         self.payments = {}
         self.pushes = []
         self.fail_push = None
+        self.cards = True
+        self.card_checkouts = []
+        self.refreshes = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
@@ -108,8 +111,24 @@ class FakePayments:
                                   "mpesa_receipt_number": None, "result_desc": None,
                                   "created_at": NOW.isoformat(), "updated_at": NOW.isoformat()}
             return httpx.Response(202, json={"payment_id": pid, "status": "pending"})
+        if path == "/payments/methods":
+            return httpx.Response(200, json={"mpesa": True, "card": self.cards, "card_provider": "simulator"})
+        if method == "POST" and path == "/payments/card/checkout":
+            body = json.loads(request.content)
+            self.card_checkouts.append(body)
+            if not self.cards:
+                return httpx.Response(404, json={"detail": "off"})
+            pid = f"card-{len(self.card_checkouts)}"
+            self.payments[pid] = {"payment_id": pid, "sale_id": body["sale_id"], "method": "card", "status": "pending",
+                                  "amount": body["amount"], "phone_number": "", "email": body["email"],
+                                  "mpesa_receipt_number": None, "result_desc": None, "card_brand": None,
+                                  "card_last4": None, "created_at": NOW.isoformat(), "updated_at": NOW.isoformat()}
+            return httpx.Response(201, json={"payment_id": pid, "status": "pending",
+                                             "checkout_url": f"/card-sim/pay/{pid}"})
         if path.startswith("/payments/"):
             parts = path.split("/")
+            if method == "POST" and parts[-1] == "refresh":
+                self.refreshes.append(parts[2])
             p = self.payments.get(parts[2])
             if not p:
                 return httpx.Response(404, json={"detail": "Payment not found"})
@@ -119,6 +138,8 @@ class FakePayments:
     def settle(self, pid, status, receipt=None):
         p = self.payments[pid]
         p.update(status=status, mpesa_receipt_number=receipt)
+        if p.get("method") == "card" and status == "paid":
+            p.update(card_brand="Visa", card_last4="4081")
         if status == "paid":
             self.inventory.pay(p["sale_id"])
 

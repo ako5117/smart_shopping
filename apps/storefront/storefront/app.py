@@ -31,7 +31,7 @@ from typing import Dict, List, Literal, Optional
 
 import httpx
 import segno
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
@@ -77,10 +77,14 @@ class OrderIn(BaseModel):
     items: List[Line] = Field(..., min_length=1)
     fulfilment: Literal["collect", "delivery"] = "collect"
     delivery: Optional[DeliveryIn] = None
+    payment_method: Literal["mpesa", "card"] = "mpesa"
+    email: Optional[str] = Field(None, max_length=120, description="Card payments: the card receipt goes here")
 
 
 class PayIn(BaseModel):
-    phone: str = Field(..., min_length=9, max_length=16)
+    method: Literal["mpesa", "card"] = "mpesa"
+    phone: Optional[str] = Field(None, min_length=9, max_length=16)
+    email: Optional[str] = Field(None, max_length=120)
 
 
 class RateLimiter:
@@ -200,6 +204,20 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 "fee": d["fee_kes"], "pin": d["pin"] if sale["status"] == "paid" else None, "rider": rider,
                 "picked_up_at": d.get("picked_up_at"), "delivered_at": d.get("delivered_at")}
 
+    def fetch_methods() -> dict:
+        r = payments.get("/payments/methods")
+        r.raise_for_status()
+        return r.json()
+
+    methods_cache = Cached(fetch_methods, settings.products_cache_s)
+
+    def card_available() -> bool:
+        try:
+            return bool(methods_cache.get().get("card"))
+        except httpx.HTTPError as e:
+            log.warning("Payments unavailable: %s", e)
+            return False
+
     products_cache = Cached(fetch_products, settings.products_cache_s)
     held_cache = Cached(fetch_held, settings.stock_cache_s)
     shelf_cache = Cached(lambda: read_recent_lines(settings.shelf_events_path), settings.stock_cache_s)
@@ -236,6 +254,22 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             raise HTTPException(502, "M-Pesa could not send the payment request. Please try again.")
         return r.json()
 
+    def start_card_payment(sale_id: str, email: Optional[str], amount: int, request: Request) -> dict:
+        """Get a hosted card checkout page for this order; the customer comes back to the shop afterwards."""
+        if not card_available():
+            raise HTTPException(503, "Card payments aren't available right now. Please pay with M-Pesa.")
+        if not email or "@" not in email:
+            raise HTTPException(422, "Enter your email address: the card receipt goes there.")
+        return_url = f"{str(request.base_url).rstrip('/')}/?order={sale_id}"
+        r = upstream("Payments", lambda: payments.post("/payments/card/checkout", json={
+            "sale_id": sale_id, "amount": amount, "email": email.strip(), "return_url": return_url}))
+        if r.status_code == 422:
+            raise HTTPException(422, "Enter a valid email address for the card receipt.")
+        if r.status_code >= 400:
+            log.error("Card checkout for %s failed: %s %s", sale_id, r.status_code, r.text[:200])
+            raise HTTPException(502, "Card payment couldn't start. Please try again, or pay with M-Pesa.")
+        return r.json()
+
     def not_enough(short: List[dict], products: List[dict], available: Dict[str, int]):
         by_id = {p["product_id"]: p for p in products}
         detail = [{**s, "name": by_id.get(s["product_id"], {}).get("name", s["product_id"]),
@@ -266,7 +300,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     def store():
         areas = delivery_areas()
         return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES",
-                "hold_minutes": settings.order_hold_min,
+                "hold_minutes": settings.order_hold_min, "card": card_available(),
                 "delivery": {"available": bool(areas),
                              "areas": [{"area": a, "fee": fee} for a, fee in (areas or {}).items()]}}
 
@@ -287,7 +321,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 "shelf_live": live["shelf_live"], "updated_at": clock().isoformat()}
 
     @app.post("/api/orders", status_code=201)
-    def place_order(body: OrderIn):
+    def place_order(body: OrderIn, request: Request):
         merged: Dict[str, int] = {}
         for line in body.items:
             merged[line.product_id] = merged.get(line.product_id, 0) + line.qty
@@ -354,16 +388,20 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 held_cache.clear()
                 raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
         try:
-            payment = start_payment(sale_id, body.phone, total)
+            if body.payment_method == "card":
+                payment = start_card_payment(sale_id, body.email, total, request)
+            else:
+                payment = start_payment(sale_id, body.phone, total)
         except HTTPException:
             upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
             held_cache.clear()
             raise
-        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total}
+        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total,
+                "checkout_url": payment.get("checkout_url")}
 
     @app.post("/api/orders/{order_id}/pay", status_code=201)
-    def pay_again(order_id: str, body: PayIn):
-        """Retry after a cancelled or failed M-Pesa prompt, while the order still holds its items."""
+    def pay_again(order_id: str, body: PayIn, request: Request):
+        """Try again after a cancelled or failed payment, by M-Pesa or card, while the order still holds its items."""
         sale = online_sale(order_id)
         if sale["status"] != "pending_payment":
             raise HTTPException(409, "This order is already paid." if sale["status"] == "paid" else "This order was cancelled.")
@@ -371,8 +409,14 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             upstream("Inventory", lambda: inventory.post(f"/sales/{order_id}/cancel"))
             raise HTTPException(409, "This order has expired and its items were released. Please place it again.")
         total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
-        payment = start_payment(order_id, body.phone, total)
-        return {"order_id": order_id, "payment_id": payment["payment_id"], "total": total}
+        if body.method == "card":
+            payment = start_card_payment(order_id, body.email, total, request)
+        elif body.phone:
+            payment = start_payment(order_id, body.phone, total)
+        else:
+            raise HTTPException(422, "Enter your M-Pesa number.")
+        return {"order_id": order_id, "payment_id": payment["payment_id"], "total": total,
+                "checkout_url": payment.get("checkout_url")}
 
     @app.get("/api/orders/{order_id}/payments/{payment_id}")
     def order_status(order_id: str, payment_id: str):
@@ -384,7 +428,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         payment = r.json()
         if payment.get("sale_id") != order_id:
             raise HTTPException(404, "Order not found")
-        if payment["status"] == "pending" and _age_s(payment, clock()) >= REFRESH_AFTER_S:
+        # Cards: ask the provider straight away (the customer has just come back from the card page).
+        # M-Pesa: give the callback time to arrive before asking Daraja.
+        if payment["status"] == "pending" and (payment.get("method") == "card" or _age_s(payment, clock()) >= REFRESH_AFTER_S):
             refreshed = upstream("Payments", lambda: payments.post(f"/payments/{payment_id}/refresh"))
             if refreshed.status_code == 200:
                 payment = refreshed.json()
@@ -408,6 +454,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "fulfilment": sale.get("fulfilment", "collect"),
             "delivery": delivery,
             "payment_status": payment["status"],
+            "payment_method": payment.get("method", "mpesa"),
+            "card": f"{payment.get('card_brand') or 'Card'} •••• {payment['card_last4']}" if payment.get("card_last4") else None,
             "mpesa_receipt": payment.get("mpesa_receipt_number"),
             "phone": mask_phone(payment.get("phone_number", "")),
             "amount": payment.get("amount"),
