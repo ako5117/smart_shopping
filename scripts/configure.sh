@@ -115,7 +115,9 @@ else
     ask AT_USERNAME "Africa's Talking username (sandbox for testing)" "sandbox"
     ask_secret AT_API_KEY "Africa's Talking API key"
     ask AT_SENDER_ID "Sender ID texts come from, once approved (Enter: Africa's Talking's shared number)" ""
-    [ -n "$AT_USERNAME" ] && [ -n "$AT_API_KEY" ] || die "Texts need the Africa's Talking username and API key."
+    if [ -z "$AT_USERNAME" ] || [ -z "$AT_API_KEY" ]; then
+      die "Texts need the Africa's Talking username and API key."
+    fi
   else
     SMS_PROVIDER=""; AT_USERNAME=""; AT_API_KEY=""; AT_SENDER_ID=""
   fi
