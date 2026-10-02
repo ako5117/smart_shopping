@@ -16,7 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [services/inventory, services/payments, services/dispatch, services/shelf,
+        suite: [services/inventory, services/payments, services/dispatch, services/notify,
+                services/shelf,
                 apps/dashboard, apps/scan_and_go, apps/storefront, apps/rider]
         postgres: [false]
         include:
@@ -24,6 +25,7 @@ jobs:
           - {suite: services/inventory, postgres: true}
           - {suite: services/payments, postgres: true}
           - {suite: services/dispatch, postgres: true}
+          - {suite: services/notify, postgres: true}
     services:
       postgres:
         image: ${{ matrix.postgres && 'postgres:17-alpine' || '' }}
