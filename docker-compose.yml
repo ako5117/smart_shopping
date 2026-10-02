@@ -55,6 +55,9 @@ services:
       DARAJA_TRANSACTION_TYPE: ${DARAJA_TRANSACTION_TYPE:-CustomerPayBillOnline}
       DARAJA_PARTY_B: ${DARAJA_PARTY_B:-}
       DARAJA_SIM_URL: http://mpesa_sim:8099
+      CARD_PROVIDER: ${CARD_PROVIDER:-}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      CARD_SIM_URL: http://card_sim:8098
       # Callbacks come back through the proxy. Without a public address (simulator demo) that's the proxy
       # inside Docker; the Payments Service refuses to start on sandbox/production without an https:// one.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://proxy}/pay
@@ -140,6 +143,16 @@ services:
     restart: unless-stopped
     environment:
       SIM_DELAY_S: ${SIM_DELAY_S:-3}
+
+  # Stand-in for Paystack's card checkout (tools/card_simulator). Only runs with the "demo" profile.
+  # Customers' browsers reach its test payment page at /card-sim/; its webhooks go through the proxy.
+  card_sim:
+    profiles: [demo]
+    build: tools/card_simulator
+    restart: unless-stopped
+    environment:
+      CARD_SIM_PUBLIC_URL: /card-sim
+      CARD_SIM_WEBHOOK_URL: http://proxy/pay/payments/card/webhook
 
   # Simulated shelf sensors (services/shelf, live mode). Writes shelf events where the dashboard reads them.
   shelf_sim:

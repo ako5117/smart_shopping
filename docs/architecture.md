@@ -33,6 +33,7 @@ graph TD
     DIS["Dispatch Service (Phase 2)<br/>riders, deliveries"]
     RID["Rider app"]
     DAR["Safaricom Daraja"]
+    CARD["Card provider (Paystack)<br/>hosted checkout"]
 
     ESP -->|weight events| MQ
     MQ --> SS
@@ -52,6 +53,7 @@ graph TD
     DIS -->|order paid? handed over| INV
     DIS <--> DB
     PAY <-->|STK Push + callback| DAR
+    PAY <-->|checkout, verify, signed webhook| CARD
     PAY -->|payment confirmed| INV
     PAY -.->|sale completed| TAX
     INV <--> ADP

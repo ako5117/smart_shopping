@@ -24,7 +24,7 @@ Full logic: [`sensor-logic.md`](sensor-logic.md).
 ### Checkout
 
 - **M-Pesa** via the Safaricom Daraja API (STK Push) — Phase 1. Service: [`services/payments`](../services/payments).
-- **Card payments** — Phase 2.
+- **Card payments** — Phase 2. **Started:** hosted card checkout (Paystack) in the online shop and Scan & Go; see [`services/payments`](../services/payments).
 - **eTIMS e-receipts** — placeholder in the architecture. Integration route under review (third-party gateway documentation received).
 - **Self-checkout trust:** exit check (staff or receipt scan) assumed for supermarket pilots. Lower-risk environments such as airport duty-free shops are the preferred first market.
 
@@ -38,7 +38,7 @@ Full logic: [`sensor-logic.md`](sensor-logic.md).
 
 - Online storefront reads live shelf data to show real availability and suggest substitutes. **Started:** [`apps/storefront`](../apps/storefront) — order online, pay with M-Pesa, collect in store.
 - Rider dispatch for remote orders. **Started:** [`services/dispatch`](../services/dispatch) and [`apps/rider`](../apps/rider). The store's own riders deliver, with a 4-digit code as proof of delivery.
-- Card payments.
+- Card payments. **Started:** hosted card checkout (Paystack) in the online shop and Scan & Go.
 
 ## Later — Warehouse / logistics
 

@@ -5,7 +5,9 @@
 #   /rider/...      Rider app         riders (and managers)
 #   /inventory/...  Inventory API     managers only
 #   /dispatch/...   Dispatch API      managers only
-#   /pay/...        Payments API      managers only, except the M-Pesa callback (Daraja must reach it)
+#   /pay/...        Payments API      managers only, except the M-Pesa callback and the card webhook
+#                                     (Daraja and the card provider must reach them)
+#   /card-sim/...   Card simulator    demo only (COMPOSE_PROFILES=demo); not running otherwise
 # The prefix is stripped before the request reaches the service.
 #
 # Staff accounts live in deploy/staff/ (users: "name bcrypt-hash", roles: "name manager" or "name rider"), managed with
@@ -47,11 +49,27 @@
 		}
 	}
 
+	# The card provider's webhook: signed with the provider's secret key, checked by the Payments Service.
+	handle /pay/payments/card/webhook {
+		uri strip_prefix /pay
+		reverse_proxy payments:8000 {
+			header_up -X-Staff-User
+			header_up -X-Staff-Role
+		}
+	}
+
+	handle_path /card-sim/* {
+		reverse_proxy card_sim:8098 {
+			header_up -X-Staff-User
+			header_up -X-Staff-Role
+		}
+	}
+
 	redir /dashboard /dashboard/ 301
 	redir /rider /rider/ 301
 	@staff {
 		path /pay /pay/* /inventory /inventory/* /dispatch /dispatch/* /dashboard/* /rider/*
-		not path /pay/payments/mpesa/callback/*
+		not path /pay/payments/mpesa/callback/* /pay/payments/card/webhook
 	}
 	basic_auth @staff {
 		import /etc/caddy/staff/users

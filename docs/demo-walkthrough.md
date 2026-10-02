@@ -33,6 +33,11 @@ Everything else is the real software.
 | ends in `000`, e.g. `0712 345 000` | Customer cancels on the phone |
 | ends in `111` | Fails: insufficient funds |
 
+| Card number to pay with | What the card simulator does |
+|---|---|
+| `4084 0840 8408 4081` | Pays |
+| `4000 0000 0000 0002` | Declined |
+
 ## The demo
 
 ### 1. The store at a glance (Staff: Overview), 2 min
@@ -59,6 +64,13 @@ Everything else is the real software.
   - Narrate: "an M-Pesa prompt now appears on the customer's phone and they enter their PIN."
   - The simulator approves it after 3 seconds.
 - **The PAID pass:** order code, QR code, M-Pesa reference, and a live clock. The clock makes an old screenshot easy to spot at the door.
+
+**Optional, pay by card** (for visitors without M-Pesa, such as travellers at a duty-free shop):
+- Start a new basket and tap **Checkout**. Choose **Card** and type an email address.
+- The phone goes to a test card payment page. Type `4084 0840 8408 4081`, then pay.
+- The phone comes back to the same green **PAID** pass, with "Paid by card Visa •••• 4081".
+- Point out that card details are typed on the card provider's page, never on ours.
+- `4000 0000 0000 0002` shows a declined card: nothing is charged, and the customer can try again or pay with M-Pesa.
 
 **Optional, a failed payment:** start a new basket, add bread, and pay with `0712 345 000`.
 - The customer "cancels" and the app says nothing was charged.

@@ -61,7 +61,11 @@ if ! grep -q '^DB_PASSWORD=.' .env; then  # .env from before the shared database
   grep -q '^DB_PASSWORD=' .env || echo 'DB_PASSWORD=' >> .env
   sed -i.bak "s|^DB_PASSWORD=.*|DB_PASSWORD=$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')|" .env && rm -f .env.bak
 fi
-grep -q '^COMPOSE_PROFILES=demo' .env || echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
+if grep -q '^COMPOSE_PROFILES=demo' .env; then
+  grep -q '^CARD_PROVIDER=' .env || echo 'CARD_PROVIDER=simulator' >> .env  # .env from before card payments
+else
+  echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
+fi
 
 say "Building and starting the services (the first build takes a few minutes)..."
 docker compose up -d --build
@@ -93,6 +97,7 @@ cat <<EOF
                     rider   / ${rider_pw:-?}
 
   M-Pesa simulator: any phone number pays after 3 s; ending 000 cancels; ending 111 fails.
+  Card simulator:   4084 0840 8408 4081 pays; 4000 0000 0000 0002 is declined.
   Shelf sensors are simulated: new shelf activity every few seconds on the dashboard.
   Barcodes to type in Scan & Go: 6161000000040 (milk), 6161000000026 (sugar), 6161000000064 (bread)
 
