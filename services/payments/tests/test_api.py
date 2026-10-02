@@ -93,3 +93,32 @@ def test_callback_secret_is_hidden_in_the_access_log():
                               ("1.2.3.4:0", "GET", "/payments/abc", "1.1", 200), None)
     HideCallbackSecret().filter(other)
     assert "/payments/abc" in other.getMessage()
+
+
+def test_slow_inventory_doesnt_hold_up_other_payments(settings, daraja):
+    """Telling the Inventory Service can take seconds (retries while it's down); other requests carry on meanwhile."""
+    import asyncio
+    import time
+
+    import httpx
+
+    from app.main import create_app
+    from tests.conftest import fresh_store
+
+    app = create_app(settings=settings, daraja=daraja, store=fresh_store(), on_paid=lambda payment: time.sleep(1.0))
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://payments") as c:
+            started = (await c.post("/payments/mpesa/stk-push", json={"sale_id": "S1", "phone": "0712345678",
+                                                                       "amount": 10})).json()
+            assert started["status"] == "pending"
+            t = time.monotonic()
+            callback = asyncio.create_task(c.post(f"/payments/mpesa/callback/{SECRET}",
+                                                  json=callback_body("ws_CO_191220191020363925")))
+            await asyncio.sleep(0.1)  # the callback is now waiting on the Inventory Service
+            assert (await c.get("/health")).status_code == 200
+            waited = time.monotonic() - t
+            assert (await callback).status_code == 200
+            return waited
+
+    assert asyncio.run(run()) < 0.5
