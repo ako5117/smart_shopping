@@ -186,3 +186,24 @@ def test_lists_by_rider_and_status(dispatch, inventory):
     assert [d["sale_id"] for d in dispatch.list(STORE, ["unassigned"])] == ["WEB-3"]
     with pytest.raises(ValueError):
         dispatch.list(STORE, ["lost"])
+
+
+def test_codes_sent_at_once_cant_get_past_the_limit(dispatch, inventory):
+    """Every request read the delivery before any wrong try was counted (as when they arrive together)."""
+    pin = out_with_rider(dispatch, inventory)
+    wrong = "0000" if pin != "0000" else "1111"
+    stale = dispatch._current("WEB-1")
+    dispatch._current = lambda sale_id: dict(stale)
+    outcomes = []
+    for _ in range(8):
+        try:
+            dispatch.deliver("WEB-1", "otieno", wrong)
+        except WrongPin as e:
+            outcomes.append(e.attempts_left)
+        except Locked:
+            outcomes.append("locked")
+    assert outcomes == [4, 3, 2, 1, "locked", "locked", "locked", "locked"]
+    with pytest.raises(Locked):
+        dispatch.deliver("WEB-1", "otieno", pin)  # the right code doesn't slip through after the lock either
+    del dispatch._current
+    assert dispatch.get("WEB-1")["pin_attempts"] == 5 and dispatch.get("WEB-1")["status"] == "picked_up"

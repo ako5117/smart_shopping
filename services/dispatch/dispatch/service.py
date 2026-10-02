@@ -230,16 +230,30 @@ class Dispatch:
             raise Conflict(self._why_not(d, "deliver"))
         if d["pin_attempts"] >= MAX_PIN_ATTEMPTS:
             raise Locked("Too many wrong codes. Call the store.")
+        # Each try is counted in the database, checking the limit in the same statement, so codes sent at the
+        # same moment can't get past it.
         if not secrets.compare_digest(pin.strip(), d["pin"]):
             with self.db.tx() as c:
-                c.execute("UPDATE deliveries SET pin_attempts = pin_attempts + 1, updated_at = ? WHERE sale_id = ?",
-                          (now_iso(), sale_id))
-                _event(c, sale_id, "wrong_code", rider_id)
-            left = MAX_PIN_ATTEMPTS - d["pin_attempts"] - 1
+                row = c.execute("UPDATE deliveries SET pin_attempts = pin_attempts + 1, updated_at = ? "
+                                "WHERE sale_id = ? AND pin_attempts < ? RETURNING pin_attempts",
+                                (now_iso(), sale_id, MAX_PIN_ATTEMPTS)).fetchone()
+                if row:
+                    _event(c, sale_id, "wrong_code", rider_id)
+            left = MAX_PIN_ATTEMPTS - row["pin_attempts"] if row else 0
             if left <= 0:
                 raise Locked("Too many wrong codes. Call the store.")
             raise WrongPin(left)
-        self._move(sale_id, "picked_up", "delivered", "delivered", rider_id, "", delivered_at=now_iso())
+        with self.db.tx() as c:
+            cur = c.execute("UPDATE deliveries SET status = 'delivered', updated_at = ?, delivered_at = ? "
+                            "WHERE sale_id = ? AND status = 'picked_up' AND rider_id = ? AND pin_attempts < ?",
+                            (now_iso(), now_iso(), sale_id, rider_id, MAX_PIN_ATTEMPTS))
+            if cur.rowcount == 1:
+                _event(c, sale_id, "delivered", rider_id)
+        if cur.rowcount == 0:  # something changed since d was read: say what, from the row as it is now
+            d = self.db.one("SELECT * FROM deliveries WHERE sale_id = ?", (sale_id,))
+            if d["status"] == "picked_up" and d["pin_attempts"] >= MAX_PIN_ATTEMPTS:
+                raise Locked("Too many wrong codes. Call the store.")
+            raise Conflict(self._why_not(d, "deliver"))
         return self.get(sale_id)
 
     def fail(self, sale_id: str, rider_id: str, reason: str) -> dict:
