@@ -47,6 +47,16 @@ def payment_ref(payment: dict) -> str:
     return payment.get("mpesa_receipt_number") or payment.get("checkout_request_id") or payment["payment_id"]
 
 
+class HideCallbackSecret(logging.Filter):
+    """Keep the M-Pesa callback secret out of the access log: anyone with it could post fake results."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str) and "/mpesa/callback/" in args[2]:
+            record.args = (*args[:2], re.sub(r"(/mpesa/callback/)[^/?\s]+", r"\1***", args[2]), *args[3:])
+        return True
+
+
 def status_for_result(result_code: int) -> str:
     if result_code == RESULT_PAID:
         return "paid"
@@ -111,6 +121,10 @@ def create_app(
     if on_paid is None:
         on_paid = (inventory_notifier(settings.inventory_url) if settings.inventory_url
                    else lambda payment: log.info("Payment %s paid for sale %s", payment["payment_id"], payment["sale_id"]))
+
+    access_log = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, HideCallbackSecret) for f in access_log.filters):
+        access_log.addFilter(HideCallbackSecret())
 
     app = FastAPI(title="Smart Shopping — Payments Service")
 
