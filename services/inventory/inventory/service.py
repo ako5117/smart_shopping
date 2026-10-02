@@ -144,7 +144,7 @@ class Inventory:
 
     def create_sale(self, sale_id: str, store_id: str, items: List[Item], channel: str = "in_store",
                     customer_name: str = "", check_stock: bool = False, fulfilment: str = "collect",
-                    delivery_fee_kes: int = 0) -> dict:
+                    delivery_fee_kes: int = 0, customer_phone: str = "") -> dict:
         """Called at checkout, before payment. Stock is not touched until the sale is paid.
 
         With check_stock (online orders, where the customer isn't holding the items), the sale is refused with
@@ -184,8 +184,9 @@ class Inventory:
                 if short:
                     raise NotEnoughStock(short)
             c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name, "
-                      "fulfilment, delivery_fee_kes) VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?)",
-                      (sale_id, store_id, ts, ts, channel, customer_name.strip(), fulfilment, delivery_fee_kes))
+                      "fulfilment, delivery_fee_kes, customer_phone) VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?)",
+                      (sale_id, store_id, ts, ts, channel, customer_name.strip(), fulfilment, delivery_fee_kes,
+                       customer_phone.strip()))
             for pid, qty in merged.items():
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
                 if not product:
