@@ -68,6 +68,7 @@ The stack refuses to start with a clear message if these are missing:
 | `DB_PASSWORD` | Password for the shared database. Make it the same way. Set it before the first start: the database keeps the password it was created with, so changing it later in `.env` alone locks the services out. |
 | `PUBLIC_BASE_URL` | Only for real M-Pesa (`DARAJA_ENV=sandbox` or `production`): the public `https://` address. The Payments Service won't start without it; check `docker compose logs payments`. |
 | `PAYSTACK_SECRET_KEY` | Only for real cards (`CARD_PROVIDER=paystack`). See `services/payments/README.md`, "Setting up Paystack". |
+| `AT_USERNAME`, `AT_API_KEY` | Only for real texts (`SMS_PROVIDER=africastalking`). See `services/notify/README.md`, "Setting up Africa's Talking". |
 
 ## Demo mode: M-Pesa and card simulators
 
@@ -75,6 +76,7 @@ The stack refuses to start with a clear message if these are missing:
 - `COMPOSE_PROFILES=demo` starts the M-Pesa simulator (`tools/mpesa_simulator`) and the card simulator (`tools/card_simulator`)
 - `DARAJA_ENV=simulator` points the Payments Service at the M-Pesa simulator
 - `CARD_PROVIDER=simulator` points it at the card simulator
+- `SMS_PROVIDER=simulator` records the texts customers would get, without sending them. They show under **Texts to customers** on the dashboard's Online orders page
 
 A full purchase then works with no Safaricom or Paystack account and no real money. For M-Pesa, the phone number decides what happens:
 
@@ -91,6 +93,7 @@ For cards, the simulator's test payment page (at `/card-sim/`) takes `4084 0840 
 For real payments, delete `COMPOSE_PROFILES=demo` and:
 - set `DARAJA_ENV=sandbox` (or `production`), and fill in the `DARAJA_*` values and `PUBLIC_BASE_URL`
 - set `CARD_PROVIDER=paystack` and `PAYSTACK_SECRET_KEY`, or leave `CARD_PROVIDER` empty for M-Pesa only
+- set `SMS_PROVIDER=africastalking` and the `AT_*` values, or leave `SMS_PROVIDER` empty for no texts
 
 ## Local demo
 
@@ -176,6 +179,7 @@ The database is never rolled back by a deploy. If an update went wrong with the 
   - Safaricom sends results to `https://<domain>/pay/payments/mpesa/callback/<secret>`, which is already set up.
   - The Daraja **security credential** (the encrypted initiator password) isn't needed: it's only for refunds, payouts and balance queries, which aren't built yet. Don't put it anywhere until they are.
 - **Cards** (optional): use a Paystack live key (`sk_live_...`), and set the webhook URL on the Paystack dashboard to `https://<domain>/pay/payments/card/webhook`. Run one test-key payment end to end first.
+- **Texts** (optional): an Africa's Talking live app with SMS credit, its username and API key in `./scripts/configure.sh`, and a sender ID once approved. Place a test order with your own number and check the texts arrive.
 - **Delivery areas** and fees for the store (`./scripts/configure.sh`).
 - **Logins:** everyone has their own. Remove the demo logins (`manager`, `staff`, `rider`) if the server was a demo first.
 - **Backups:** `./scripts/preflight.sh` shows whether the nightly backup is scheduled and whether copies go off-site.
@@ -183,7 +187,7 @@ The database is never rolled back by a deploy. If an update went wrong with the 
 
 ## Your data, and backing it up
 
-Products, stock, sales, payments, deliveries and who-did-what all live in one PostgreSQL database, kept in the Docker volume `db-data`. It survives restarts, rebuilds and updates.
+Products, stock, sales, payments, deliveries, texts and who-did-what all live in one PostgreSQL database, kept in the Docker volume `db-data`. It survives restarts, rebuilds and updates.
 
 > ⚠️ **`docker compose down -v` deletes all data.** The `-v` removes the volumes. To stop the stack, use `docker compose down` (without `-v`) or `docker compose stop`.
 
@@ -196,13 +200,13 @@ There are three layers:
 To restore a database backup (this replaces the current data):
 ```bash
 cd /opt/smart_shopping
-docker compose stop inventory payments dispatch
+docker compose stop inventory payments dispatch notify
 docker compose exec -T db pg_restore -U smartshopping -d smartshopping --clean --if-exists < backups/smartshopping-2026-10-01_0230.dump
-docker compose start inventory payments dispatch
+docker compose start inventory payments dispatch notify
 ```
 For a copy from Spaces, download it first, e.g. from the Spaces page in the DigitalOcean control panel, into `backups/`.
 
-**Managed database (optional, later):** with several stores, DigitalOcean Managed PostgreSQL (from about $15 a month) takes over backups, updates and failover. Point `DATABASE_URL` for `inventory`, `payments` and `dispatch` at it (add `?sslmode=require`) and drop the `db` service.
+**Managed database (optional, later):** with several stores, DigitalOcean Managed PostgreSQL (from about $15 a month) takes over backups, updates and failover. Point `DATABASE_URL` for `inventory`, `payments`, `dispatch` and `notify` at it (add `?sslmode=require`) and drop the `db` service.
 
 ## Notes
 

@@ -97,6 +97,7 @@ Now switch to the staff window:
 
 - **Online orders:** the order is under **To pack**, with the customer's name and where each item is: **Shelf A2** for the sugar, **Store room** for the brown bread, which isn't on a sensor shelf. Press **Packed: ready for collection**. Within a few seconds the customer's page says **Ready to collect**.
 - **Collection:** on **Exit check**, type the code from the customer's pass. It shows **ONLINE ORDER · PAID ✓**, who's collecting and who packed it. Press **Confirm** and the customer's pass turns grey: **Collected**.
+- **Texts:** back on **Online orders**, scroll to **Texts to customers**. The customer was texted when they paid and when the order was ready, with the exact words. In the demo the texts aren't sent; in a live store they go out by SMS through Africa's Talking. **Send again** is there for "I never got the text".
 
 ### 6. Delivery by rider (Customer, Rider and Staff), 4 min
 
@@ -114,6 +115,7 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **Staff (Online orders):** the card shows the delivery area and the rider.
   - Press **Packed: ready for the rider**, then **Hand to rider**. That records the parcel leaving the store.
   - The order moves to **Out for delivery**, and the customer's page says **On the way**.
+- **Texts:** under **Texts to customers**, the delivery's "paid" text carries the delivery code (shown to staff as `****`: only the customer sees it), and the "on the way" text names the rider and their number.
 - **Rider:** type a wrong code first. It's refused: "4 tries left". Then type the customer's code and tap **Delivered**. The customer's page shows **Delivered**.
 - **If something goes wrong:** on another delivery, the rider taps **Problem** and types "Customer not answering". The dashboard card turns red and shows the customer's number to call. **Rider tries again** sends the rider back out.
 
