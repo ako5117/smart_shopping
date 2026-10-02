@@ -22,6 +22,13 @@ class Settings:
     db_path: str  # SQLite file, or a postgresql:// URL for the shared database
     inventory_url: str = ""
     db_schema: str = "payments"
+    card_provider: str = ""  # "" (no cards), "paystack", or "simulator" (tools/card_simulator)
+    paystack_secret_key: str = ""
+    card_sim_url: str = "http://localhost:8098"
+
+    @property
+    def cards_enabled(self) -> bool:
+        return bool(self.card_provider)
 
     @property
     def daraja_base_url(self) -> str:
@@ -49,7 +56,19 @@ def load_settings() -> Settings:
                          f"https://shop.example.co.ke) when DARAJA_ENV is {env}; Daraja only sends callbacks "
                          f"over HTTPS. Got {public_base_url!r}. For a demo without Safaricom, use "
                          f"DARAJA_ENV=simulator.")
+    card_provider = os.getenv("CARD_PROVIDER", "")
+    if card_provider not in ("", "paystack", "simulator"):
+        raise ValueError(f"CARD_PROVIDER must be paystack or simulator (or empty for M-Pesa only), got {card_provider!r}")
+    paystack_key = os.getenv("PAYSTACK_SECRET_KEY", "")
+    if card_provider == "simulator":
+        paystack_key = paystack_key or "sk_test_simulator"
+    elif card_provider == "paystack" and not paystack_key.startswith(("sk_test_", "sk_live_")):
+        raise ValueError("PAYSTACK_SECRET_KEY must be your Paystack secret key (sk_test_... or sk_live_...) when "
+                         "CARD_PROVIDER is paystack. It's on the Paystack dashboard under Settings > API Keys.")
     return Settings(
+        card_provider=card_provider,
+        paystack_secret_key=paystack_key,
+        card_sim_url=os.getenv("CARD_SIM_URL", "http://localhost:8098"),
         daraja_env=env,
         consumer_key=os.getenv("DARAJA_CONSUMER_KEY", ""),
         consumer_secret=os.getenv("DARAJA_CONSUMER_SECRET", ""),

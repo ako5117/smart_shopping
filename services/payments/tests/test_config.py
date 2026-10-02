@@ -5,7 +5,8 @@ from app.config import load_settings
 
 @pytest.fixture
 def env(monkeypatch):
-    for k in ("DARAJA_ENV", "PUBLIC_BASE_URL", "CALLBACK_SECRET", "DARAJA_SIM_URL"):
+    for k in ("DARAJA_ENV", "PUBLIC_BASE_URL", "CALLBACK_SECRET", "DARAJA_SIM_URL", "CARD_PROVIDER",
+              "PAYSTACK_SECRET_KEY"):
         monkeypatch.delenv(k, raising=False)
     return monkeypatch
 
@@ -48,4 +49,21 @@ def test_simulator_allows_internal_callback_url(env):
 def test_unknown_env(env):
     env.setenv("DARAJA_ENV", "live")
     with pytest.raises(ValueError, match="DARAJA_ENV must be one of"):
+        load_settings()
+
+
+def test_card_provider_settings(env):
+    env.setenv("DARAJA_ENV", "simulator")
+    env.setenv("CALLBACK_SECRET", "s3cret")
+    assert load_settings().cards_enabled is False
+    env.setenv("CARD_PROVIDER", "simulator")
+    s = load_settings()
+    assert s.cards_enabled and s.paystack_secret_key == "sk_test_simulator"
+    env.setenv("CARD_PROVIDER", "paystack")
+    with pytest.raises(ValueError, match="PAYSTACK_SECRET_KEY"):
+        load_settings()
+    env.setenv("PAYSTACK_SECRET_KEY", "sk_live_123")
+    assert load_settings().paystack_secret_key == "sk_live_123"
+    env.setenv("CARD_PROVIDER", "stripe")
+    with pytest.raises(ValueError, match="CARD_PROVIDER"):
         load_settings()
