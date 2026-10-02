@@ -5,9 +5,9 @@
 #
 # Two kinds of server:
 #   live  real customers: M-Pesa through Safaricom (sandbox while testing, then production), cards
-#         through Paystack if you want them.
+#         through Paystack and texts to customers through Africa's Talking if you want them.
 #   demo  a public demo for partners: everything works on your domain with HTTPS, but payments go to the
-#         simulators and no money moves.
+#         simulators, no money moves and no texts are sent.
 #
 # Run it again any time to change answers: the current values are offered as defaults, and the database
 # password and callback secret are kept (changing the database password would lock the services out).
@@ -62,10 +62,11 @@ DARAJA_CONSUMER_KEY="$(current DARAJA_CONSUMER_KEY)"; DARAJA_CONSUMER_SECRET="$(
 DARAJA_SHORTCODE="$(current DARAJA_SHORTCODE)"; DARAJA_PASSKEY="$(current DARAJA_PASSKEY)"
 DARAJA_TRANSACTION_TYPE="$(current DARAJA_TRANSACTION_TYPE)"; DARAJA_PARTY_B="$(current DARAJA_PARTY_B)"
 PAYSTACK_SECRET_KEY="$(current PAYSTACK_SECRET_KEY)"
+AT_USERNAME="$(current AT_USERNAME)"; AT_API_KEY="$(current AT_API_KEY)"; AT_SENDER_ID="$(current AT_SENDER_ID)"
 
 if [ "$MODE" = demo ]; then
-  COMPOSE_PROFILES=demo; DARAJA_ENV=simulator; CARD_PROVIDER=simulator
-  echo "Demo: M-Pesa and cards go to the simulators. No money moves."
+  COMPOSE_PROFILES=demo; DARAJA_ENV=simulator; CARD_PROVIDER=simulator; SMS_PROVIDER=simulator
+  echo "Demo: M-Pesa and cards go to the simulators. No money moves, and texts are shown on the dashboard, not sent."
 else
   COMPOSE_PROFILES=""
   echo
@@ -103,6 +104,21 @@ else
   else
     CARD_PROVIDER=""; PAYSTACK_SECRET_KEY=""
   fi
+
+  echo
+  SMS_DEFAULT=none; [ "$(current SMS_PROVIDER)" = africastalking ] && SMS_DEFAULT=africastalking
+  read -rp "Text customers about their orders through Africa's Talking? (africastalking/none) [$SMS_DEFAULT]: " SMS || true
+  SMS="${SMS:-$SMS_DEFAULT}"
+  one_of "$SMS" africastalking none || die "Answer africastalking or none."
+  if [ "$SMS" = africastalking ]; then
+    SMS_PROVIDER=africastalking
+    ask AT_USERNAME "Africa's Talking username (sandbox for testing)" "sandbox"
+    ask_secret AT_API_KEY "Africa's Talking API key"
+    ask AT_SENDER_ID "Sender ID texts come from, once approved (Enter: Africa's Talking's shared number)" ""
+    [ -n "$AT_USERNAME" ] && [ -n "$AT_API_KEY" ] || die "Texts need the Africa's Talking username and API key."
+  else
+    SMS_PROVIDER=""; AT_USERNAME=""; AT_API_KEY=""; AT_SENDER_ID=""
+  fi
 fi
 
 echo
@@ -130,6 +146,7 @@ cat > "$ENV_FILE" <<EOF
 COMPOSE_PROFILES=$COMPOSE_PROFILES
 DARAJA_ENV=$DARAJA_ENV
 CARD_PROVIDER=$CARD_PROVIDER
+SMS_PROVIDER=$SMS_PROVIDER
 
 # --- Server
 SITE_ADDRESS=$SITE_ADDRESS
@@ -153,6 +170,11 @@ DARAJA_PARTY_B=$DARAJA_PARTY_B
 
 # --- Cards (Paystack). Webhook URL to set on the Paystack dashboard: $PUBLIC_BASE_URL/pay/payments/card/webhook
 PAYSTACK_SECRET_KEY=$PAYSTACK_SECRET_KEY
+
+# --- Texts to customers (Africa's Talking)
+AT_USERNAME=$AT_USERNAME
+AT_API_KEY=$AT_API_KEY
+AT_SENDER_ID=$AT_SENDER_ID
 
 # --- Off-site backups (DigitalOcean Spaces), used by scripts/backup.sh
 SPACES_BUCKET=$SPACES_BUCKET

@@ -23,7 +23,7 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 site="$(val SITE_ADDRESS)"; base="$(val PUBLIC_BASE_URL)"; profiles="$(val COMPOSE_PROFILES)"
-daraja="$(val DARAJA_ENV)"; cards="$(val CARD_PROVIDER)"
+daraja="$(val DARAJA_ENV)"; cards="$(val CARD_PROVIDER)"; sms="$(val SMS_PROVIDER)"
 demo=false; [[ ",$profiles," == *",demo,"* ]] && demo=true
 
 for s in DB_PASSWORD CALLBACK_SECRET; do
@@ -76,6 +76,24 @@ else
     *) fail "CARD_PROVIDER must be paystack or empty (it's \"$cards\")." ;;
   esac
 fi
+
+case "$sms" in
+  "") warn "Texts to customers: off. Customers won't be texted when their order is paid, ready or on its way." ;;
+  simulator)
+    if $demo; then ok "Texts to customers: simulated (shown on the dashboard, not sent)."
+    else warn "SMS_PROVIDER=simulator: texts are recorded but no customer gets them. Use africastalking for a live store."
+    fi ;;
+  africastalking)
+    if [ -z "$(val AT_USERNAME)" ] || [ -z "$(val AT_API_KEY)" ]; then
+      fail "SMS_PROVIDER=africastalking needs AT_USERNAME and AT_API_KEY."
+    elif [ "$(val AT_USERNAME)" = sandbox ]; then
+      warn "Texts: Africa's Talking sandbox (they appear in its simulator, not on phones)."
+    else
+      sender="$(val AT_SENDER_ID)"
+      ok "Texts: Africa's Talking, from ${sender:-their shared number}."
+    fi ;;
+  *) fail "SMS_PROVIDER must be africastalking, simulator or empty (it's \"$sms\")." ;;
+esac
 
 echo "Logins ($STAFF_DIR)"
 if [ -s "$STAFF_DIR/users" ] && grep -qv '^#' "$STAFF_DIR/users"; then
