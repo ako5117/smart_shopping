@@ -151,8 +151,19 @@
         </div>
         <label for="name">Your name</label>
         <input id="name" autocomplete="name" maxlength="60" required>
-        <label for="phone">M-Pesa number</label>
+        <label for="phone" id="phone-label">M-Pesa number</label>
         <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required>
+        <div id="pay-method" hidden>
+          <label>Pay with</label>
+          <div class="choice">
+            <label><input type="radio" name="paymethod" value="mpesa" checked> <span>M-Pesa</span></label>
+            <label><input type="radio" name="paymethod" value="card"> <span>Card</span><span class="fee">Visa, Mastercard</span></label>
+          </div>
+        </div>
+        <div id="email-field" hidden>
+          <label for="email">Email for the card receipt</label>
+          <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com">
+        </div>
         <button style="width:100%;margin-top:14px" id="pay-button">Pay with M-Pesa</button>
       </form>
       <button class="link" id="back-to-shop">← Keep shopping</button>
@@ -163,14 +174,18 @@
   <section id="wait-view" hidden>
     <div class="card center">
       <div class="spinner"></div>
-      <h2>Check your phone</h2>
+      <h2 id="wait-title">Check your phone</h2>
       <p class="muted" id="wait-text">Enter your M-Pesa PIN to pay.</p>
     </div>
     <div class="card warnbox" id="retry-box" hidden>
       <p id="retry-text" style="margin-top:0"></p>
       <form id="retry-form">
         <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
-        <button style="width:100%;margin-top:10px">Send payment request again</button>
+        <button style="width:100%;margin-top:10px">Pay with M-Pesa</button>
+      </form>
+      <form id="retry-card-form" hidden style="margin-top:14px">
+        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" required>
+        <button style="width:100%;margin-top:10px">Pay by card</button>
       </form>
       <button class="link" id="abandon">Cancel and go back to the shop</button>
     </div>
@@ -222,7 +237,8 @@ let basket = store.get("web.basket", {});   // {product_id: qty}
 let order = store.get("web.order", null);   // {order_id, payment_id, total, phone, paid}
 let products = {}, categories = [], category = "", view = "shop";
 let catalogueTimer = null, pollTimer = null;
-let delivery = {available: false, areas: []}, geo = null, holdMinutes = 15;
+let delivery = {available: false, areas: []}, geo = null, holdMinutes = 15, cardOn = false, cardPolls = 0;
+const payMethod = () => cardOn ? document.querySelector('input[name="paymethod"]:checked').value : "mpesa";
 const fulfil = () => document.querySelector('input[name="fulfil"]:checked').value;
 const fee = () => fulfil() === "delivery" ? (delivery.areas.find((a) => a.area === $("area").value)?.fee || 0) : 0;
 
@@ -332,7 +348,11 @@ function renderCheckout() {
   $("fee-line").hidden = fulfil() !== "delivery";
   $("fee-amount").textContent = kes(fee());
   $("checkout-total").textContent = kes(total() + fee());
-  $("pay-button").textContent = `Pay ${kes(total() + fee())} with M-Pesa`;
+  const card = payMethod() === "card";
+  $("pay-button").textContent = `Pay ${kes(total() + fee())} ${card ? "by card" : "with M-Pesa"}`;
+  $("email-field").hidden = !card;
+  $("email").required = card;
+  $("phone-label").textContent = card ? "Phone number (for the store or rider to reach you)" : "M-Pesa number";
   const blocked = !ids.length || ids.some((pid) => products[pid].status === "out" || basket[pid] > products[pid].max);
   $("pay-button").disabled = blocked;
 }
@@ -377,6 +397,7 @@ $("checkout").addEventListener("click", () => {
   say("");
   $("name").value = store.get("web.name", "");
   $("phone").value = store.get("web.phone", "");
+  $("email").value = store.get("web.email", "");
   const saved = store.get("web.delivery", null);
   if (saved && !$("address").value) {
     $("area").value = saved.area; $("address").value = saved.address; $("notes").value = saved.notes || "";
@@ -397,6 +418,7 @@ function renderFulfil() {
   render();
 }
 document.querySelectorAll('input[name="fulfil"]').forEach((r) => r.addEventListener("change", renderFulfil));
+document.querySelectorAll('input[name="paymethod"]').forEach((r) => r.addEventListener("change", () => render()));
 $("area").addEventListener("change", renderFulfil);
 $("locate").addEventListener("click", () => {
   if (!navigator.geolocation) return ($("loc-status").textContent = "This browser can't share its location.");
@@ -414,7 +436,9 @@ $("order-form").addEventListener("submit", async (e) => {
   say("");
   try {
     const name = $("name").value.trim(), phone = $("phone").value.trim();
-    const body = {name, phone, fulfilment: fulfil(), items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
+    const body = {name, phone, fulfilment: fulfil(), payment_method: payMethod(),
+                  items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
+    if (body.payment_method === "card") body.email = $("email").value.trim();
     if (body.fulfilment === "delivery") {
       body.delivery = {area: $("area").value, address: $("address").value.trim(), notes: $("notes").value.trim(), ...(geo || {})};
     }
@@ -422,8 +446,10 @@ $("order-form").addEventListener("submit", async (e) => {
     store.set("web.name", name);
     store.set("web.phone", phone);
     if (body.delivery) store.set("web.delivery", {area: body.delivery.area, address: body.delivery.address, notes: body.delivery.notes});
-    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, paid: false};
+    if (body.email) store.set("web.email", body.email);
+    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, email: body.email, method: body.payment_method, paid: false};
     store.set("web.order", order);
+    if (r.checkout_url) return goToCardPage(r.checkout_url);
     waitForPayment();
   } catch (err) {
     say(err.message);
@@ -432,12 +458,32 @@ $("order-form").addEventListener("submit", async (e) => {
   }
 });
 
+// The card provider's page takes the card details; the customer comes back here (?order=...) afterwards.
+function goToCardPage(url) {
+  $("wait-title").textContent = "Opening the card payment page…";
+  $("wait-text").textContent = "";
+  show("wait");
+  location.href = url;
+}
+
 function waitForPayment() {
   show("wait");
   $("retry-box").hidden = true;
-  $("wait-text").textContent = `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  cardPolls = 0;
+  const card = order.method === "card";
+  $("wait-title").textContent = card ? "Confirming your card payment" : "Check your phone";
+  $("wait-text").textContent = card ? `Checking your payment of ${kes(order.total)} with the card provider…`
+    : `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
   clearTimeout(pollTimer);
   poll();
+}
+
+function offerRetry(text) {
+  $("retry-box").hidden = false;
+  $("retry-text").textContent = text;
+  $("retry-phone").value = order.phone || "";
+  $("retry-card-form").hidden = !cardOn;
+  $("retry-email").value = order.email || store.get("web.email", "");
 }
 
 async function poll() {
@@ -447,12 +493,15 @@ async function poll() {
     if (s.stage === "cancelled") return forgetOrder("That order was cancelled. Nothing was charged.");
     if (["packing", "ready", "collected", "on_the_way", "delivered"].includes(s.stage)) return showOrder(s);
     if (s.stage === "payment_failed" && view === "wait") {
-      $("retry-box").hidden = false;
-      $("retry-text").textContent = s.payment_status === "cancelled"
+      return offerRetry(s.payment_method === "card"
+        ? `The card payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged. Try again, or pay another way.`
+        : s.payment_status === "cancelled"
         ? "The payment was cancelled on your phone. Nothing was charged."
-        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`;
-      $("retry-phone").value = order.phone || "";
-      return;
+        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`);
+    }
+    // Back from the card page without paying (or still finishing): after a few checks, offer to try again.
+    if (s.payment_method === "card" && s.stage === "awaiting_payment" && view === "wait" && ++cardPolls === 4) {
+      offerRetry("The card payment wasn't completed. Nothing was charged. Try again, or pay another way.");
     }
   } catch (err) {
     if (err.status === 404) return forgetOrder("");
@@ -460,20 +509,21 @@ async function poll() {
   pollTimer = setTimeout(poll, PAY_POLL_MS);
 }
 
-$("retry-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function payAgain(body) {
   say("");
   try {
-    const phone = $("retry-phone").value.trim();
-    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify({phone})});
-    order = {...order, payment_id: r.payment_id, phone};
+    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify(body)});
+    order = {...order, payment_id: r.payment_id, method: body.method, phone: body.phone || order.phone, email: body.email || order.email};
     store.set("web.order", order);
+    if (r.checkout_url) return goToCardPage(r.checkout_url);
     waitForPayment();
   } catch (err) {
     say(err.message);
     if (err.status === 409) forgetOrder(err.message);
   }
-});
+}
+$("retry-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "mpesa", phone: $("retry-phone").value.trim()}); });
+$("retry-card-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "card", email: $("retry-email").value.trim()}); });
 
 function forgetOrder(message) {
   clearTimeout(pollTimer);
@@ -541,7 +591,7 @@ function showOrder(s) {
   const paid = s.paid_at ? new Date(s.paid_at) : null;
   $("receipt-meta").textContent = [
     paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
-    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.phone, "Order " + s.order_id,
+    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
   ].filter(Boolean).join(" · ");
   if (!DONE_STAGES.includes(s.stage)) pollTimer = setTimeout(poll, ORDER_POLL_MS);
 }
@@ -559,6 +609,8 @@ api("api/store").then((s) => {
   $("collect-store").textContent = s.name;
   delivery = s.delivery;
   holdMinutes = s.hold_minutes;
+  cardOn = s.card;
+  $("pay-method").hidden = !cardOn;
   $("deliver-option").hidden = !delivery.available;
   if (delivery.available) {
     $("deliver-from").textContent = "from " + kes(Math.min(...delivery.areas.map((a) => a.fee)));
@@ -567,6 +619,10 @@ api("api/store").then((s) => {
   document.title = `${s.name} · Online shop`;
 }).catch(() => {});
 show("shop");
+// Coming back from the card page: the address has ?order=...; the order itself is remembered in this browser.
+const returning = new URLSearchParams(location.search).get("order");
+if (returning) history.replaceState(null, "", location.pathname);
+if (returning && order && order.order_id === returning && !order.paid) waitForPayment();
 loadCatalogue().then(() => {
   if (order && order.paid) { show("order"); poll(); }
   else if (order) waitForPayment();

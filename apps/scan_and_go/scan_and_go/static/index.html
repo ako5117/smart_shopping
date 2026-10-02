@@ -74,6 +74,11 @@
            animation: pulse 1.2s ease-in-out infinite; vertical-align: middle; }
   @keyframes pulse { 50% { opacity: .2; transform: scale(.6); } }
   .warnbox { background: var(--warn-bg); color: var(--warn); }
+  .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .choice label { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line);
+                  border-radius: 10px; font-weight: 600; cursor: pointer; }
+  .choice label:has(input:checked) { border-color: var(--accent); background: var(--ok-bg); }
+  .choice input { width: auto; margin: 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -102,10 +107,15 @@
   <!-- 2. Phone number -->
   <section id="phone-view" hidden>
     <div class="card">
-      <h2>Pay with M-Pesa</h2>
-      <p class="muted" style="margin-top:0">We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.</p>
+      <h2 id="pay-title">Pay with M-Pesa</h2>
+      <div class="choice" id="pay-method" hidden>
+        <label><input type="radio" name="paymethod" value="mpesa" checked> M-Pesa</label>
+        <label><input type="radio" name="paymethod" value="card"> Card</label>
+      </div>
+      <p class="muted" style="margin-top:0" id="pay-hint">We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.</p>
       <form id="phone-form">
         <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
+        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email for the card receipt" hidden>
         <button style="width:100%;margin-top:12px" id="pay-button">Pay</button>
       </form>
       <button class="link" id="back-to-basket">← Back to basket</button>
@@ -116,14 +126,18 @@
   <section id="wait-view" hidden>
     <div class="card center">
       <div class="spinner"></div>
-      <h2>Check your phone</h2>
+      <h2 id="wait-title">Check your phone</h2>
       <p class="muted" id="wait-text">Enter your M-Pesa PIN to pay.</p>
     </div>
     <div class="card warnbox" id="retry-box" hidden>
       <p id="retry-text" style="margin-top:0"></p>
       <form id="retry-form">
         <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
-        <button style="width:100%;margin-top:10px">Send payment request again</button>
+        <button style="width:100%;margin-top:10px">Pay with M-Pesa</button>
+      </form>
+      <form id="retry-card-form" hidden style="margin-top:14px">
+        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" required>
+        <button style="width:100%;margin-top:10px">Pay by card</button>
       </form>
       <button class="link" id="abandon">Start a new basket</button>
     </div>
@@ -172,7 +186,18 @@ const store = {
 
 let basket = store.get("sg.basket", []);  // [{product_id, ean13, name, price, qty}]
 let order = store.get("sg.order", null);  // {order_id, payment_id, total, phone}
-let pollTimer = null, clockTimer = null;
+let pollTimer = null, clockTimer = null, cardOn = false, cardPolls = 0;
+const payMethod = () => cardOn ? document.querySelector('input[name="paymethod"]:checked').value : "mpesa";
+
+function renderPayMethod() {
+  const card = payMethod() === "card";
+  $("pay-title").textContent = card ? "Pay by card" : "Pay with M-Pesa";
+  $("pay-hint").textContent = card ? "You'll go to a secure card payment page, then come back here for your receipt."
+    : "We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.";
+  $("phone").hidden = card; $("phone").required = !card;
+  $("email").hidden = !card; $("email").required = card;
+}
+document.querySelectorAll('input[name="paymethod"]').forEach((r) => r.addEventListener("change", renderPayMethod));
 
 function say(text, kind = "bad") {
   const m = $("msg");
@@ -314,7 +339,9 @@ $("viewer").addEventListener("click", (e) => { if (e.target.id === "start-camera
 $("checkout").addEventListener("click", () => {
   say("");
   $("phone").value = store.get("sg.phone", "");
+  $("email").value = store.get("sg.email", "");
   show("phone");
+  renderPayMethod();
   $("phone").focus();
 });
 $("back-to-basket").addEventListener("click", () => show("scan"));
@@ -324,12 +351,13 @@ $("phone-form").addEventListener("submit", async (e) => {
   $("pay-button").disabled = true;
   say("");
   try {
-    const phone = $("phone").value.trim();
+    const method = payMethod(), phone = $("phone").value.trim(), email = $("email").value.trim();
     const r = await api("api/checkout", {method: "POST", body: JSON.stringify({
-      phone, items: basket.map((l) => ({product_id: l.product_id, qty: l.qty}))})});
-    store.set("sg.phone", phone);
-    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone};
+      method, ...(method === "card" ? {email} : {phone}), items: basket.map((l) => ({product_id: l.product_id, qty: l.qty}))})});
+    if (method === "card") store.set("sg.email", email); else store.set("sg.phone", phone);
+    order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, email, method};
     store.set("sg.order", order);
+    if (r.checkout_url) return goToCardPage(r.checkout_url);
     waitForPayment();
   } catch (err) {
     say(err.message);
@@ -338,12 +366,32 @@ $("phone-form").addEventListener("submit", async (e) => {
   }
 });
 
+// The card provider's page takes the card details; the phone comes back here (?order=...) afterwards.
+function goToCardPage(url) {
+  show("wait");
+  $("wait-title").textContent = "Opening the card payment page…";
+  $("wait-text").textContent = "";
+  location.href = url;
+}
+
 function waitForPayment() {
   show("wait");
   $("retry-box").hidden = true;
-  $("wait-text").textContent = `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  cardPolls = 0;
+  const card = order.method === "card";
+  $("wait-title").textContent = card ? "Confirming your card payment" : "Check your phone";
+  $("wait-text").textContent = card ? `Checking your payment of ${kes(order.total)}…`
+    : `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
   clearTimeout(pollTimer);
   poll();
+}
+
+function offerRetry(text) {
+  $("retry-box").hidden = false;
+  $("retry-text").textContent = text;
+  $("retry-phone").value = order.phone || store.get("sg.phone", "");
+  $("retry-card-form").hidden = !cardOn;
+  $("retry-email").value = order.email || store.get("sg.email", "");
 }
 
 async function poll() {
@@ -352,12 +400,15 @@ async function poll() {
     const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
     if (s.payment_status === "paid") return showReceipt(s);
     if (s.payment_status === "failed" || s.payment_status === "cancelled") {
-      $("retry-box").hidden = false;
-      $("retry-text").textContent = s.payment_status === "cancelled"
+      return offerRetry(s.payment_method === "card"
+        ? `The card payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`
+        : s.payment_status === "cancelled"
         ? "The payment was cancelled on your phone. Nothing was charged."
-        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`;
-      $("retry-phone").value = order.phone || "";
-      return;
+        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`);
+    }
+    // Back from the card page without paying: after a few checks, offer to try again.
+    if (s.payment_method === "card" && s.payment_status === "pending" && ++cardPolls === 4) {
+      offerRetry("The card payment wasn't completed. Nothing was charged. Try again, or pay another way.");
     }
   } catch (err) {
     if (err.status === 404) return reset();
@@ -365,19 +416,20 @@ async function poll() {
   pollTimer = setTimeout(poll, POLL_MS);
 }
 
-$("retry-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+async function payAgain(body) {
   say("");
   try {
-    const phone = $("retry-phone").value.trim();
-    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify({phone})});
-    order = {...order, payment_id: r.payment_id, phone};
+    const r = await api(`api/orders/${order.order_id}/pay`, {method: "POST", body: JSON.stringify(body)});
+    order = {...order, payment_id: r.payment_id, method: body.method, phone: body.phone || order.phone, email: body.email || order.email};
     store.set("sg.order", order);
+    if (r.checkout_url) return goToCardPage(r.checkout_url);
     waitForPayment();
   } catch (err) {
     say(err.message);
   }
-});
+}
+$("retry-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "mpesa", phone: $("retry-phone").value.trim()}); });
+$("retry-card-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "card", email: $("retry-email").value.trim()}); });
 
 function showReceipt(s) {
   clearTimeout(pollTimer);
@@ -396,7 +448,7 @@ function showReceipt(s) {
   $("receipt-meta").textContent = [
     paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
-    s.phone, "Order " + s.order_id,
+    s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
   ].filter(Boolean).join(" · ");
   clearInterval(clockTimer);
   if (s.exited_at) {
@@ -434,8 +486,15 @@ $("abandon").addEventListener("click", reset);
 
 // ------------------------------------------------------------------ start
 
-api("api/store").then((s) => { $("store-name").textContent = s.name; document.title = `Scan & Go · ${s.name}`; }).catch(() => {});
+api("api/store").then((s) => {
+  $("store-name").textContent = s.name;
+  document.title = `Scan & Go · ${s.name}`;
+  cardOn = s.card;
+  $("pay-method").hidden = !cardOn;
+}).catch(() => {});
 renderBasket();
+// Coming back from the card page: the address has ?order=...; the order itself is remembered on this phone.
+if (new URLSearchParams(location.search).get("order")) history.replaceState(null, "", location.pathname);
 if (order) waitForPayment(); else show("scan");
 </script>
 </body>

@@ -1,13 +1,13 @@
 # Scan & Go
 
-The customer's phone becomes the till. They scan products as they shop, pay with M-Pesa, and show the receipt screen at the exit.
+The customer's phone becomes the till. They scan products as they shop, pay with M-Pesa or by card, and show the receipt screen at the exit.
 
 1. **Scan.** The phone camera reads EAN-13 barcodes, or the customer types the number. Each product is looked up and added to the basket with its price.
-2. **Pay.** The customer enters their M-Pesa number. The app creates the sale in the Inventory Service, then the Payments Service sends an STK Push to the phone.
+2. **Pay.** The customer enters their M-Pesa number, or chooses **Card** and their email address. The app creates the sale in the Inventory Service. For M-Pesa, the Payments Service then sends an STK Push to the phone. For a card, the phone goes to the card provider's payment page and comes back to Scan & Go. Card payments suit visitors without M-Pesa, such as travellers at an airport duty-free shop.
 3. **Receipt.** When the payment is confirmed, the Payments Service commits the sale, so the items leave stock. The app shows a green **PAID** pass with the order code, a QR code, the M-Pesa receipt number and a live clock, which makes an old screenshot easy to spot at the exit.
 4. **Exit.** Staff scan the QR code (or type the code) on the dashboard's **Exit check** page. Once they confirm, the pass on the customer's phone turns grey and reads **CHECKED OUT**, and the same pass can't be used again.
 
-If the customer cancels or the payment fails, they can send the request again for the same order. Nothing leaves stock until a payment succeeds.
+If the customer cancels or the payment fails, they can try again for the same order, by M-Pesa or by card. Nothing leaves stock until a payment succeeds.
 
 ## How it stays safe
 

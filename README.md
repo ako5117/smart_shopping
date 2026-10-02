@@ -14,7 +14,7 @@ Digitizing retail shelves so stores know what is on each shelf in real time, and
 ## Build Order (Phased)
 
 1. **Shelf Visibility** (Phase 1) — load-cell (weight) sensing per shelf zone, verified by camera-based product recognition. Products identified by EAN-13 barcode. Stock is committed at checkout and restock, not when an item is picked up.
-2. **Checkout** (Phase 1) — M-Pesa via the Daraja API (STK Push). Card payments follow in Phase 2. eTIMS e-receipts are a placeholder until the integration route is confirmed.
+2. **Checkout** (Phase 1) — M-Pesa via the Daraja API (STK Push). Card payments (Phase 2) through a hosted checkout. eTIMS e-receipts are a placeholder until the integration route is confirmed.
 3. **Retailer integration** (Phase 1–2) — REST API connection to the store's existing POS/inventory system, with a local data store so nothing is lost during outages, and reconciliation of count differences.
 4. **Online + in-store sync, rider dispatch** (Phase 2+).
 5. **Warehouse / go-down stock tracking** (later) — same sensing core, internal logistics use case.
@@ -46,6 +46,7 @@ smart_shopping/
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide
 ├── scripts/                 # demo.sh (one-command demo), seed_demo.py, backup.sh
 ├── tools/mpesa_simulator/   # Stand-in for Safaricom Daraja, for demos
+├── tools/card_simulator/    # Stand-in for Paystack's card checkout, for demos
 └── apps/
     ├── dashboard/           # Store dashboard (shelves, stock, sales, online orders, differences)
     ├── scan_and_go/         # Customer app: scan with the phone, pay with M-Pesa, show the receipt at the exit

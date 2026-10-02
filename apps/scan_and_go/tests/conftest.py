@@ -52,6 +52,8 @@ class FakePayments:
         self.pushes = []
         self.refreshes = 0
         self.fail_push = None  # status code to return from STK push
+        self.cards = False
+        self.card_checkouts = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
@@ -68,6 +70,18 @@ class FakePayments:
                                   "updated_at": datetime.now(timezone.utc).isoformat()}
             return httpx.Response(202, json={"payment_id": pid, "status": "pending",
                                              "customer_message": "Success. Request accepted for processing"})
+        if path == "/payments/methods":
+            return httpx.Response(200, json={"mpesa": True, "card": self.cards})
+        if method == "POST" and path == "/payments/card/checkout":
+            body = json.loads(request.content)
+            self.card_checkouts.append(body)
+            pid = f"card-{len(self.card_checkouts)}"
+            self.payments[pid] = {"payment_id": pid, "sale_id": body["sale_id"], "method": "card", "status": "pending",
+                                  "amount": body["amount"], "phone_number": "", "mpesa_receipt_number": None,
+                                  "result_desc": None, "card_brand": None, "card_last4": None,
+                                  "created_at": datetime.now(timezone.utc).isoformat(),
+                                  "updated_at": datetime.now(timezone.utc).isoformat()}
+            return httpx.Response(201, json={"payment_id": pid, "status": "pending", "checkout_url": f"/card-sim/pay/{pid}"})
         if path.startswith("/payments/"):
             parts = path.split("/")
             p = self.payments.get(parts[2])

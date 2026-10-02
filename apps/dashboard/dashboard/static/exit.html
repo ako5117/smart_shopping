@@ -71,7 +71,7 @@ async function api(path, options = {}) {
 
 function itemsList(sale) {
   return `<ul class="items">${sale.items.map((i) => `<li><span>${i.qty} × ${esc(i.name)}</span></li>`).join("")}</ul>
-    <div class="muted">${sale.item_count} item${sale.item_count === 1 ? "" : "s"} · order ${esc(sale.sale_id)}${sale.payment_ref ? " · M-Pesa " + esc(sale.payment_ref) : ""}</div>`;
+    <div class="muted">${sale.item_count} item${sale.item_count === 1 ? "" : "s"} · order ${esc(sale.sale_id)}${sale.payment_ref ? (sale.payment_ref.startsWith("CARD-") ? " · paid by card" : " · M-Pesa " + esc(sale.payment_ref)) : ""}</div>`;
 }
 
 function verdict(kind, title, body) {

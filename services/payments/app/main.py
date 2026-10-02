@@ -1,7 +1,8 @@
-"""Payments Service — M-Pesa STK Push via Safaricom Daraja."""
+"""Payments Service: M-Pesa STK Push via Safaricom Daraja, and cards through a hosted checkout (app/cards.py)."""
 
 import hmac
 import logging
+import re
 import time
 from typing import Callable, Optional
 
@@ -10,6 +11,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from .cards import PAYSTACK_URL, CardGatewayError, PaystackGateway
 from .config import Settings, load_settings
 from .daraja import DarajaClient, DarajaError
 from .phone import normalize_msisdn
@@ -26,6 +28,23 @@ class StkPushRequest(BaseModel):
     sale_id: str = Field(..., min_length=1, max_length=64)
     phone: str
     amount: int = Field(..., ge=1, description="Whole KES; Daraja does not accept decimals")
+
+
+class CardCheckoutRequest(BaseModel):
+    sale_id: str = Field(..., min_length=1, max_length=64)
+    amount: int = Field(..., ge=1, description="Whole KES")
+    email: str = Field(..., max_length=120, description="The card provider sends its receipt here")
+    return_url: str = Field(..., max_length=500, description="Where the customer's browser comes back to after paying")
+
+
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def payment_ref(payment: dict) -> str:
+    """What the Inventory Service records as the payment reference on the sale."""
+    if payment.get("method") == "card":
+        return "CARD-" + (payment.get("provider_ref") or payment["payment_id"])
+    return payment.get("mpesa_receipt_number") or payment.get("checkout_request_id") or payment["payment_id"]
 
 
 def status_for_result(result_code: int) -> str:
@@ -59,7 +78,7 @@ def inventory_notifier(base_url: str, http: Optional[httpx.Client] = None, attem
     client = http or httpx.Client(base_url=base_url, timeout=10.0)
 
     def notify(payment: dict) -> None:
-        ref = payment.get("mpesa_receipt_number") or payment.get("checkout_request_id") or payment["payment_id"]
+        ref = payment_ref(payment)
         for attempt in range(1, attempts + 1):
             try:
                 r = client.post(f"/sales/{payment['sale_id']}/commit", json={"payment_ref": ref})
@@ -81,9 +100,13 @@ def create_app(
     daraja: Optional[DarajaClient] = None,
     store: Optional[PaymentStore] = None,
     on_paid: Optional[Callable[[dict], None]] = None,
+    cards: Optional[PaystackGateway] = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     daraja = daraja or DarajaClient(settings)
+    if cards is None and settings.cards_enabled:
+        base = settings.card_sim_url if settings.card_provider == "simulator" else PAYSTACK_URL
+        cards = PaystackGateway(settings.paystack_secret_key, base_url=base)
     store = store or PaymentStore(settings.db_path, schema=settings.db_schema)
     if on_paid is None:
         on_paid = (inventory_notifier(settings.inventory_url) if settings.inventory_url
@@ -101,9 +124,71 @@ def create_app(
             on_paid(after)
         return after
 
+    def _finalise_card(payment: dict) -> dict:
+        """Ask the card provider how a card payment ended, and record it once it has."""
+        try:
+            result = cards.verify(payment["payment_id"])
+        except CardGatewayError as e:
+            log.warning("Card verify failed for %s: %s", payment["payment_id"], e)
+            return payment
+        if result.status == "pending":
+            return payment
+        status, desc = result.status, result.description
+        if status == "paid" and (result.amount != payment["amount"] or (result.currency or "KES") != "KES"):
+            log.error("CARD AMOUNT MISMATCH for payment %s (sale %s): asked KES %s, provider says %s %s",
+                      payment["payment_id"], payment["sale_id"], payment["amount"], result.currency, result.amount)
+            status, desc = "failed", "Amount paid doesn't match the order. Contact the store."
+        after = store.apply_card_result(payment["payment_id"], status, desc, result.brand, result.last4,
+                                        result.provider_ref)
+        if after and after["status"] == "paid" and payment["status"] != "paid":
+            on_paid(after)
+        return after or payment
+
     @app.get("/health")
     def health():
         return {"status": "ok", "daraja_env": settings.daraja_env}
+
+    @app.get("/payments/methods")
+    def methods():
+        """Which ways to pay are switched on."""
+        return {"mpesa": True, "card": cards is not None,
+                "card_provider": settings.card_provider or None}
+
+    @app.post("/payments/card/checkout", status_code=201)
+    def card_checkout(req: CardCheckoutRequest):
+        """Start a card payment. The customer's browser goes to checkout_url; the result comes back by
+        webhook and when they return (GET /payments/{id} after POST /payments/{id}/refresh)."""
+        if cards is None:
+            raise HTTPException(status_code=404, detail="Card payments aren't switched on")
+        email = req.email.strip()
+        if not EMAIL.match(email):
+            raise HTTPException(status_code=422, detail="Enter a valid email address for the card receipt.")
+        if not req.return_url.startswith(("https://", "http://")):
+            raise HTTPException(status_code=422, detail="return_url must be an http(s) address")
+        payment = store.create(req.sale_id, req.amount, "", method="card", email=email)
+        try:
+            url = cards.initialize(payment["payment_id"], req.amount, email, req.return_url, req.sale_id)
+        except CardGatewayError as e:
+            store.mark_failed_to_start(payment["payment_id"], str(e))
+            log.error("Card checkout failed for sale %s: %s", req.sale_id, e)
+            raise HTTPException(status_code=502, detail=f"Card payment couldn't start: {e}")
+        store.mark_card_pending(payment["payment_id"])
+        return {"payment_id": payment["payment_id"], "status": "pending", "checkout_url": url}
+
+    @app.post("/payments/card/webhook")
+    async def card_webhook(request: Request):
+        """The card provider's notice that a charge settled. Signed; the result is then checked with the provider."""
+        raw = await request.body()
+        if cards is None or not cards.signature_ok(raw, request.headers):
+            raise HTTPException(status_code=401, detail="Bad signature")
+        try:
+            reference = cards.webhook_reference(await request.json())
+        except ValueError:
+            reference = None
+        payment = store.get(reference) if reference else None
+        if payment and payment["method"] == "card" and payment["status"] == "pending":
+            _finalise_card(payment)
+        return {"received": True}
 
     @app.post("/payments/mpesa/stk-push", status_code=202)
     def stk_push(req: StkPushRequest):
@@ -155,6 +240,8 @@ def create_app(
             raise HTTPException(status_code=404, detail="Payment not found")
         if payment["status"] != "pending":
             return payment
+        if payment["method"] == "card":
+            return _finalise_card(payment) if cards is not None else payment
         try:
             body = daraja.stk_query(payment["checkout_request_id"])
         except DarajaError as e:

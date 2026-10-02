@@ -4,7 +4,7 @@ Customers order online, pay with M-Pesa, and collect from the store or have a ri
 
 1. **Browse.** Products with prices, grouped by category, with search. Each product shows **In stock**, **Only N left** or **Out of stock**, refreshed every 15 seconds.
 2. **Substitutes.** A sold-out product shows up to three in-stock products from the same category, closest in price first, each with an **Add** button. They also appear when the customer already has all that's left of a product in their basket.
-3. **Pay.** The customer gives their name and M-Pesa number. The shop records the order in the Inventory Service, which holds the items, then the Payments Service sends the M-Pesa prompt.
+3. **Pay.** The customer gives their name and phone number, and pays with **M-Pesa** or by **card** (when the Payments Service has cards on). The shop records the order in the Inventory Service, which holds the items. For M-Pesa, the Payments Service then sends the prompt to the phone. For a card, the customer goes to the card provider's payment page and comes back to the shop, which confirms the payment. If it fails, or they leave without paying, they can try again either way.
 4. **Packing.** Paid orders appear on the dashboard's **Online orders** page. It shows the shelf zone for each item, or "Store room" for items not on a sensor shelf. Staff press **Packed: ready for collection**, and the customer's page changes to **Ready to collect**.
 5. **Collect.** The customer shows the pass (code and QR) at the counter. Staff check it on the dashboard's **Exit check** page, which shows it as an online order for that customer's name. Once confirmed, the pass turns grey and reads **Collected**.
 
@@ -85,14 +85,13 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 | `GET` | `/` | The shop |
 | `GET` | `/api/store` | Store name, how long orders are held, and the delivery areas and fees |
 | `GET` | `/api/catalogue` | Products with price, category, status (`in` / `few` / `out`), how many can be ordered, and substitutes |
-| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"fulfilment": "delivery"` and `"delivery": {"area", "address", "notes", "lat", "lng"}` for a delivery: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
+| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"area", "address", "notes", "lat", "lng"}` for a delivery: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
 | `GET` | `/api/orders/{order_id}/payments/{payment_id}` | Order stage: `awaiting_payment`, `payment_failed`, `packing`, `ready`, `collected`, `on_the_way`, `delivered` or `cancelled`, with the receipt, and for deliveries the code, rider and status |
-| `POST` | `/api/orders/{order_id}/pay` | Send the M-Pesa prompt again while the order is still held |
+| `POST` | `/api/orders/{order_id}/pay` | Pay again while the order is still held: `{"method": "mpesa", "phone"}` or `{"method": "card", "email"}` |
 | `GET` | `/api/orders/{order_id}/qr.svg` | QR code of the order number, for collection |
 
 ## Not yet
 
-- **Card payments** (Phase 2).
 - **Notifications:** the customer keeps the page open, or comes back to it, to see when the order is ready. An SMS when it's packed would be the next step.
 - **Product photos.**
 
