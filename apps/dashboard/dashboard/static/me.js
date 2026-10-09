@@ -4,6 +4,7 @@ window.me = fetch("api/me").then((r) => r.json()).catch(() => ({name: null, role
 window.me.then((m) => {
   const apply = () => {
     document.body.dataset.role = m.role;
+    if (m.tier) document.body.dataset.tier = m.tier;
     if (m.name) document.body.dataset.signedIn = "1";
     const el = document.getElementById("me");
     if (el && m.name) el.textContent = `Signed in as ${m.name}${m.is_manager ? " · manager" : ""}`;

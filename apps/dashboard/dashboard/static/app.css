@@ -71,6 +71,7 @@
   tr.pick:hover td { background: var(--chip); }
   /* Signed-in staff (me.js) */
   body[data-role="staff"] .manager-only { display: none !important; }
+  body[data-tier="standard"] .smart-only { display: none !important; }
   body[data-signed-in] .when-anonymous { display: none !important; }
   .staff-note { display: none; }
   body[data-role="staff"] .staff-note { display: block; }

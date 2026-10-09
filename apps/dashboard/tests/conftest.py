@@ -32,6 +32,7 @@ class FakeInventory:
     def __init__(self):
         self.down = False
         self.counts = []
+        self.stock_counts = []  # POST /counts bodies
         self.restocks = []
         self.products = [{"product_id": "sugar-1kg", "ean13": "6161000000026", "name": "Sugar 1 kg"},
                          {"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}]
@@ -76,6 +77,20 @@ class FakeInventory:
                 return httpx.Response(422, json={"detail": "No open discrepancy with that id"})
             self.counts.append(body)
             return httpx.Response(200, json={"adjusted_by": body["counted_qty"] - 3, "stock": body["counted_qty"]})
+        if request.method == "POST" and path == "/counts":
+            body = json.loads(request.content)
+            p = next((p for p in self.products if p["ean13"] == body["ean13"]), None)
+            if not p:
+                return httpx.Response(404, json={"detail": f"No product with barcode {body['ean13']}"})
+            self.stock_counts.append(body)
+            was = self.stock.get(p["product_id"], 0)
+            self.stock[p["product_id"]] = body["counted_qty"]
+            return httpx.Response(200, json={"product_id": p["product_id"], "name": p["name"], "counted": body["counted_qty"],
+                                             "was": was, "adjusted_by": body["counted_qty"] - was,
+                                             "counted_by": body["counted_by"], "stock": body["counted_qty"]})
+        if path == "/counts/001":
+            return httpx.Response(200, json=[{"count_id": b["count_id"], "counted_qty": b["counted_qty"],
+                                              "counted_by": b["counted_by"]} for b in reversed(self.stock_counts)])
         if request.method == "PUT" and path.startswith("/products/"):
             body = json.loads(request.content)
             if any(p["ean13"] == body["ean13"] and p["product_id"] != body["product_id"] for p in self.products):

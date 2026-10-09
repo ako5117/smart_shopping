@@ -153,3 +153,14 @@ def test_page_and_store_info(client):
     assert client.get("/api/store").json() == {
         "store_id": "001", "name": "Test Store", "currency": "KES", "hold_minutes": 15, "card": True,
         "delivery": {"available": True, "areas": [{"area": "Kilimani", "fee": 150}, {"area": "Westlands", "fee": 200}]}}
+
+
+def test_standard_tier_has_no_live_shelf_signal(monkeypatch, tmp_path):
+    """A store without shelf sensors ignores any shelf event log (e.g. left from a smart-shelf demo)."""
+    from storefront.config import load_settings
+
+    monkeypatch.setenv("SHELF_EVENTS_PATH", str(tmp_path / "shelf_events.jsonl"))
+    monkeypatch.setenv("STORE_TIER", "standard")
+    assert load_settings().shelf_events_path == ""
+    monkeypatch.setenv("STORE_TIER", "smart")
+    assert load_settings().shelf_events_path.endswith("shelf_events.jsonl")

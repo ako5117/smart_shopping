@@ -25,18 +25,19 @@
     <div class="kpis" id="kpis"></div>
   </section>
 
-  <section class="two-thirds">
+  <section class="two-thirds smart-only">
     <h2>Shelves <span class="muted" style="text-transform:none;letter-spacing:0">· committed stock per zone</span></h2>
     <div class="zones" id="zones"></div>
   </section>
 
-  <section class="third">
+  <section class="third smart-only">
     <h2>Needs attention</h2>
     <div class="scroll" id="review"></div>
   </section>
 
   <section class="half">
     <h2>Stock</h2>
+    <div class="muted" style="margin:-4px 0 8px">Counted the shelf and it's different? A manager records the count on <a href="products#count">Products</a>.</div>
     <div class="scroll" id="stock"></div>
   </section>
 
@@ -51,7 +52,7 @@
     <div class="scroll" id="sales"></div>
   </section>
 
-  <section class="half">
+  <section class="half smart-only">
     <h2>Shelf activity</h2>
     <div class="scroll" id="events"></div>
   </section>
@@ -92,7 +93,8 @@ function render(d) {
 
   const pills = [];
   pills.push(`<span class="pill ${d.errors.inventory ? "bad" : "ok"}">Inventory ${d.errors.inventory ? "offline" : "online"}</span>`);
-  pills.push(`<span class="pill ${d.errors.shelf_events ? "bad" : "ok"}">Shelf feed ${d.errors.shelf_events ? "error" : "ok"}</span>`);
+  document.body.dataset.tier = d.tier;
+  if (d.tier === "smart") pills.push(`<span class="pill ${d.errors.shelf_events ? "bad" : "ok"}">Shelf feed ${d.errors.shelf_events ? "error" : "ok"}</span>`);
   if (d.sync) pills.push(`<span class="pill ${d.sync.last_error ? "bad" : d.sync.pending ? "warn" : "ok"}">Retailer sync: ${d.sync.pending ? d.sync.pending + " queued" : "up to date"}</span>`);
   $("status").innerHTML = pills.join("");
 
@@ -104,7 +106,7 @@ function render(d) {
     kpi("Awaiting payment", s.awaiting_payment),
     kpi(`Low stock (≤ ${d.low_stock_threshold})`, s.low_stock, s.low_stock ? "bad" : ""),
     kpi("Open differences", s.open_discrepancies, s.open_discrepancies ? "warn" : ""),
-    kpi("Shelf alerts", s.needs_attention, s.needs_attention ? "warn" : ""),
+    d.tier === "smart" ? kpi("Shelf alerts", s.needs_attention, s.needs_attention ? "warn" : "") : "",
   ].join("");
 
   $("zones").innerHTML = d.zones.length ? d.zones.map((z) => `

@@ -65,10 +65,11 @@ ADRIAN = {"X-Staff-User": "adrian", "X-Staff-Role": "manager"}
 
 
 def test_who_am_i(client):
-    assert client.get("/api/me", headers=MARY).json() == {"name": "mary", "role": "staff", "is_manager": False}
+    assert client.get("/api/me", headers=MARY).json() == {"name": "mary", "role": "staff", "is_manager": False,
+                                                              "tier": "smart"}
     assert client.get("/api/me", headers=ADRIAN).json()["is_manager"] is True
     # No proxy headers: run directly (development), acts as a manager
-    assert client.get("/api/me").json() == {"name": None, "role": "manager", "is_manager": True}
+    assert client.get("/api/me").json() == {"name": None, "role": "manager", "is_manager": True, "tier": "smart"}
     # A role header alone, without a signed-in user, gives nothing extra
     assert client.get("/api/me", headers={"X-Staff-Role": "staff"}).json()["name"] is None
 

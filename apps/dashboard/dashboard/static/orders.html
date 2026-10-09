@@ -80,7 +80,7 @@ const store = {
 };
 $("staff").value = store.get("orders.staff", "");
 $("staff").addEventListener("change", () => store.set("orders.staff", $("staff").value.trim()));
-let timer = null, riders = [];
+let timer = null, riders = [], tier = "smart";
 
 async function api(path, options = {}) {
   const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
@@ -128,7 +128,7 @@ function deliveryBlock(o) {
 
 function card(o) {
   const items = o.items.map((i) => `<li><span>${i.qty} × ${esc(i.name)}</span>
-    <span>${i.zones.length ? i.zones.map((z) => `<span class="pill">Shelf ${esc(z)}</span>`).join(" ") : `<span class="muted">Store room</span>`}</span></li>`).join("");
+    <span>${i.zones.length ? i.zones.map((z) => `<span class="pill">Shelf ${esc(z)}</span>`).join(" ") : tier === "smart" ? `<span class="muted">Store room</span>` : ""}</span></li>`).join("");
   const isDelivery = o.fulfilment === "delivery";
   const action = o.stage === "packing"
     ? `<button data-ready="${esc(o.sale_id)}">Packed: ready for ${isDelivery ? "the rider" : "collection"}</button>`
@@ -148,6 +148,7 @@ async function load() {
     const body = await api("api/orders");
     if (document.activeElement && document.activeElement.tagName === "SELECT") { timer = setTimeout(load, 10000); return; }
     riders = body.riders;
+    tier = body.tier || "smart";
     $("banner").hidden = !body.dispatch_error;
     $("banner").textContent = body.dispatch_error || "";
     const orders = body.orders;
