@@ -155,6 +155,8 @@ services:
       INVENTORY_URL: http://inventory:8010
       DISPATCH_URL: http://dispatch:8050
       NOTIFY_URL: http://notify:8070
+      # standard: no shelf sensors (barcodes and stock counts); smart: smart shelves. See docs/tiers.md.
+      STORE_TIER: ${STORE_TIER:-standard}
       UVICORN_ROOT_PATH: /dashboard
     volumes: [dashboard-data:/data]
     depends_on: [inventory, dispatch, notify]
@@ -196,6 +198,7 @@ services:
       PAYMENTS_URL: http://payments:8000
       DISPATCH_URL: http://dispatch:8050
       SHELF_EVENTS_PATH: /shelf/shelf_events.jsonl
+      STORE_TIER: ${STORE_TIER:-standard}
       UVICORN_ROOT_PATH: /store
     volumes: [dashboard-data:/shelf:ro]
     depends_on: [inventory, payments, dispatch]
@@ -240,9 +243,10 @@ services:
       # Like Paystack, it posts through the front door: the proxy inside Docker locally, the domain on a server.
       CARD_SIM_WEBHOOK_URL: ${PUBLIC_BASE_URL:-http://proxy}/pay/payments/card/webhook
 
-  # Simulated shelf sensors (services/shelf, live mode). Writes shelf events where the dashboard reads them.
+  # Simulated shelf sensors (services/shelf, live mode) for demos of the smart-shelf tier. Writes shelf events where
+  # the dashboard reads them. Runs with the "shelf-sim" profile (COMPOSE_PROFILES=demo,shelf-sim).
   shelf_sim:
-    profiles: [demo]
+    profiles: [shelf-sim]
     build: services/shelf
     restart: unless-stopped
     logging: *logging

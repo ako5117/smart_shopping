@@ -31,6 +31,14 @@ class RestockIn(BaseModel):
     recorded_by: str = Field("", max_length=60, description="Who restocked (defaults to the signed-in staff member)")
 
 
+class StockCountIn(BaseModel):
+    store_id: str
+    ean13: str = Field(..., pattern=r"^\d{13}$")
+    counted_qty: int = Field(..., ge=0, le=100000)
+    count_id: str = Field(..., min_length=1, max_length=64, description="Unique per count, so a re-sent count changes nothing")
+    counted_by: str = Field("", max_length=60, description="Who counted (defaults to the signed-in staff member)")
+
+
 class ItemIn(BaseModel):
     product_id: str
     qty: int = Field(..., gt=0)
@@ -183,6 +191,15 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/sales/{sale_id}/cancel")
     def cancel_sale(sale_id: str):
         return guard(inv.cancel_sale, sale_id)
+
+    @app.post("/counts")
+    def count(body: StockCountIn, staff: Optional[str] = StaffUser):
+        """A stock count: stock becomes what was counted, and the difference is kept in the ledger."""
+        return guard(inv.count, body.store_id, body.ean13, body.counted_qty, body.count_id, who(body.counted_by, staff))
+
+    @app.get("/counts/{store_id}")
+    def counts(store_id: str, limit: int = Query(50, ge=1, le=500)):
+        return inv.counts(store_id, limit)
 
     @app.post("/sales/{sale_id}/returns")
     def return_items(sale_id: str, r: ReturnIn):

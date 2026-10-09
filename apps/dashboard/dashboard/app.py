@@ -34,6 +34,13 @@ class CountIn(BaseModel):
     counted_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
 
 
+class StockCountIn(BaseModel):
+    ean13: str = Field(..., pattern=r"^\d{13}$")
+    counted_qty: int = Field(..., ge=0, le=100000)
+    count_id: str = Field(..., min_length=8, max_length=64, description="Made by the page once per count, so a retry changes nothing")
+    counted_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
+
+
 class ProductIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     name: str = Field(..., min_length=1, max_length=120)
@@ -119,11 +126,12 @@ def build_overview(settings: Settings, inventory: InventoryClient, now: Optional
     store = settings.store_id
     errors: dict = {}
 
-    # ---------------------------------------------------------------- shelf (local)
+    # ---------------------------------------------------------------- shelf (local; smart shelves only)
+    smart = settings.store_tier == "smart"
     catalogue = _attempt(errors, "shelf_catalogue", lambda: load_catalogue(settings.shelf_config_path),
-                         {"products": {}, "zones": []})
+                         {"products": {}, "zones": []}) if smart else {"products": {}, "zones": []}
     events = _attempt(errors, "shelf_events",
-                      lambda: read_shelf_events(settings.shelf_events_path, settings.event_limit), [])
+                      lambda: read_shelf_events(settings.shelf_events_path, settings.event_limit), []) if smart else []
 
     # ---------------------------------------------------------------- inventory (HTTP)
     def inventory_data():
@@ -186,6 +194,7 @@ def build_overview(settings: Settings, inventory: InventoryClient, now: Optional
 
     return {
         "store_id": store,
+        "tier": settings.store_tier,
         "generated_at": now.isoformat(),
         "errors": errors,
         "summary": {
@@ -264,6 +273,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.get("/api/shelf-products")
     def shelf_products():
         """Products the shelf sensors already know, so new products reuse the same product code."""
+        if settings.store_tier != "smart":
+            return []
         try:
             products = load_catalogue(settings.shelf_config_path)["products"].values()
         except (OSError, ValueError):
@@ -272,7 +283,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
 
     @app.get("/api/me")
     def me(staff: Staff = Depends(current_staff)):
-        return {"name": staff.name, "role": staff.role, "is_manager": staff.is_manager}
+        return {"name": staff.name, "role": staff.role, "is_manager": staff.is_manager, "tier": settings.store_tier}
 
     @app.put("/api/products/{product_id}")
     def save_product(product_id: str, body: ProductIn, staff: Staff = Depends(current_staff)):
@@ -307,8 +318,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     def online_orders():
         """Paid online orders, oldest first: still in the store (to pack, or ready for the customer or a rider),
         and out with a rider. Each item says where it sits on the shelves."""
-        try:
-            zones = load_catalogue(settings.shelf_config_path)["zones"]
+        try:  # where each item sits on the sensor shelves; a store without them has no zones
+            zones = load_catalogue(settings.shelf_config_path)["zones"] if settings.store_tier == "smart" else []
         except (OSError, ValueError):
             zones = []
         where = {}
@@ -350,6 +361,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
                 except httpx.HTTPError as e:
                     log.warning("Inventory unavailable for %s: %s", d["sale_id"], e)
         return {"orders": in_store, "out": sorted(out, key=lambda s: s["created_at"]), "riders": riders,
+                "tier": settings.store_tier,
                 "deliveries_on": dispatch is not None, "dispatch_error": dispatch_error}
 
     @app.post("/api/orders/{sale_id}/ready")
@@ -411,6 +423,21 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.get("/api/overview")
     def overview():
         return build_overview(settings, inventory)
+
+    @app.post("/api/counts")
+    def count_stock(body: StockCountIn, staff: Staff = Depends(current_staff)):
+        """A stock count of one product: stock becomes what was counted. How a store without shelf sensors keeps
+        its stock right, and a hand check for one with them."""
+        require_manager(staff, "correct stock counts")
+        return call(inventory.count_stock, {**body.model_dump(exclude={"counted_by"}), "store_id": settings.store_id,
+                                            "counted_by": acting_name(staff, body.counted_by)})
+
+    @app.get("/api/counts")
+    def recent_counts():
+        try:
+            return inventory.counts(settings.store_id, 20)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
 
     @app.post("/api/discrepancies/{discrepancy_id}/count")
     def record_count(discrepancy_id: int, body: CountIn, staff: Staff = Depends(current_staff)):

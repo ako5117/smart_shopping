@@ -19,6 +19,8 @@ Digitizing retail shelves so stores know what is on each shelf in real time, and
 4. **Online + in-store sync, rider dispatch** (Phase 2+).
 5. **Warehouse / go-down stock tracking** (later) — same sensing core, internal logistics use case.
 
+**Two tiers, one system** ([`docs/tiers.md`](docs/tiers.md)): **Standard** is fully digital (barcode scanning, stock counts, Scan & Go, the online shop, payments and delivery) with no shelf hardware; **Smart Shelves** adds the weight and camera sensors. Stores start on Standard and add the hardware later.
+
 See [`docs/roadmap.md`](docs/roadmap.md) for the phase breakdown and [`docs/architecture.md`](docs/architecture.md) for system diagrams.
 
 ## Repo Structure
@@ -33,6 +35,7 @@ smart_shopping/
 │   ├── data-model.md        # Shared data model (Mermaid ER)
 │   ├── sensor-logic.md      # Weight + optical sensing logic
 │   ├── reconciliation.md    # Keeping our counts and the retailer's in agreement
+│   ├── tiers.md             # Standard (no shelf hardware) and Smart Shelves tiers
 │   └── demo-walkthrough.md  # 20–25 minute demo script for partners and pilot stores
 ├── hardware/
 │   ├── bench-prototype.md   # Bench rig parts list, wiring, test plan

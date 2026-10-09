@@ -50,6 +50,22 @@
     <div id="product-result" class="result" hidden></div>
   </section>
 
+  <section class="half manager-only" id="count">
+    <h2>Stock count</h2>
+    <p class="muted" style="margin-top:0">Count what's on the shelf and in the store room, then save. Stock becomes your count; the difference is kept with your name.</p>
+    <form id="count-form" class="fields" autocomplete="off">
+      <label>Barcode<input id="count-ean" inputmode="numeric" maxlength="13" required placeholder="Scan or type"></label>
+      <label>Counted<input id="count-qty" type="number" min="0" max="100000" required></label>
+      <button id="count-save">Save count</button>
+    </form>
+    <div id="count-result" class="result" hidden></div>
+  </section>
+
+  <section class="half manager-only">
+    <h2>Recent counts</h2>
+    <div class="scroll" id="counts"><div class="empty">No counts yet.</div></div>
+  </section>
+
   <section>
     <h2>Catalogue</h2>
     <div class="scroll" style="max-height:none" id="table"></div>
@@ -197,6 +213,49 @@ $("restock-ean").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); $("restock-qty").select(); }
 });
 
+$("count-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const ean13 = $("count-ean").value.trim(), counted = $("count-qty").value;
+  if (!ean13Valid(ean13)) return show($("count-result"), "That barcode isn't a valid EAN-13. Check the digits.", false);
+  const product = products.find((p) => p.ean13 === ean13);
+  if (!product) return show($("count-result"), "No product has that barcode yet.", false);
+  if (counted === "" || Number(counted) < 0) return $("count-qty").focus();
+  $("count-save").disabled = true;
+  try {
+    // One id per count, so a retry after a dropped connection changes nothing.
+    const countId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+    const r = await api("api/counts", {method: "POST", body: JSON.stringify({ean13, counted_qty: Number(counted), count_id: countId})});
+    const diff = r.adjusted_by === 0 ? "matches the records" : `was ${r.was}, so stock was corrected by ${r.adjusted_by > 0 ? "+" : ""}${r.adjusted_by}`;
+    show($("count-result"), `${product.name}: counted ${r.counted}, ${diff}.`, true);
+    $("count-ean").value = "";
+    $("count-qty").value = "";
+    await Promise.all([load(), loadCounts()]);
+    $("count-ean").focus();
+  } catch (err) {
+    show($("count-result"), "Could not save the count: " + err.message, false);
+  } finally {
+    $("count-save").disabled = false;
+  }
+});
+$("count-ean").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); $("count-qty").select(); }
+});
+
+async function loadCounts() {
+  try {
+    const counts = await api("api/counts");
+    const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}); };
+    $("counts").innerHTML = counts.length ? `<table>
+      <tr><th>Product</th><th class="num">Counted</th><th class="num">Change</th><th>By</th></tr>
+      ${counts.map((c) => {
+        const change = c.counted_qty - c.was_qty;
+        return `<tr><td>${esc(c.name)}<div class="muted">${when(c.counted_at)}</div></td><td class="num">${c.counted_qty}</td>
+          <td class="num">${change === 0 ? "–" : (change > 0 ? "+" : "") + change}</td><td>${esc(c.counted_by)}</td></tr>`;
+      }).join("")}</table>` : `<div class="empty">No counts yet.</div>`;
+  } catch { /* the banner already says if Inventory is down */ }
+}
+
+window.me.then((m) => { if (m.is_manager) loadCounts(); });
 api("api/shelf-products").then((list) => { shelfProducts = list; }).catch(() => {});
 load();
 </script>

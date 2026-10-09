@@ -77,6 +77,20 @@ else
   esac
 fi
 
+tier="$(val STORE_TIER)"
+case "${tier:-standard}" in
+  standard) ok "Tier: standard (no shelf hardware): stock from barcodes, sales and stock counts." ;;
+  smart)
+    if $demo; then
+      if [[ ",$profiles," == *",shelf-sim,"* ]]; then ok "Tier: smart shelves, with simulated sensors."
+      else warn "STORE_TIER=smart but the shelf simulator is off: add shelf-sim to COMPOSE_PROFILES (demo,shelf-sim)."
+      fi
+    else
+      warn "Tier: smart shelves. Real shelf sensors aren't connected by this deployment yet (bench prototype); until they are, the shelf panels stay empty. Use STORE_TIER=standard meanwhile."
+    fi ;;
+  *) fail "STORE_TIER must be standard or smart (it's \"$tier\")." ;;
+esac
+
 case "$sms" in
   "") warn "Texts to customers: off. Customers won't be texted when their order is paid, ready or on its way." ;;
   simulator)

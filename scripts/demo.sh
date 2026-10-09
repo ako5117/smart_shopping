@@ -2,9 +2,11 @@
 # One-command Smart Shopping demo: every service (with the online shop), the M-Pesa simulator and simulated shelf sensors,
 # with demo products loaded. Needs only Docker. Walkthrough: docs/demo-walkthrough.md
 #
-#   ./scripts/demo.sh            start (first run sets up .env and prints the staff password)
-#   ./scripts/demo.sh --reset    wipe all demo data and start fresh
-#   ./scripts/demo.sh --stop     stop the demo (data is kept)
+#   ./scripts/demo.sh                   start (first run sets up .env and prints the staff password)
+#   ./scripts/demo.sh --tier standard   switch to the standard tier: no shelf sensors (docs/tiers.md), then start
+#   ./scripts/demo.sh --tier smart      switch back to smart shelves (simulated sensors), then start
+#   ./scripts/demo.sh --reset           wipe all demo data and start fresh
+#   ./scripts/demo.sh --stop            stop the demo (data is kept)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,13 +15,18 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 command -v docker >/dev/null || { echo "Docker is not installed. Get Docker Desktop: https://docs.docker.com/get-docker/"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker is installed but not running. Start Docker Desktop and try again."; exit 1; }
 
+usage() { echo "Usage: $0 [--tier standard|smart | --reset | --stop]"; exit 1; }
+tier=""
 case "${1:-}" in
-  --stop)  docker compose --profile demo stop; exit 0 ;;
+  --stop)  docker compose --profile demo --profile shelf-sim stop; exit 0 ;;
   --reset)
     say "Wiping demo data (products, stock, sales, payments)..."
-    docker compose --profile demo down -v ;;
+    docker compose --profile demo --profile shelf-sim down -v ;;
+  --tier)
+    tier="${2:-}"
+    [ "$tier" = standard ] || [ "$tier" = smart ] || usage ;;
   "") ;;
-  *) echo "Usage: $0 [--reset | --stop]"; exit 1 ;;
+  *) usage ;;
 esac
 
 if [ ! -f .env ]; then
@@ -61,12 +68,27 @@ if ! grep -q '^DB_PASSWORD=.' .env; then  # .env from before the shared database
   grep -q '^DB_PASSWORD=' .env || echo 'DB_PASSWORD=' >> .env
   sed -i.bak "s|^DB_PASSWORD=.*|DB_PASSWORD=$(od -An -tx1 -N24 /dev/urandom | tr -d ' \n')|" .env && rm -f .env.bak
 fi
+set_env() {  # set_env NAME VALUE: replace the line, or add it
+  if grep -q "^$1=" .env; then sed -i.bak "s|^$1=.*|$1=$2|" .env && rm -f .env.bak; else echo "$1=$2" >> .env; fi
+}
 if grep -q '^COMPOSE_PROFILES=demo' .env; then
   grep -q '^CARD_PROVIDER=' .env || echo 'CARD_PROVIDER=simulator' >> .env  # .env from before card payments
   grep -q '^SMS_PROVIDER=' .env || echo 'SMS_PROVIDER=simulator' >> .env  # .env from before texts
+  if ! grep -q '^STORE_TIER=' .env; then  # .env from before tiers: it had the simulated shelves
+    set_env STORE_TIER smart
+    set_env COMPOSE_PROFILES demo,shelf-sim
+  fi
+  if [ -n "$tier" ]; then
+    set_env STORE_TIER "$tier"
+    if [ "$tier" = smart ]; then set_env COMPOSE_PROFILES demo,shelf-sim
+    else set_env COMPOSE_PROFILES demo; docker compose --profile shelf-sim stop shelf_sim >/dev/null 2>&1 || true
+    fi
+  fi
 else
   echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
+  [ -z "$tier" ] || { echo "Change the tier of a real store with ./scripts/configure.sh"; exit 1; }
 fi
+tier="$(grep '^STORE_TIER=' .env | tail -n 1 | cut -d= -f2)"
 
 say "Building and starting the services (the first build takes a few minutes)..."
 docker compose up -d --build
@@ -99,7 +121,11 @@ cat <<EOF
 
   M-Pesa simulator: any phone number pays after 3 s; ending 000 cancels; ending 111 fails.
   Card simulator:   4084 0840 8408 4081 pays; 4000 0000 0000 0002 is declined.
-  Shelf sensors are simulated: new shelf activity every few seconds on the dashboard.
+$(if [ "$tier" = standard ]; then
+  echo "  Tier: standard (no shelf sensors). Stock comes from barcodes and counts.  Smart shelves: ./scripts/demo.sh --tier smart"
+else
+  echo "  Tier: smart shelves. Sensors are simulated: new shelf activity every few seconds.  Without: ./scripts/demo.sh --tier standard"
+fi)
   Barcodes to type in Scan & Go: 6161000000040 (milk), 6161000000026 (sugar), 6161000000064 (bread)
 
   Walkthrough:  docs/demo-walkthrough.md

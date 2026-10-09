@@ -13,6 +13,10 @@ class Settings:
     event_limit: int = 200
     dispatch_url: str = ""  # Dispatch Service; empty: no deliveries
     notify_url: str = ""  # Notification Service; empty: no texts to customers
+    store_tier: str = "smart"  # standard: no shelf sensors (barcodes and counts only); smart: with smart shelves
+
+
+TIERS = ("standard", "smart")
 
 
 def load_settings() -> Settings:
@@ -25,4 +29,12 @@ def load_settings() -> Settings:
         low_stock_threshold=int(os.getenv("LOW_STOCK_THRESHOLD", "5")),
         dispatch_url=os.getenv("DISPATCH_URL", ""),
         notify_url=os.getenv("NOTIFY_URL", ""),
+        store_tier=store_tier(os.getenv("STORE_TIER", "smart")),
     )
+
+
+def store_tier(value: str) -> str:
+    tier = (value or "smart").strip().lower()
+    if tier not in TIERS:
+        raise ValueError(f"STORE_TIER must be standard or smart (it's {value!r})")
+    return tier

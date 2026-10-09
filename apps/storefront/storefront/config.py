@@ -29,7 +29,8 @@ def load_settings() -> Settings:
         inventory_url=os.getenv("INVENTORY_URL", "http://localhost:8010"),
         payments_url=os.getenv("PAYMENTS_URL", "http://localhost:8000"),
         dispatch_url=os.getenv("DISPATCH_URL", ""),
-        shelf_events_path=os.getenv("SHELF_EVENTS_PATH", ""),
+        # Standard tier (no shelf sensors): no live shelf signal, even if an old event log is lying around.
+        shelf_events_path=os.getenv("SHELF_EVENTS_PATH", "") if os.getenv("STORE_TIER", "smart").strip().lower() != "standard" else "",
         picked_window_min=int(os.getenv("PICKED_WINDOW_MIN", "5")),
         in_store_buffer=int(os.getenv("IN_STORE_BUFFER", "1")),
         few_left=int(os.getenv("FEW_LEFT", "5")),

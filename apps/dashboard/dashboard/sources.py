@@ -54,6 +54,12 @@ class InventoryClient:
     def record_exit(self, sale_id: str, checked_by: str) -> httpx.Response:
         return self.http.post(f"/sales/{sale_id}/exit", json={"checked_by": checked_by})
 
+    def count_stock(self, body: dict) -> httpx.Response:
+        return self.http.post("/counts", json=body)
+
+    def counts(self, store_id: str, limit: int = 20) -> List[dict]:
+        return self._get(f"/counts/{store_id}", limit=limit)
+
     def record_count(self, discrepancy_id: int, counted_qty: int, counted_by: str) -> httpx.Response:
         return self.http.post(f"/discrepancies/{discrepancy_id}/count",
                               json={"counted_qty": counted_qty, "counted_by": counted_by})

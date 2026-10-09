@@ -122,6 +122,39 @@ class Inventory:
                                    reason=reason, source_ref=ref, recorded_by=recorded_by)
         return {"created": created is not None, "stock": self.stock(store_id, product_id)}
 
+    def count(self, store_id: str, ean13: str, counted_qty: int, count_id: str, counted_by: str = "") -> dict:
+        """Staff counted what's on the shelf (and in the store room). Stock becomes that count: the difference is
+        recorded as an adjustment. For stores without shelf sensors this is how stock is kept right; with them
+        it's the same check done by hand.
+
+        The difference is worked out and recorded in one transaction, so a sale at the same moment can't be lost
+        in it. Re-sending the same count (same count_id) changes nothing and returns the first answer.
+        """
+        if counted_qty < 0:
+            raise ValueError("A count can't be below zero")
+        product = self.product_by_ean(ean13)
+        pid = product["product_id"]
+        with self.db.tx() as c:
+            was = c.execute("SELECT COALESCE(SUM(qty_change), 0) AS qty FROM stock_ledger "
+                            "WHERE store_id = ? AND product_id = ?", (store_id, pid)).fetchone()["qty"]
+            new = c.execute("INSERT INTO stock_counts (count_id, store_id, product_id, counted_qty, was_qty, counted_by, "
+                            "counted_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (count_id) DO NOTHING RETURNING count_id",
+                            (count_id, store_id, pid, counted_qty, was, counted_by, now_iso())).fetchone()
+            if new and counted_qty != was:
+                self._record(c, store_id, pid, "adjustment", counted_qty - was, f"count:{count_id}",
+                             reason=f"stock count: {counted_qty} counted", source_ref=count_id, recorded_by=counted_by)
+        row = self.db.one("SELECT * FROM stock_counts WHERE count_id = ?", (count_id,))
+        if row["product_id"] != pid or row["counted_qty"] != counted_qty:
+            raise Conflict(f"Count {count_id} was already saved for a different product or number")
+        return {"product_id": pid, "name": product["name"], "counted": row["counted_qty"], "was": row["was_qty"],
+                "adjusted_by": row["counted_qty"] - row["was_qty"], "counted_by": row["counted_by"],
+                "counted_at": row["counted_at"], "stock": self.stock(store_id, pid)}
+
+    def counts(self, store_id: str, limit: int = 50) -> List[dict]:
+        """The latest stock counts, newest first."""
+        return self.db.all("SELECT sc.*, p.name FROM stock_counts sc JOIN products p ON p.product_id = sc.product_id "
+                           "WHERE sc.store_id = ? ORDER BY sc.counted_at DESC, sc.count_id LIMIT ?", (store_id, limit))
+
     def stock(self, store_id: str, product_id: str) -> int:
         row = self.db.one("SELECT COALESCE(SUM(qty_change), 0) AS qty FROM stock_ledger "
                           "WHERE store_id = ? AND product_id = ?", (store_id, product_id))
