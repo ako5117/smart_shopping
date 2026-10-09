@@ -56,6 +56,11 @@ one_of "$MODE" live demo || die "Answer live or demo."
 
 ask STORE_NAME "Store name (customers see it)" "Smart Shopping"
 ask STORE_ID "Store code" "001"
+TIER_DEFAULT="$(current STORE_TIER)"; one_of "$TIER_DEFAULT" standard smart || TIER_DEFAULT=standard
+echo "Tier (docs/tiers.md): standard = no shelf hardware (barcodes and stock counts); smart = with smart shelves."
+read -rp "Store tier: standard or smart [$TIER_DEFAULT]: " STORE_TIER || true
+STORE_TIER="${STORE_TIER:-$TIER_DEFAULT}"
+one_of "$STORE_TIER" standard smart || die "Answer standard or smart."
 ask DELIVERY_AREAS "Delivery areas and fees, e.g. Kilimani:150,Westlands:200 (Enter: demo list around Nairobi)" ""
 
 DARAJA_CONSUMER_KEY="$(current DARAJA_CONSUMER_KEY)"; DARAJA_CONSUMER_SECRET="$(current DARAJA_CONSUMER_SECRET)"
@@ -66,6 +71,7 @@ AT_USERNAME="$(current AT_USERNAME)"; AT_API_KEY="$(current AT_API_KEY)"; AT_SEN
 
 if [ "$MODE" = demo ]; then
   COMPOSE_PROFILES=demo; DARAJA_ENV=simulator; CARD_PROVIDER=simulator; SMS_PROVIDER=simulator
+  [ "$STORE_TIER" = smart ] && COMPOSE_PROFILES=demo,shelf-sim  # simulated shelf sensors
   echo "Demo: M-Pesa and cards go to the simulators. No money moves, and texts are shown on the dashboard, not sent."
 else
   COMPOSE_PROFILES=""
@@ -160,6 +166,7 @@ CALLBACK_SECRET=$CALLBACK_SECRET
 # --- Store
 STORE_ID=$STORE_ID
 STORE_NAME=$STORE_NAME
+STORE_TIER=$STORE_TIER
 DELIVERY_AREAS=$DELIVERY_AREAS
 
 # --- M-Pesa (Daraja)
