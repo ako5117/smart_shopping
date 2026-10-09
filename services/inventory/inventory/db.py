@@ -38,6 +38,16 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
     recorded_by TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_stock ON stock_ledger(store_id, product_id);
+CREATE TABLE IF NOT EXISTS stock_counts (  -- staff counted a product; any difference is an adjustment in the ledger
+    count_id TEXT PRIMARY KEY,
+    store_id TEXT NOT NULL,
+    product_id TEXT NOT NULL REFERENCES products(product_id),
+    counted_qty INTEGER NOT NULL CHECK (counted_qty >= 0),
+    was_qty INTEGER NOT NULL,  -- what the ledger said just before
+    counted_by TEXT NOT NULL DEFAULT '',
+    counted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_counts_product ON stock_counts(store_id, product_id, counted_at);
 CREATE TABLE IF NOT EXISTS sales (
     sale_id TEXT PRIMARY KEY,
     store_id TEXT NOT NULL,
