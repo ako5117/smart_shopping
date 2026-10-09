@@ -1,5 +1,7 @@
 # Roadmap
 
+**Tiers (decided Oct 2026):** stores start on **Standard**, fully digital with no shelf hardware (barcode scans and stock counts keep stock right), and move to **Smart Shelves** by adding the sensors below. Same system and data; see [`tiers.md`](tiers.md).
+
 ## Phase 1 — Shelf visibility and checkout
 
 ### Shelf visibility

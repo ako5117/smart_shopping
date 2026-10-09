@@ -17,6 +17,7 @@ Everything else is the real software.
    - **Staff:** http://localhost/dashboard/ (log in as `manager`)
    - **Customer:** http://localhost/shop/. Use a phone if you have one: open the "same Wi-Fi" address the script printed. Otherwise use a narrow browser window.
 4. Starting from an earlier demo? `./scripts/demo.sh --reset` gives clean data.
+5. **Which tier to show** ([`tiers.md`](tiers.md)): the demo starts with the **smart shelves** (simulated sensors). For a store that wants the low-cost start, run `./scripts/demo.sh --tier standard` first. The shelf panels go and everything else is the same. Section 9 shows switching live in the meeting.
 
 > The customer's camera only works over HTTPS, so on a laptop demo you **type the barcode** instead of scanning. On the hosted version (with a domain), the camera scans for real.
 
@@ -55,6 +56,7 @@ Everything else is the real software.
 - **Restock:** type `6161000000040` (milk), quantity `12`, then **Add to stock**. In a store, a handheld scanner types the barcode.
 - **Change a price:** click **Milk 500 ml** in the list, change the price to `70`, then **Save product**. Scan & Go charges the new price within 30 seconds.
 - **Who's allowed:** in a private window, sign in as `staff`. The price editor is gone, and staff can restock but not change prices. Each person has their own login.
+- **Stock count:** under **Stock count**, type `6161000000026` (sugar), counted `9`, then **Save count**. It shows what the records said and corrects stock to the count, under your name. **Recent counts** keeps the history. This is how a store without shelf sensors keeps its stock right.
 - **The store's own system:** every stock change is queued to sync with the store's existing till system (see **Retailer sync** at the top of the Overview). We connect to the store's POS rather than replace it.
 
 ### 3. The customer shops (Customer: Scan & Go), 3 min
@@ -133,7 +135,13 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **"Do we have to replace our till?"** No. We connect to the store's existing POS.
 - **"Can the online shop sell something that isn't there?"** It promises less than the ledger says (see section 5), and the last check happens in the same step that records the order, so two customers can't both buy the last one. Delivered orders work the same way, and a rider can't mark an order delivered without the customer's code.
 - **"Do we need Glovo or Uber?"** Not to start: the store's own riders use the rider app. A courier company can be plugged in later for busy times.
+- **"Do we have to buy shelf hardware?"** No. The Standard tier runs without it; see section 9. Shelves can be added later, one aisle at a time.
 - **"What's real here?"** All the software is. The two simulated pieces are M-Pesa (until the store's Paybill or Till is connected) and the shelf sensors (until the bench prototype is wired in).
+
+### 9. The two tiers (optional), 2 min
+
+- **The point:** the same system comes in two tiers. **Standard** needs no shelf hardware: barcodes, sales and stock counts keep stock right. **Smart Shelves** adds the sensors for a live view of the shelf. A store starts on Standard and adds the hardware later without losing anything.
+- **Show it:** run `./scripts/demo.sh --tier standard` and reload the dashboard. The Shelves, Needs attention and Shelf activity panels are gone. Sales, stock, counts, online orders, delivery and texts work just the same. `./scripts/demo.sh --tier smart` brings the shelves back.
 
 ## After the demo
 

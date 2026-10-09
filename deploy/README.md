@@ -70,12 +70,19 @@ The stack refuses to start with a clear message if these are missing:
 | `PAYSTACK_SECRET_KEY` | Only for real cards (`CARD_PROVIDER=paystack`). See `services/payments/README.md`, "Setting up Paystack". |
 | `AT_USERNAME`, `AT_API_KEY` | Only for real texts (`SMS_PROVIDER=africastalking`). See `services/notify/README.md`, "Setting up Africa's Talking". |
 
+## Store tier
+
+`STORE_TIER` (asked by `./scripts/configure.sh`) picks the tier, described in [`docs/tiers.md`](../docs/tiers.md):
+- **`standard`:** no shelf hardware. The dashboard drops the shelf panels, and stock is kept right by barcode restocks, sales and **Stock count** on the Products page. This is the default when it isn't set, and the right choice for a live store until real shelf sensors are installed.
+- **`smart`:** smart shelves. In demo mode the shelf sensors are simulated (`COMPOSE_PROFILES=demo,shelf-sim`). On a live server, the real sensors aren't connected by this deployment yet, so `preflight.sh` warns.
+
 ## Demo mode: M-Pesa and card simulators
 
 `.env.example` starts in demo mode:
 - `COMPOSE_PROFILES=demo` starts the M-Pesa simulator (`tools/mpesa_simulator`) and the card simulator (`tools/card_simulator`)
 - `DARAJA_ENV=simulator` points the Payments Service at the M-Pesa simulator
 - `CARD_PROVIDER=simulator` points it at the card simulator
+- `shelf-sim` in `COMPOSE_PROFILES` (with `STORE_TIER=smart`) adds simulated shelf sensors; leave it out to demo the standard tier
 - `SMS_PROVIDER=simulator` records the texts customers would get, without sending them. They show under **Texts to customers** on the dashboard's Online orders page
 
 A full purchase then works with no Safaricom or Paystack account and no real money. For M-Pesa, the phone number decides what happens:
