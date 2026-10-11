@@ -1,24 +1,27 @@
 from fastapi.testclient import TestClient
 
 from dispatch.api import create_app
-from tests.conftest import AREAS, STORE, FakeInventory, fresh_db
+from tests.conftest import FAR, NEAR, NOW, PRICING, STORE, FakeInventory, fresh_db
 
 
 def client():
     inventory = FakeInventory()
-    return TestClient(create_app(fresh_db(), inventory, AREAS)), inventory
+    return TestClient(create_app(fresh_db(), inventory, PRICING, clock=lambda: NOW)), inventory
 
 
 def test_delivery_over_http():
     c, inventory = client()
-    assert c.get("/areas").json() == [{"area": "Kilimani", "fee_kes": 150}, {"area": "Westlands", "fee_kes": 200}]
+    assert c.get("/delivery").json()["max_km"] == 20
+    q = c.get("/delivery/quote", params=NEAR).json()
+    assert (q["deliverable"], q["express"]["fee_kes"], q["scheduled"]["fee_kes"]) == (True, 290, 190)
+    assert c.get("/delivery/quote", params=FAR).json()["deliverable"] is False
     inventory.sales["WEB-1"] = {"status": "paid"}
     body = {"sale_id": "WEB-1", "store_id": STORE, "customer_name": "Jane", "customer_phone": "0712345678",
-            "area": "Westlands", "address": "Apt 3B, Rhapta Rd"}
+            "address": "Apt 3B, Rhapta Rd", **NEAR, "tier": "scheduled", "slot_start": q["scheduled"]["slots"][0]["start"]}
     r = c.post("/deliveries", json=body)
-    assert r.status_code == 201 and r.json()["fee_kes"] == 200
+    assert r.status_code == 201 and (r.json()["fee_kes"], r.json()["slot_label"]) == (190, "Today 12:00–14:00")
     pin = r.json()["pin"]
-    assert c.post("/deliveries", json={**body, "area": "Nakuru"}).status_code == 422
+    assert c.post("/deliveries", json={**body, "sale_id": "WEB-2", **FAR}).status_code == 422
     assert "pin" not in c.get("/deliveries/WEB-1").json()
     assert c.get("/deliveries/WEB-1", params={"include_pin": True}).json()["pin"] == pin
     assert c.get("/deliveries/NOPE").status_code == 404

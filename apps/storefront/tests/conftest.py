@@ -151,9 +151,16 @@ class FakePayments:
             self.inventory.pay(p["sale_id"])
 
 
+DELIVERY_SETTINGS = {"store": {"lat": -1.2864, "lng": 36.8172}, "max_km": 20.0, "base_kes": 100, "per_km_kes": 20,
+                     "express_multiplier": 1.5, "road_factor": 1.3, "hours": "08:00–20:00", "express_minutes": 60}
+SLOTS = [{"start": "2026-10-01T09:00:00+00:00", "end": "2026-10-01T11:00:00+00:00", "label": "Today 12:00–14:00"},
+         {"start": "2026-10-01T11:00:00+00:00", "end": "2026-10-01T13:00:00+00:00", "label": "Today 14:00–16:00"}]
+
+
 class FakeDispatch:
     def __init__(self):
         self.down = False
+        self.express_open = True
         self.refuse = False
         self.deliveries = {}
         self.riders = {"otieno": {"rider_id": "otieno", "phone": "0722000111", "on_shift": True}}
@@ -162,13 +169,26 @@ class FakeDispatch:
         if self.down:
             raise httpx.ConnectError("refused", request=request)
         path, method = request.url.path, request.method
-        if path == "/areas":
-            return httpx.Response(200, json=[{"area": "Kilimani", "fee_kes": 150}, {"area": "Westlands", "fee_kes": 200}])
+        if path == "/delivery":
+            return httpx.Response(200, json=DELIVERY_SETTINGS)
+        if path == "/delivery/quote":
+            lat = float(request.url.params["lat"])
+            if lat > -1.2:  # the fake's "far away": north of the city
+                return httpx.Response(200, json={"deliverable": False, "distance_km": 51.6, "max_km": 20.0,
+                                                 "reason": "You're about 51.6 km from the store. We deliver within 20 km, "
+                                                           "so this order would need to be collected from the store."})
+            return httpx.Response(200, json={
+                "deliverable": True, "distance_km": 4.4, "max_km": 20.0, "reason": "",
+                "express": {"available": self.express_open, "fee_kes": 290, "eta_minutes": 60},
+                "scheduled": {"available": True, "fee_kes": 190, "slots": SLOTS}})
         if method == "POST" and path == "/deliveries":
             if self.refuse:
                 return httpx.Response(422, json={"detail": "nope"})
             body = json.loads(request.content)
-            self.deliveries[body["sale_id"]] = {**body, "status": "awaiting_payment", "fee_kes": 150, "pin": "4821",
+            fee = 290 if body["tier"] == "express" else 190
+            slot = next((x["label"] for x in SLOTS if x["start"] == body.get("slot_start")), "Express")
+            self.deliveries[body["sale_id"]] = {**body, "status": "awaiting_payment", "fee_kes": fee, "pin": "4821",
+                                                "slot_label": slot, "distance_km": 4.4,
                                                 "rider_id": None, "picked_up_at": None, "delivered_at": None}
             return httpx.Response(201, json=self.deliveries[body["sale_id"]])
         if path.startswith("/deliveries/"):

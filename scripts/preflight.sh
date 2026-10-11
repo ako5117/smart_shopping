@@ -77,6 +77,18 @@ else
   esac
 fi
 
+lat="$(val STORE_LAT)"; lng="$(val STORE_LNG)"
+if [ -z "$lat" ] || [ -z "$lng" ]; then
+  if $demo; then ok "Delivery: priced from a demo store location in central Nairobi."
+  else warn "STORE_LAT / STORE_LNG not set: delivery distances are measured from central Nairobi, not your store."
+  fi
+elif ! [[ "$lat" =~ ^-?[0-9]+(\.[0-9]+)?$ && "$lng" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+  fail "STORE_LAT / STORE_LNG must be decimal degrees, e.g. -1.2864 and 36.8172."
+else
+  max="$(val DELIVERY_MAX_KM)"
+  ok "Delivery: within ${max:-20} km of the store at $lat, $lng."
+fi
+
 tier="$(val STORE_TIER)"
 case "${tier:-standard}" in
   standard) ok "Tier: standard (no shelf hardware): stock from barcodes, sales and stock counts." ;;

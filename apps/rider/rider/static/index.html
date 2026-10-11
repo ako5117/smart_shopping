@@ -45,6 +45,7 @@
   .pill.go { background: var(--ok-bg); color: var(--accent); }
   .pill.wait { background: var(--warn-bg); color: var(--warn); }
   .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .pill.express { background: var(--warn-bg); color: var(--warn); font-weight: 700; }
   .job { display: grid; gap: 8px; }
   .job .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .job .code { font: 700 16px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
@@ -144,11 +145,16 @@ function job(j) {
   return `<div class="card job">
     <div class="head"><span class="code">${esc(j.code)}</span><span class="pill ${kind}">${label}</span></div>
     <div class="addr">${esc(j.address)}</div>
-    <div class="muted">${esc(j.area)}${j.notes ? " · " + esc(j.notes) : ""}</div>
+    <div class="muted">${whenPill(j)} ${esc(j.area)}${j.notes ? " · " + esc(j.notes) : ""}</div>
     <div class="row" style="justify-content:space-between"><span>${esc(j.customer_name)}${j.items ? ` · ${j.items} item${j.items === 1 ? "" : "s"}` : ""}</span>
       <a href="tel:${esc(j.customer_phone)}" class="btn secondary" style="padding:6px 12px">Call</a></div>
     ${actions}
   </div>`;
+}
+
+function whenPill(j) {
+  if (j.tier === "express") return `<span class="pill express">Express</span>`;
+  return j.slot ? `<span class="pill">${esc(j.slot)}</span>` : "";
 }
 
 async function load() {
@@ -160,7 +166,7 @@ async function load() {
     const typing = document.activeElement && document.activeElement.classList.contains("pin");
     if (!typing) $("mine").innerHTML = jobs.mine.length ? jobs.mine.map(job).join("") : `<div class="muted">None right now.</div>`;
     $("available").innerHTML = !me.on_shift ? "" : jobs.available.length ? jobs.available.map((j) => `
-      <div class="card row"><div class="grow"><b>${esc(j.area)}</b><div class="muted small">Order ${esc(j.code)} · paid ${ago(j.created_at)} · delivery ${kes(j.fee)}</div></div>
+      <div class="card row"><div class="grow"><b>${esc(j.area)}</b> ${whenPill(j)}<div class="muted small">Order ${esc(j.code)} · paid ${ago(j.created_at)} · delivery ${kes(j.fee)}</div></div>
         <button data-accept="${esc(j.sale_id)}">Accept</button></div>`).join("") : `<div class="muted">Nothing waiting.</div>`;
   } catch (err) {
     say(err.message);

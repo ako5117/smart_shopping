@@ -92,7 +92,7 @@ def test_off_shift_riders_see_no_waiting_jobs(client):
     [job] = client.get("/api/jobs", headers=ME).json()["available"]
     # Before accepting: where and how much, not who.
     assert job == {"sale_id": "WEB-000000000000AAAA", "code": "0000AAAA", "area": "Kilimani", "fee": 150,
-                   "created_at": "2026-10-01T12:00:00+00:00"}
+                   "tier": "scheduled", "slot": "", "created_at": "2026-10-01T12:00:00+00:00"}
 
 
 def test_accept_deliver_with_the_code(client, dispatch):
@@ -127,6 +127,14 @@ def test_give_back_and_report_a_problem(client, dispatch):
 def test_maps_link_without_a_pin():
     assert maps_link({"address": "Apt 3B, Rhapta Rd", "area": "Westlands", "lat": None, "lng": None}) == \
         "https://www.google.com/maps/search/?api=1&query=Apt%203B%2C%20Rhapta%20Rd%2C%20Westlands%2C%20Nairobi"
+
+
+def test_express_and_slot_shown(client, dispatch):
+    client.put("/api/me", json={"on_shift": True}, headers=ME)
+    dispatch.deliveries["WEB-000000000000AAAA"].update(tier="express", slot_label="Express", area="4.4 km")
+    [job] = client.get("/api/jobs", headers=ME).json()["available"]
+    assert (job["tier"], job["slot"], job["area"]) == ("express", "Express", "4.4 km")
+    assert maps_link({"address": "Apt 3B", "area": "4.4 km", "lat": None, "lng": None}).endswith("Apt%203B%2C%20Nairobi")
 
 
 def test_dispatch_down(dispatch):

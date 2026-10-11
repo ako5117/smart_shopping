@@ -4,6 +4,10 @@ import os
 
 from .sqldb import Database as _Database
 
+# Columns added after the first release; ALTER TABLE brings older databases up to date.
+ADDED_COLUMNS = {"deliveries": [("tier", "TEXT NOT NULL DEFAULT 'scheduled'"), ("slot_start", "TEXT"), ("slot_end", "TEXT"),
+                                ("slot_label", "TEXT NOT NULL DEFAULT ''"), ("distance_km", "REAL")]}
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS riders (
     rider_id TEXT PRIMARY KEY,  -- the rider's login name
@@ -18,7 +22,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
                                            'delivered', 'failed', 'cancelled')),
     customer_name TEXT NOT NULL,
     customer_phone TEXT NOT NULL,
-    area TEXT NOT NULL,
+    area TEXT NOT NULL,  -- how far it is, e.g. "4.2 km" (it was a named area before distance pricing)
     address TEXT NOT NULL,
     notes TEXT NOT NULL DEFAULT '',
     lat REAL,
@@ -33,6 +37,11 @@ CREATE TABLE IF NOT EXISTS deliveries (
     delivered_at TEXT,
     failed_at TEXT,
     fail_reason TEXT NOT NULL DEFAULT '',
+    tier TEXT NOT NULL DEFAULT 'scheduled',  -- express (as soon as it's packed) or scheduled (a time slot)
+    slot_start TEXT,
+    slot_end TEXT,
+    slot_label TEXT NOT NULL DEFAULT '',
+    distance_km REAL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -54,7 +63,7 @@ class Database(_Database):
     """The Dispatch Service's database: a SQLite path, or a postgresql:// URL (tables in schema "dispatch")."""
 
     def __init__(self, url: str, schema: str = "dispatch"):
-        super().__init__(url, SCHEMA, schema=schema)
+        super().__init__(url, SCHEMA, schema=schema, added_columns=ADDED_COLUMNS)
 
 
 def database_from_env() -> Database:

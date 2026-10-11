@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from storefront.shelf import picked_up, read_recent_lines
-from tests.conftest import NOW, shelf_event
+from tests.conftest import DELIVERY_SETTINGS, NOW, shelf_event
 
 
 def catalogue(client):
@@ -152,7 +152,7 @@ def test_page_and_store_info(client):
     assert "Online shop" in client.get("/").text
     assert client.get("/api/store").json() == {
         "store_id": "001", "name": "Test Store", "currency": "KES", "hold_minutes": 15, "card": True,
-        "delivery": {"available": True, "areas": [{"area": "Kilimani", "fee": 150}, {"area": "Westlands", "fee": 200}]}}
+        "delivery": {"available": True, **DELIVERY_SETTINGS}}
 
 
 def test_standard_tier_has_no_live_shelf_signal(monkeypatch, tmp_path):

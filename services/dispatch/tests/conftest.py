@@ -4,10 +4,16 @@ import uuid
 import pytest
 
 from dispatch.db import Database
-from dispatch.service import Dispatch, parse_areas
+from datetime import datetime, timezone
+
+from dispatch.pricing import Pricing
+from dispatch.service import Dispatch
 
 STORE = "001"
-AREAS = parse_areas("Kilimani:150,Westlands:200")
+PRICING = Pricing()  # store in central Nairobi, KES 100 + 20/km, express x1.5, within 20 km, 08:00-20:00
+NOW = datetime(2026, 10, 12, 7, 0, tzinfo=timezone.utc)  # 10:00 in Nairobi
+NEAR = {"lat": -1.2921, "lng": 36.7870}  # Kilimani, about 4.5 km by road
+FAR = {"lat": -1.0332, "lng": 37.0693}  # Thika, about 50 km
 
 # Set TEST_DATABASE_URL=postgresql://... to run every test against PostgreSQL instead of SQLite.
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
@@ -66,11 +72,11 @@ def inventory():
 
 @pytest.fixture
 def dispatch(db, inventory):
-    return Dispatch(db, inventory, AREAS)
+    return Dispatch(db, inventory, PRICING, clock=lambda: NOW)
 
 
 def new_delivery(dispatch, inventory, sale_id="WEB-1", paid=True, **kw):
     inventory.sales[sale_id] = {"sale_id": sale_id, "status": "paid" if paid else "pending_payment"}
-    args = {"customer_name": "Jane", "customer_phone": "0712345678", "area": "Kilimani",
+    args = {"customer_name": "Jane", "customer_phone": "0712345678", "tier": "express", **NEAR,
             "address": "Hse 4, Argwings Kodhek Rd", "notes": "Blue gate", **kw}
     return dispatch.create(sale_id, STORE, **args)

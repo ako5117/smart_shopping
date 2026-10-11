@@ -203,6 +203,27 @@
   .paybar button { width: 100%; padding: 15px; font-size: 17px; border-radius: 16px; }
   .stepdots { display: flex; gap: 6px; justify-content: center; margin: 2px 0 12px; }
 
+  .choice label small { display: block; color: var(--muted); font-size: 13px; font-weight: 500; }
+  .choice label.off { opacity: .5; cursor: default; }
+
+  /* ---- where we deliver: checked before shopping */
+  .where { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; background: var(--panel); color: var(--text);
+           border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow); font-weight: 500; }
+  .where .ico { width: 38px; height: 38px; border-radius: 12px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; flex: none; }
+  .where.far .ico { background: var(--warn-bg); color: var(--warn); }
+  .where .txt { flex: 1; min-width: 0; }
+  .where b { display: block; font-weight: 700; }
+  .where small { display: block; color: var(--muted); font-size: 13.5px; }
+  .where .go { color: var(--brand); font-weight: 700; font-size: 14px; flex: none; }
+  .card .where { box-shadow: none; background: var(--soft); margin: 0 0 12px; }
+  #where-map { height: 280px; border-radius: 16px; margin-top: 12px; overflow: hidden; background: var(--soft); }
+  .quote { margin: 14px 0 6px; padding: 12px 14px; border-radius: 16px; background: var(--brand-soft); }
+  .quote.far { background: var(--warn-bg); color: var(--warn); }
+  .quote .opt { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; }
+  .quote .opt + .opt { border-top: 1px dashed var(--line); }
+  .quote .opt b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .where-actions { display: grid; gap: 10px; }
+
   /* ---- waiting, order status */
   .center { text-align: center; }
   .phone-anim { width: 76px; height: 76px; border-radius: 24px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center;
@@ -268,6 +289,9 @@
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
     <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 12a7 7 0 0 1 12-5l2 2M20 12a7 7 0 0 1-12 5l-2-2M18 4v5h-5M6 20v-5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <!-- product placeholders, until the store adds a photo -->
     <symbol id="p-milk" viewBox="0 0 48 48"><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6z" fill="currentColor" opacity=".18"/><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6zM17 12h14M13 24h22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
     <symbol id="p-bread" viewBox="0 0 48 48"><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3z" fill="currentColor" opacity=".18"/><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3zM19 18l-2 4M26 17l-2 5M33 18l-2 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
@@ -304,6 +328,11 @@
       <div><b id="order-banner-title">Your order</b><span class="small" id="order-banner-text"></span></div>
       <button class="small" id="view-order">Track</button>
     </div>
+    <button type="button" class="where" id="where-bar" hidden>
+      <span class="ico"><svg width="20" height="20"><use href="#i-pin"/></svg></span>
+      <span class="txt"><b id="where-title">Delivery or collect?</b><small id="where-text">Check that we deliver to you before you shop</small></span>
+      <span class="go" id="where-go">Check</span>
+    </button>
     <div class="live"><span class="dot" id="live-dot"></span><span id="live-text">Checking what's on the shelves…</span></div>
     <div class="chips" id="chips"></div>
     <div class="section-title"><h2 id="list-title">All products</h2><span class="muted small" id="list-count"></span></div>
@@ -332,17 +361,28 @@
     </div>
     <form id="order-form">
       <div class="card" id="delivery-fields" hidden>
-        <h2>Where to?</h2>
-        <label for="area" style="margin-top:0">Area</label>
-        <select id="area"></select>
+        <h2>Delivery</h2>
+        <button type="button" class="where" id="checkout-where">
+          <span class="ico"><svg width="20" height="20"><use href="#i-pin"/></svg></span>
+          <span class="txt"><b id="cw-title">Where should we deliver?</b><small id="cw-text">Set your location to see the fees</small></span>
+          <span class="go">Change</span>
+        </button>
+        <div class="choice" id="tier-choice">
+          <label id="tier-express"><span class="ico"><svg width="20" height="20"><use href="#i-bolt"/></svg></span>
+            <span>Express<small id="express-eta">About 1 hour</small></span><span class="fee" id="express-fee"></span>
+            <input type="radio" name="tier" value="express"></label>
+          <label id="tier-scheduled"><span class="ico"><svg width="20" height="20"><use href="#i-clock"/></svg></span>
+            <span>Choose a time<small>A 2-hour slot, today or later</small></span><span class="fee" id="scheduled-fee"></span>
+            <input type="radio" name="tier" value="scheduled"></label>
+        </div>
+        <div id="slot-field" hidden>
+          <label for="slot">Delivery time</label>
+          <select id="slot"></select>
+        </div>
         <label for="address">Address</label>
         <input id="address" maxlength="200" autocomplete="street-address" placeholder="Building, house or flat number, street">
         <label for="notes">Directions for the rider <span class="muted" style="font-weight:500">(optional)</span></label>
         <input id="notes" maxlength="300" placeholder="e.g. Blue gate opposite the school">
-        <div style="display:flex;gap:10px;align-items:center;margin-top:12px">
-          <button type="button" class="secondary small" id="locate">Share my location</button>
-          <span class="muted small" id="loc-status">Helps the rider find you</span>
-        </div>
       </div>
       <div class="card">
         <h2>Your details</h2>
@@ -450,6 +490,23 @@
   </div>
 </div>
 
+<div class="sheet" id="where-sheet" role="dialog" aria-modal="true" aria-labelledby="where-heading" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="head"><h2 id="where-heading">Where should we deliver?</h2>
+    <button class="iconbtn" id="close-where" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <div class="scroll">
+    <p class="muted" style="margin-top:0" id="where-intro">Check before you shop: we'll show the delivery fees, or tell you if it's too far.</p>
+    <div class="where-actions">
+      <button class="block" id="where-locate"><svg width="18" height="18" style="vertical-align:-3px;margin-right:6px"><use href="#i-pin"/></svg>Use my location</button>
+      <button class="secondary block" id="where-map-open">Pick on the map</button>
+    </div>
+    <div id="where-map" hidden></div>
+    <p class="muted small" id="where-status" style="margin-bottom:0"></p>
+    <div id="where-quote"></div>
+  </div>
+  <div class="foot"><button id="where-done" hidden>Start shopping</button></div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
 
 <script>
@@ -470,10 +527,14 @@ let order = store.get("web.order", null);   // {order_id, payment_id, total, pho
 let pastOrders = store.get("web.history", []); // this phone's paid orders, newest first: {order_id, payment_id, at, lines, total, fulfilment}
 let products = {}, categories = [], category = "", view = "shop";
 let catalogueTimer = null, pollTimer = null, toastTimer = null, undo = null;
-let delivery = {available: false, areas: []}, geo = null, holdMinutes = 15, cardOn = false, cardPolls = 0;
+let delivery = {available: false}, holdMinutes = 15, cardOn = false, cardPolls = 0;
+let where = store.get("web.where", null);  // {lat, lng}: where this customer wants deliveries, checked before shopping
+let quote = null;                          // the Dispatch Service's answer for that place: fees, slots, or too far
 const payMethod = () => cardOn ? document.querySelector('input[name="paymethod"]:checked').value : "mpesa";
 const fulfil = () => document.querySelector('input[name="fulfil"]:checked').value;
-const fee = () => fulfil() === "delivery" ? (delivery.areas.find((a) => a.area === $("area").value)?.fee || 0) : 0;
+const tier = () => document.querySelector('input[name="tier"]:checked')?.value || "";
+const canDeliver = () => !!(quote && quote.deliverable);
+const fee = () => fulfil() === "delivery" && canDeliver() && quote[tier()] ? quote[tier()].fee_kes : 0;
 
 // ------------------------------------------------------------------ product pictures
 // A photo when the store has added one; until then a drawing that fits the product, on a tile coloured by category.
@@ -698,8 +759,8 @@ function closeCart() {
 $("open-cart").addEventListener("click", openCart);
 $("close-cart").addEventListener("click", closeCart);
 $("keep-shopping").addEventListener("click", () => { closeCart(); if (view !== "shop") show("shop"); });
-$("scrim").addEventListener("click", closeCart);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCart(); });
+$("scrim").addEventListener("click", () => { closeCart(); closeWhere(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCart(); closeWhere(); } });
 
 document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => {
   if (b.dataset.tab === "cart") openCart();
@@ -781,6 +842,164 @@ function trackPast(orderId) {
   poll();
 }
 
+// ------------------------------------------------------------------ where we deliver (asked before shopping)
+
+const km = (n) => `${Number(n).toLocaleString("en-KE", {maximumFractionDigits: 1})} km`;
+
+async function checkWhere(lat, lng) {
+  $("where-status").textContent = "Checking…";
+  try {
+    quote = await api(`api/delivery/quote?lat=${lat}&lng=${lng}`);
+    where = {lat, lng};
+    store.set("web.where", where);
+    $("where-status").textContent = "";
+  } catch (err) {
+    $("where-status").textContent = err.message;
+  }
+  renderWhere();
+}
+
+async function refreshQuote() {
+  // Slots and express close as the day goes on: ask again before checkout.
+  if (!where || !delivery.available) return;
+  try { quote = await api(`api/delivery/quote?lat=${where.lat}&lng=${where.lng}`); } catch { quote = null; }
+  renderWhere();
+}
+
+function quoteHtml(q) {
+  if (!q) return "";
+  if (!q.deliverable) return `<div class="quote far"><b>${esc(q.reason)}</b></div>`;
+  const ex = q.express.available ? `<b>${kes(q.express.fee_kes)}</b>` : `<span>Closed for today</span>`;
+  const next = q.scheduled.slots[0];
+  return `<div class="quote"><div class="muted small">${km(q.distance_km)} from the store</div>
+    <div class="opt"><span>Express · about ${q.express.eta_minutes} min</span>${ex}</div>
+    <div class="opt"><span>Choose a time${next ? ` · next ${esc(next.label)}` : ""}</span><b>${q.scheduled.available ? kes(q.scheduled.fee_kes) : "—"}</b></div></div>`;
+}
+
+function renderWhere() {
+  const on = delivery.available;
+  $("where-bar").hidden = !on;
+  const far = !!(quote && !quote.deliverable);
+  let title = "Delivery or collect?", text = "Check that we deliver to you before you shop", go = "Check";
+  if (quote && !far) {
+    title = `We deliver to you · ${km(quote.distance_km)}`;
+    text = [quote.express.available ? `Express ${kes(quote.express.fee_kes)}` : "",
+            quote.scheduled.available ? `Scheduled ${kes(quote.scheduled.fee_kes)}` : ""].filter(Boolean).join(" · ");
+    go = "Change";
+  } else if (far) {
+    title = `Too far to deliver · ${km(quote.distance_km)}`;
+    text = `We deliver within ${km(quote.max_km)}. You can still shop and collect in store.`;
+    go = "Change";
+  }
+  for (const [bar, t, x] of [["where-bar", "where-title", "where-text"], ["checkout-where", "cw-title", "cw-text"]]) {
+    $(bar).classList.toggle("far", far);
+    $(t).textContent = title;
+    $(x).textContent = text;
+  }
+  $("where-go").textContent = go;
+  $("where-quote").innerHTML = quoteHtml(quote);
+  $("where-done").hidden = !quote;
+  $("where-done").textContent = far ? "Shop and collect in store" : view === "checkout" ? "Done" : "Start shopping";
+  $("where-intro").textContent = `We deliver within ${km(delivery.max_km || 20)} of the store. Check before you shop: we'll show the delivery fees, or tell you if it's too far.`;
+  renderDeliverOption();
+}
+
+function renderDeliverOption() {
+  if (!delivery.available) return;
+  const far = !!(quote && !quote.deliverable);
+  $("deliver-option").classList.toggle("off", far);
+  $("deliver-option").querySelector("input").disabled = far;
+  $("deliver-from").textContent = far ? "Too far" : quote ? "from " + kes(Math.min(...["express", "scheduled"]
+    .filter((t) => quote[t].available).map((t) => quote[t].fee_kes))) : "By distance";
+  if (far && fulfil() === "delivery") document.querySelector('input[name="fulfil"][value="collect"]').checked = true;
+  if (!quote || far) return;
+  $("express-fee").textContent = quote.express.available ? kes(quote.express.fee_kes) : "Closed today";
+  $("express-eta").textContent = `About ${quote.express.eta_minutes} minutes`;
+  $("scheduled-fee").textContent = quote.scheduled.available ? kes(quote.scheduled.fee_kes) : "None left";
+  for (const t of ["express", "scheduled"]) {
+    const off = !quote[t].available;
+    $("tier-" + t).classList.toggle("off", off);
+    $("tier-" + t).querySelector("input").disabled = off;
+  }
+  if (!tier() || !quote[tier()].available) {
+    const pick = [store.get("web.tier", "express"), "express", "scheduled"].find((t) => quote[t] && quote[t].available);
+    if (pick) document.querySelector(`input[name="tier"][value="${pick}"]`).checked = true;
+  }
+  const keep = $("slot").value;
+  $("slot").innerHTML = quote.scheduled.slots.map((x) => `<option value="${esc(x.start)}">${esc(x.label)}</option>`).join("");
+  if (quote.scheduled.slots.some((x) => x.start === keep)) $("slot").value = keep;
+  $("slot-field").hidden = tier() !== "scheduled";
+}
+
+function openWhere() {
+  hideToast();
+  closeCart();
+  renderWhere();
+  $("where-sheet").classList.add("open");
+  $("where-sheet").setAttribute("aria-hidden", "false");
+  $("scrim").classList.add("open");
+}
+function closeWhere() {
+  if (!$("where-sheet").classList.contains("open")) return;
+  $("where-sheet").classList.remove("open");
+  $("where-sheet").setAttribute("aria-hidden", "true");
+  $("scrim").classList.remove("open");
+}
+$("where-bar").addEventListener("click", openWhere);
+$("checkout-where").addEventListener("click", openWhere);
+$("close-where").addEventListener("click", closeWhere);
+$("where-done").addEventListener("click", () => { closeWhere(); render(); });
+$("where-locate").addEventListener("click", () => {
+  if (!navigator.geolocation) return ($("where-status").textContent = "This browser can't share its location. Pick it on the map.");
+  $("where-status").textContent = "Finding you…";
+  navigator.geolocation.getCurrentPosition(
+    (p) => { const lat = +p.coords.latitude.toFixed(6), lng = +p.coords.longitude.toFixed(6); checkWhere(lat, lng); pinOnMap(lat, lng); },
+    () => { $("where-status").textContent = "Couldn't get your location. Pick it on the map instead."; },
+    {enableHighAccuracy: true, timeout: 10000});
+});
+
+// The map loads only when asked for (Leaflet with OpenStreetMap tiles): tap where the delivery goes.
+let map = null, pin = null;
+const LEAFLET = "https://unpkg.com/leaflet@1.9.4/dist/leaflet";
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise((ok, fail) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = LEAFLET + ".css"; css.crossOrigin = "";
+    css.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = LEAFLET + ".js"; js.crossOrigin = ""; js.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+    js.onload = ok; js.onerror = fail;
+    document.head.appendChild(js);
+  });
+}
+function pinOnMap(lat, lng) {
+  if (!map) return;
+  if (pin) pin.setLatLng([lat, lng]); else pin = L.marker([lat, lng]).addTo(map);
+  map.setView([lat, lng], Math.max(map.getZoom(), 14));
+}
+$("where-map-open").addEventListener("click", async () => {
+  $("where-map").hidden = false;
+  if (map) return map.invalidateSize();
+  $("where-status").textContent = "Loading the map…";
+  try { await loadLeaflet(); } catch {
+    $("where-map").hidden = true;
+    return ($("where-status").textContent = "The map couldn't load. Use your location instead.");
+  }
+  $("where-status").textContent = "Tap the map where we should deliver.";
+  const s = delivery.store || {lat: -1.2864, lng: 36.8172};
+  map = L.map("where-map").setView(where ? [where.lat, where.lng] : [s.lat, s.lng], where ? 14 : 11);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+              {maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
+  L.circleMarker([s.lat, s.lng], {radius: 7, color: "#0e6b47", fillOpacity: 1}).addTo(map).bindTooltip("The store");
+  // Roughly where the distance limit falls (roads wind, so the real limit is measured along them).
+  L.circle([s.lat, s.lng], {radius: 1000 * (delivery.max_km || 20) / (delivery.road_factor || 1.3), color: "#0e6b47",
+                            weight: 1.5, fillOpacity: .05, interactive: false}).addTo(map);
+  if (where) pinOnMap(where.lat, where.lng);
+  map.on("click", (e) => { const lat = +e.latlng.lat.toFixed(6), lng = +e.latlng.lng.toFixed(6); pinOnMap(lat, lng); checkWhere(lat, lng); });
+});
+
 // ------------------------------------------------------------------ checkout and payment
 
 function startCheckout() {
@@ -789,11 +1008,10 @@ function startCheckout() {
   $("phone").value = $("phone").value || store.get("web.phone", "");
   $("email").value = $("email").value || store.get("web.email", "");
   const saved = store.get("web.delivery", null);
-  if (saved && !$("address").value) {
-    $("area").value = saved.area; $("address").value = saved.address; $("notes").value = saved.notes || "";
-  }
+  if (saved && !$("address").value) { $("address").value = saved.address || ""; $("notes").value = saved.notes || ""; }
   show("checkout");
   renderFulfil();
+  refreshQuote();
 }
 $("checkout").addEventListener("click", startCheckout);
 $("cart-checkout").addEventListener("click", startCheckout);
@@ -805,9 +1023,11 @@ $("header-back").addEventListener("click", () => {
 });
 
 function renderFulfil() {
+  renderDeliverOption();
   const d = fulfil() === "delivery";
   $("delivery-fields").hidden = !d;
-  for (const id of ["area", "address"]) $(id).required = d;
+  $("tier-choice").hidden = !canDeliver();
+  $("address").required = d;
   $("fulfil-hint").textContent = d
     ? "We'll pack your order and a rider brings it. Give the rider the 4-digit code shown on your order page."
     : "We'll pack your order and tell you here when it's ready. Show the pass on this page when you collect.";
@@ -816,16 +1036,8 @@ function renderFulfil() {
 }
 document.querySelectorAll('input[name="fulfil"]').forEach((r) => r.addEventListener("change", renderFulfil));
 document.querySelectorAll('input[name="paymethod"]').forEach((r) => r.addEventListener("change", () => render()));
-$("area").addEventListener("change", renderFulfil);
-$("locate").addEventListener("click", () => {
-  if (!navigator.geolocation) return ($("loc-status").textContent = "This browser can't share its location.");
-  $("loc-status").textContent = "Finding you…";
-  navigator.geolocation.getCurrentPosition(
-    (p) => { geo = {lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6)};
-             $("loc-status").textContent = "Location added ✓"; },
-    () => { geo = null; $("loc-status").textContent = "Couldn't get your location. The address is enough."; },
-    {enableHighAccuracy: true, timeout: 10000});
-});
+document.querySelectorAll('input[name="tier"]').forEach((r) => r.addEventListener("change", () => { store.set("web.tier", tier()); renderFulfil(); }));
+document.querySelector('input[name="fulfil"][value="delivery"]').addEventListener("change", () => { if (!quote) openWhere(); });
 
 $("order-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -837,12 +1049,14 @@ $("order-form").addEventListener("submit", async (e) => {
                   items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
     if (body.payment_method === "card") body.email = $("email").value.trim();
     if (body.fulfilment === "delivery") {
-      body.delivery = {area: $("area").value, address: $("address").value.trim(), notes: $("notes").value.trim(), ...(geo || {})};
+      if (!canDeliver() || !where) { $("pay-button").disabled = false; openWhere(); return say("Set where to deliver first."); }
+      body.delivery = {address: $("address").value.trim(), notes: $("notes").value.trim(), lat: where.lat, lng: where.lng, tier: tier(),
+                       slot_start: tier() === "scheduled" ? $("slot").value : null};
     }
     const r = await api("api/orders", {method: "POST", body: JSON.stringify(body)});
     store.set("web.name", name);
     store.set("web.phone", phone);
-    if (body.delivery) store.set("web.delivery", {area: body.delivery.area, address: body.delivery.address, notes: body.delivery.notes});
+    if (body.delivery) store.set("web.delivery", {address: body.delivery.address, notes: body.delivery.notes});
     if (body.email) store.set("web.email", body.email);
     order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, email: body.email, method: body.payment_method, paid: false};
     store.set("web.order", order);
@@ -851,7 +1065,7 @@ $("order-form").addEventListener("submit", async (e) => {
   } catch (err) {
     say(err.message);
     if (err.status === 409) await loadCatalogue();  // show what changed, with substitutes
-    else $("pay-button").disabled = false;
+    else { $("pay-button").disabled = false; if (err.status === 422 && fulfil() === "delivery") refreshQuote(); }
   }
 });
 
@@ -965,7 +1179,7 @@ function showOrder(s) {
     $("pass-hint").textContent = d.status === "failed"
       ? "The rider couldn't complete the delivery. The store will call you."
       : s.stage === "delivered" ? `Delivered at ${when(d.delivered_at)}. Thank you!`
-      : `Your delivery code. Give it to the rider when your order arrives at ${d.address}.`;
+      : `${d.tier === "scheduled" && d.slot ? `Arriving ${d.slot}. ` : ""}Your delivery code. Give it to the rider when your order arrives at ${d.address}.`;
   } else {
     $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage];
     $("pass-hint").textContent = {
@@ -1013,10 +1227,8 @@ api("api/store").then((s) => {
   cardOn = s.card;
   $("pay-method").hidden = !cardOn;
   $("deliver-option").hidden = !delivery.available;
-  if (delivery.available) {
-    $("deliver-from").textContent = "from " + kes(Math.min(...delivery.areas.map((a) => a.fee)));
-    $("area").innerHTML = delivery.areas.map((a) => `<option value="${esc(a.area)}">${esc(a.area)} · ${kes(a.fee)}</option>`).join("");
-  }
+  renderWhere();
+  if (delivery.available && where) refreshQuote();
   document.title = `${s.name} · Online shop`;
 }).catch(() => {});
 show("shop");

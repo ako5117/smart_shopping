@@ -2,8 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from dispatch.service import MAX_PIN_ATTEMPTS, Conflict, Locked, NotFound, WrongPin, parse_areas
-from tests.conftest import STORE, new_delivery
+from dispatch.service import MAX_PIN_ATTEMPTS, Conflict, Locked, NotFound, WrongPin
+from tests.conftest import FAR, NEAR, STORE, new_delivery
 
 
 def on_shift(dispatch, *riders):
@@ -11,19 +11,12 @@ def on_shift(dispatch, *riders):
         dispatch.save_rider(r, phone="0722 000 111", on_shift=True)
 
 
-def test_areas_config():
-    assert parse_areas("Kilimani:150, Upper Hill:200,") == {"Kilimani": 150, "Upper Hill": 200}
-    for bad in ("", "Kilimani", "Kilimani:cheap", ":150"):
-        with pytest.raises(ValueError):
-            parse_areas(bad)
-
-
 def test_new_delivery_waits_for_payment_and_keeps_its_code_private(dispatch, inventory):
     d = new_delivery(dispatch, inventory, paid=False)
-    assert (d["status"], d["fee_kes"], d["area"]) == ("awaiting_payment", 150, "Kilimani")
+    assert (d["status"], d["fee_kes"], d["area"], d["tier"], d["slot_label"]) == ("awaiting_payment", 290, "4.4 km", "express", "Express")
     assert len(d["pin"]) == 4 and d["pin"].isdigit()
     assert "pin" not in dispatch.get("WEB-1") and "pin" not in dispatch.list(STORE, ["awaiting_payment"])[0]
-    assert dispatch.create("WEB-1", STORE, "Someone else", "0700000000", "Westlands", "Elsewhere")["pin"] == d["pin"]
+    assert dispatch.create("WEB-1", STORE, "Someone else", "0700000000", "Elsewhere", **NEAR)["pin"] == d["pin"]
     assert dispatch.list(STORE) == []  # not active until paid
 
     inventory.sales["WEB-1"]["status"] = "paid"
@@ -31,14 +24,35 @@ def test_new_delivery_waits_for_payment_and_keeps_its_code_private(dispatch, inv
 
 
 def test_delivery_details_are_checked(dispatch, inventory):
-    with pytest.raises(ValueError):
-        new_delivery(dispatch, inventory, area="Mombasa")  # not a delivery area
+    with pytest.raises(ValueError, match="51.6 km"):
+        new_delivery(dispatch, inventory, **FAR)  # beyond the 20 km limit
     with pytest.raises(ValueError):
         new_delivery(dispatch, inventory, address=" ")
+    with pytest.raises(ValueError, match="location"):
+        new_delivery(dispatch, inventory, lat=None)  # no location, no distance
     with pytest.raises(ValueError):
-        new_delivery(dispatch, inventory, lat=-1.29)  # no longitude
-    d = new_delivery(dispatch, inventory, lat=-1.2921, lng=36.7856)
-    assert (d["lat"], d["lng"]) == (-1.2921, 36.7856)
+        new_delivery(dispatch, inventory, tier="overnight")
+    d = new_delivery(dispatch, inventory)
+    assert (d["lat"], d["lng"], d["distance_km"]) == (NEAR["lat"], NEAR["lng"], 4.4)
+
+
+def test_scheduled_delivery_takes_an_open_slot(dispatch, inventory):
+    slots = dispatch.quote(**NEAR)["scheduled"]["slots"]
+    assert slots[0]["label"] == "Today 12:00–14:00"  # 10:00 now, an hour to pack: the 10-12 slot is gone
+    d = new_delivery(dispatch, inventory, tier="scheduled", slot_start=slots[1]["start"])
+    assert (d["fee_kes"], d["slot_label"], d["slot_start"]) == (190, "Today 14:00–16:00", slots[1]["start"])
+    with pytest.raises(ValueError, match="slot"):
+        new_delivery(dispatch, inventory, "WEB-2", tier="scheduled", slot_start="2026-10-12T05:00:00+00:00")  # 08:00, past
+    with pytest.raises(ValueError, match="slot"):
+        new_delivery(dispatch, inventory, "WEB-3", tier="scheduled")  # no slot chosen
+
+
+def test_express_first_then_scheduled_by_slot(dispatch, inventory):
+    slots = dispatch.quote(**NEAR)["scheduled"]["slots"]
+    new_delivery(dispatch, inventory, "WEB-1", tier="scheduled", slot_start=slots[3]["start"])
+    new_delivery(dispatch, inventory, "WEB-2", tier="scheduled", slot_start=slots[0]["start"])
+    new_delivery(dispatch, inventory, "WEB-3", tier="express")
+    assert [d["sale_id"] for d in dispatch.list(STORE)] == ["WEB-3", "WEB-2", "WEB-1"]
 
 
 def test_unpaid_orders_are_cancelled_or_expire(dispatch, inventory, db):

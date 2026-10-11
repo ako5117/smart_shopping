@@ -61,7 +61,9 @@ def maps_link(d: dict, city: str = "Nairobi") -> str:
     """Directions to the customer's pin, or a search for their address."""
     if d.get("lat") is not None and d.get("lng") is not None:
         return f"https://www.google.com/maps/dir/?api=1&destination={d['lat']},{d['lng']}"
-    return "https://www.google.com/maps/search/?api=1&query=" + quote(", ".join(filter(None, [d["address"], d["area"], city])))
+    area = d.get("area") or ""
+    area = "" if area.endswith(" km") else area  # newer deliveries record the distance there, not a place name
+    return "https://www.google.com/maps/search/?api=1&query=" + quote(", ".join(filter(None, [d["address"], area, city])))
 
 
 def create_app(settings: Optional[Settings] = None, dispatch: Optional[httpx.Client] = None,
@@ -98,15 +100,19 @@ def create_app(settings: Optional[Settings] = None, dispatch: Optional[httpx.Cli
         except (httpx.HTTPError, KeyError, ValueError):
             return None
 
+    def when(d: dict) -> dict:
+        """Express (go as soon as it's packed) or the customer's time slot."""
+        return {"tier": d.get("tier") or "scheduled", "slot": d.get("slot_label") or ""}
+
     def mine(d: dict) -> dict:
-        return {"sale_id": d["sale_id"], "code": d["sale_id"][-8:], "status": d["status"], "area": d["area"],
+        return {"sale_id": d["sale_id"], "code": d["sale_id"][-8:], "status": d["status"], "area": d["area"], **when(d),
                 "address": d["address"], "notes": d["notes"], "customer_name": d["customer_name"],
                 "customer_phone": d["customer_phone"], "maps": maps_link(d, settings.city), "items": items_of(d["sale_id"]),
                 "fee": d["fee_kes"], "locked": d["locked"], "fail_reason": d.get("fail_reason", "")}
 
     def waiting(d: dict) -> dict:
         """A job nobody has taken: enough to decide, not the customer's details."""
-        return {"sale_id": d["sale_id"], "code": d["sale_id"][-8:], "area": d["area"], "fee": d["fee_kes"],
+        return {"sale_id": d["sale_id"], "code": d["sale_id"][-8:], "area": d["area"], "fee": d["fee_kes"], **when(d),
                 "created_at": d["created_at"]}
 
     @app.get("/health")

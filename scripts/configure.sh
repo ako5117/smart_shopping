@@ -61,7 +61,17 @@ echo "Tier (docs/tiers.md): standard = no shelf hardware (barcodes and stock cou
 read -rp "Store tier: standard or smart [$TIER_DEFAULT]: " STORE_TIER || true
 STORE_TIER="${STORE_TIER:-$TIER_DEFAULT}"
 one_of "$STORE_TIER" standard smart || die "Answer standard or smart."
-ask DELIVERY_AREAS "Delivery areas and fees, e.g. Kilimani:150,Westlands:200 (Enter: demo list around Nairobi)" ""
+echo "Delivery is priced by distance from the store (services/dispatch/README.md)."
+echo "The store's location: on Google Maps, long-press the store and copy the two numbers, e.g. -1.2864, 36.8172."
+ask STORE_LAT "Store latitude (Enter: central Nairobi, for a demo)" ""
+ask STORE_LNG "Store longitude" ""
+ask DELIVERY_BASE_KES "Delivery base fee, KES" "100"
+ask DELIVERY_PER_KM_KES "Delivery fee per km, KES" "20"
+ask DELIVERY_EXPRESS_MULTIPLIER "Express costs this many times the scheduled fee" "1.5"
+ask DELIVERY_MAX_KM "Furthest delivery, km (beyond it: collect in store)" "20"
+DELIVERY_HOURS="$(current DELIVERY_HOURS)"; DELIVERY_SLOT_HOURS="$(current DELIVERY_SLOT_HOURS)"
+DELIVERY_EXPRESS_MINUTES="$(current DELIVERY_EXPRESS_MINUTES)"; DELIVERY_ROAD_FACTOR="$(current DELIVERY_ROAD_FACTOR)"
+STORE_TZ="$(current STORE_TZ)"
 
 DARAJA_CONSUMER_KEY="$(current DARAJA_CONSUMER_KEY)"; DARAJA_CONSUMER_SECRET="$(current DARAJA_CONSUMER_SECRET)"
 DARAJA_SHORTCODE="$(current DARAJA_SHORTCODE)"; DARAJA_PASSKEY="$(current DARAJA_PASSKEY)"
@@ -147,6 +157,7 @@ PUBLIC_BASE_URL="https://$SITE_ADDRESS"
 
 [ -f "$ENV_FILE" ] && cp "$ENV_FILE" "$ENV_FILE.bak"
 umask 077
+# shellcheck disable=SC2153  # STORE_ID and friends are set by ask (printf -v), which shellcheck can't see
 cat > "$ENV_FILE" <<EOF
 # Written by scripts/configure.sh on $(date '+%Y-%m-%d %H:%M'). Run it again to change answers. Never commit this file.
 
@@ -167,7 +178,19 @@ CALLBACK_SECRET=$CALLBACK_SECRET
 STORE_ID=$STORE_ID
 STORE_NAME=$STORE_NAME
 STORE_TIER=$STORE_TIER
-DELIVERY_AREAS=$DELIVERY_AREAS
+
+# --- Delivery: fees by distance (edit here, then ./scripts/deploy.sh). Empty = the default.
+STORE_LAT=$STORE_LAT
+STORE_LNG=$STORE_LNG
+STORE_TZ=$STORE_TZ
+DELIVERY_BASE_KES=$DELIVERY_BASE_KES
+DELIVERY_PER_KM_KES=$DELIVERY_PER_KM_KES
+DELIVERY_EXPRESS_MULTIPLIER=$DELIVERY_EXPRESS_MULTIPLIER
+DELIVERY_MAX_KM=$DELIVERY_MAX_KM
+DELIVERY_HOURS=$DELIVERY_HOURS
+DELIVERY_SLOT_HOURS=$DELIVERY_SLOT_HOURS
+DELIVERY_EXPRESS_MINUTES=$DELIVERY_EXPRESS_MINUTES
+DELIVERY_ROAD_FACTOR=$DELIVERY_ROAD_FACTOR
 
 # --- M-Pesa (Daraja)
 DARAJA_CONSUMER_KEY=$DARAJA_CONSUMER_KEY

@@ -29,17 +29,44 @@ Each delivery has a random 4-digit code. The customer sees it on their order pag
 
 Every step is kept in `delivery_events` (who, when, and the reason for a failure).
 
-## Areas and fees
+## Express or scheduled, priced by distance
 
-`DELIVERY_AREAS` lists where the store delivers and the fee for each area, as `Name:fee` pairs: `Kilimani:150,Westlands:200,CBD:250`. Without it, a demo list around Nairobi is used. The online shop shows these areas at checkout. The fee is set here, not by the browser, and the Inventory Service records it on the order, so it's part of what M-Pesa charges.
+The customer chooses:
+
+- **Express:** goes out as soon as it's packed, about an hour. Offered during delivery hours while there's time to arrive before closing.
+- **Scheduled:** a 2-hour slot, today or the next two days, starting at least an hour from now.
+
+The fee goes by the distance from the store to the customer's pin (`dispatch/pricing.py`):
+
+    scheduled fee = base + per km x distance        (rounded up to the next KES 10)
+    express fee   = scheduled fee x express multiplier (rounded up to the next KES 10)
+
+Distance is the straight line times a road factor (roads wind). With the defaults, 4.4 km costs KES 190 scheduled and KES 290 express. Further than the limit (20 km), the store doesn't deliver: the online shop asks for the customer's location before they shop and says the order would need to be collected from the store.
+
+The fee is worked out here, not by the browser, and the Inventory Service records it on the order, so it's part of what M-Pesa charges. Riders and the dashboard see express jobs first, then scheduled ones by slot.
+
+| Setting | Default | |
+|---|---|---|
+| `STORE_LAT`, `STORE_LNG` | -1.2864, 36.8172 (central Nairobi) | The store's location |
+| `DELIVERY_BASE_KES` | 100 | |
+| `DELIVERY_PER_KM_KES` | 20 | |
+| `DELIVERY_EXPRESS_MULTIPLIER` | 1.5 | |
+| `DELIVERY_MAX_KM` | 20 | Furthest delivery, by road |
+| `DELIVERY_HOURS` | 08-20 | Local time (`STORE_TZ`, default Africa/Nairobi) |
+| `DELIVERY_SLOT_HOURS` | 2 | |
+| `DELIVERY_EXPRESS_MINUTES` | 60 | How long express takes; express stops this long before closing |
+| `DELIVERY_ROAD_FACTOR` | 1.3 | Straight line x this ≈ road distance |
+
+Change them in `.env` (or `./scripts/configure.sh`) and redeploy.
 
 ## Endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/areas` | Delivery areas and fees |
+| `GET` | `/delivery` | How delivery is priced: store location, distance limit, rates, hours |
+| `GET` | `/delivery/quote?lat=&lng=` | `{deliverable, distance_km, max_km, reason, express: {available, fee_kes, eta_minutes}, scheduled: {available, fee_kes, slots: [{start, end, label}]}}` |
 | `POST` | `/deliveries` | New delivery for an online order (before payment). Repeating it for the same order changes nothing |
-| `GET` | `/deliveries?store_id=&status=&rider_id=` | Deliveries, oldest first. `status` is comma-separated; the default is everything still active |
+| `GET` | `/deliveries?store_id=&status=&rider_id=` | Deliveries: express first, then by time slot (oldest first). `status` is comma-separated; the default is everything still active |
 | `GET` | `/deliveries/{sale_id}` | One delivery (`?include_pin=true` for the online shop only) |
 | `GET` | `/deliveries/{sale_id}/events` | Its history |
 | `POST` | `/deliveries/{sale_id}/assign` | Staff: `{"rider_id", "by"}` |

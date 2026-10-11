@@ -110,15 +110,16 @@ Now switch to the staff window:
 Open a third window for the rider: http://localhost/rider/, signed in as `rider`. A second phone works best.
 
 - **Rider:** save a phone number, then tap **Start shift**.
-- **Customer:** in the online shop, add something and tap **Checkout**.
-  - Choose **Deliver to me**, then pick an area. Each area has its own fee, and the total updates.
-  - Type an address, and optionally tap **Share my location**.
-  - Pay with `0712 345 678`.
+- **Customer:** in the online shop, tap **Delivery or collect?** at the top, before shopping.
+  - Tap **Pick on the map** and tap somewhere a few km from the centre. The sheet shows the distance, the **Express** fee (about an hour) and the **Choose a time** fee with the next slot. The fee goes up with distance.
+  - Now tap somewhere far out, like Thika. It says it's too far (over 20 km) and to collect in store instead. Point out that the customer learns this before shopping, not at checkout. Move the pin back.
+  - Add something, tap **Checkout** and choose **Deliver to me**. Pick **Express**, or **Choose a time** and a slot. The total updates.
+  - Type an address and pay with `0712 345 678`.
   - The order page shows a big **4-digit delivery code**. Point it out: the rider can't finish without it.
-- **Rider:** the job appears under **Waiting for a rider**, with only the area and fee. Tap **Accept**.
+- **Rider:** the job appears under **Waiting for a rider**, with only the distance, **Express** or the time slot, and the fee. Express jobs come first. Tap **Accept**.
   - The customer's name, address, **Call** and **Map** now appear.
   - On the customer's page, "Your rider" appears with a **Call** button.
-- **Staff (Online orders):** the card shows the delivery area and the rider.
+- **Staff (Online orders):** the card shows the distance, **Express** or the slot, and the rider.
   - Press **Packed: ready for the rider**, then **Hand to rider**. That records the parcel leaving the store.
   - The order moves to **Out for delivery**, and the customer's page says **On the way**.
 - **Texts:** under **Texts to customers**, the delivery's "paid" text carries the delivery code (shown to staff as `****`: only the customer sees it), and the "on the way" text names the rider and their number.
