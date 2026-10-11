@@ -86,6 +86,17 @@ class OrderIn(BaseModel):
     use_points: bool = Field(False, description="Signed-in customers: spend loyalty points on this order")
 
 
+class ReturnLineIn(BaseModel):
+    product_id: str = Field(..., max_length=64)
+    qty: int = Field(..., ge=1, le=100)
+
+
+class ReturnIn(BaseModel):
+    lines: List[ReturnLineIn] = Field(..., min_length=1, max_length=30)
+    reason: str = Field(..., min_length=3, max_length=300)
+    unopened: bool = False
+
+
 class PayIn(BaseModel):
     method: Literal["mpesa", "card"] = "mpesa"
     phone: Optional[str] = Field(None, min_length=9, max_length=16)
@@ -156,6 +167,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         customers = httpx.Client(base_url=settings.customers_url, timeout=10.0)
     clock = clock or (lambda: datetime.now(timezone.utc))
     limiter = RateLimiter(settings.stk_limit_per_phone, settings.stk_limit_window_s)
+    returns_limiter = RateLimiter(5, 3600)
     accounts = account.Accounts(customers)
     app = FastAPI(title="Smart Shopping - Online store")
 
@@ -536,6 +548,41 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "points": points_for(sale),
             **priced_sale(sale, names),
         }
+
+    def own_order(order_id: str, payment_id: str) -> dict:
+        """The order, if this payment is one of its own: the order page's address is the customer's key."""
+        if not ORDER_ID.match(order_id) or not PAYMENT_ID.match(payment_id):
+            raise HTTPException(404, "Order not found")
+        r = upstream("Payments", lambda: payments.get(f"/payments/{payment_id}"))
+        if r.status_code != 200 or r.json().get("sale_id") != order_id:
+            raise HTTPException(404, "Order not found")
+        return online_sale(order_id)
+
+    @app.get("/api/orders/{order_id}/payments/{payment_id}/returns")
+    def order_returns(order_id: str, payment_id: str):
+        """What can be returned from this order (unopened, non-perishable, within the return period), and returns so far."""
+        own_order(order_id, payment_id)
+        r = upstream("Inventory", lambda: inventory.get(f"/sales/{order_id}/returnable"))
+        r.raise_for_status()
+        return r.json()
+
+    @app.post("/api/orders/{order_id}/payments/{payment_id}/returns", status_code=201)
+    def ask_return(order_id: str, payment_id: str, body: ReturnIn):
+        own_order(order_id, payment_id)
+        if not body.unopened:
+            raise HTTPException(422, "Items can only be returned unopened and in the same state as when you got them.")
+        if not returns_limiter.allow(order_id):
+            raise HTTPException(429, "Too many return requests for this order. Please ask at the store.")
+        r = upstream("Inventory", lambda: inventory.post("/returns", json={
+            "sale_id": order_id, "lines": [l.model_dump() for l in body.lines], "reason": body.reason.strip(),
+            "unopened": True, "started_by": "customer"}))
+        if r.status_code in (409, 422):
+            d = r.json().get("detail")
+            raise HTTPException(r.status_code, d if isinstance(d, str) else "Please check what you chose to return.")
+        if r.status_code >= 400:
+            log.error("Inventory refused return for %s: %s %s", order_id, r.status_code, r.text[:200])
+            raise HTTPException(502, "The return couldn't be recorded. Please try again, or ask at the store.")
+        return r.json()
 
     @app.get("/api/products/{product_id}/image")
     def product_image(product_id: str, request: Request):

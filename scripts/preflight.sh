@@ -121,6 +121,11 @@ case "$sms" in
   *) fail "SMS_PROVIDER must be africastalking, simulator or empty (it's \"$sms\")." ;;
 esac
 
+days="$(val RETURN_DAYS)"
+if [[ "${days:-14}" =~ ^[0-9]+$ ]]; then ok "Returns: unopened, non-perishable items within ${days:-14} days of payment."
+else fail "RETURN_DAYS must be a whole number of days (it's \"$days\")."
+fi
+
 loyalty="$(val LOYALTY_ENABLED)"; email="$(val EMAIL_PROVIDER)"
 case "${loyalty:-true}" in
   true) ok "Loyalty points: on." ;;

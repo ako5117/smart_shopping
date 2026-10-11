@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, List, Literal, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -53,6 +53,29 @@ class ProductIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     price_kes: Optional[int] = Field(None, gt=0)
     category: Optional[str] = Field(None, max_length=40)
+    perishable: Optional[bool] = None
+
+
+class ReturnLineIn(BaseModel):
+    product_id: str = Field(..., max_length=64)
+    qty: int = Field(..., gt=0, le=1000)
+
+
+class StartReturnIn(BaseModel):
+    sale_id: str = Field(..., max_length=64)
+    lines: List[ReturnLineIn] = Field(..., min_length=1)
+    reason: str = Field(..., max_length=300)
+    unopened: bool = False
+
+
+class ReturnDecisionIn(BaseModel):
+    checked: bool = False
+    note: str = Field("", max_length=300)
+
+
+class RefundIn(BaseModel):
+    method: Literal["mpesa", "card", "cash"]
+    ref: str = Field("", max_length=60)
 
 
 class RestockIn(BaseModel):
@@ -259,6 +282,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     def loyalty_page():
         return FileResponse(STATIC / "loyalty.html")
 
+    @app.get("/returns")
+    def returns_page():
+        return FileResponse(STATIC / "returns.html")
+
     @app.get("/orders")
     def orders_page():
         return FileResponse(STATIC / "orders.html")
@@ -375,6 +402,42 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.get("/api/exit/lookup")
     def exit_lookup(code: str):
         return priced(call(inventory.find_sale, settings.store_id, code))
+
+    @app.get("/api/returns")
+    def returns_list(status: str = "requested,approved"):
+        """Returns waiting to be checked (requested) or refunded (approved); ?status=refunded,rejected for the done ones."""
+        try:
+            return inventory.returns(settings.store_id, status)
+        except httpx.HTTPStatusError as e:
+            _passthrough(e.response)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+
+    @app.get("/api/returns/lookup")
+    def returns_lookup(code: str):
+        """At the counter: find the sale by its receipt code, and what can still come back from it."""
+        sale = call(inventory.find_sale, settings.store_id, code)
+        return {"sale": priced(sale), "returnable": call(inventory.returnable, sale["sale_id"])}
+
+    @app.post("/api/returns", status_code=201)
+    def start_return(body: StartReturnIn, staff: Staff = Depends(current_staff)):
+        """Any staff member can take a return at the counter; a manager checks and approves it."""
+        return call(inventory.start_return, body.model_dump(), staff.name or "staff")
+
+    @app.post("/api/returns/{return_id}/approve")
+    def approve_return(return_id: str, body: ReturnDecisionIn, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "approve returns")
+        return call(inventory.return_action, return_id, "approve", {**body.model_dump(), "by": staff.name or ""})
+
+    @app.post("/api/returns/{return_id}/reject")
+    def reject_return(return_id: str, body: ReturnDecisionIn, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "refuse returns")
+        return call(inventory.return_action, return_id, "reject", {"note": body.note, "by": staff.name or ""})
+
+    @app.post("/api/returns/{return_id}/refunded")
+    def refund_return(return_id: str, body: RefundIn, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "record refunds")
+        return call(inventory.return_action, return_id, "refunded", {**body.model_dump(), "by": staff.name or ""})
 
     @app.post("/api/exit/{sale_id}")
     def exit_confirm(sale_id: str, body: ExitIn, staff: Staff = Depends(current_staff)):

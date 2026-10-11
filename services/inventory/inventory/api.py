@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from .db import Database, database_from_env
 from .service import Conflict, Inventory, Item, NotEnoughStock, NotFound
 from . import images, sync
+from .returns import Returns
 
 
 class ProductIn(BaseModel):
@@ -21,6 +22,7 @@ class ProductIn(BaseModel):
     price_kes: Optional[int] = Field(None, gt=0, description="Shelf price in whole KES; omit to keep the current price")
     changed_by: str = Field("", max_length=60, description="Who made the change (defaults to the signed-in staff member)")
     category: Optional[str] = Field(None, max_length=40, description="Shelf category, e.g. Dairy; used to suggest substitutes. Omit to keep the current one")
+    perishable: Optional[bool] = Field(None, description="Food that goes off: never taken back as a return. Omit to keep the current setting")
 
 
 class RestockIn(BaseModel):
@@ -85,6 +87,31 @@ class ReturnIn(BaseModel):
     return_id: str
 
 
+class ReturnLineIn(BaseModel):
+    product_id: str = Field(..., max_length=64)
+    qty: int = Field(..., gt=0, le=1000)
+
+
+class ReturnRequestIn(BaseModel):
+    sale_id: str = Field(..., max_length=64)
+    lines: List[ReturnLineIn] = Field(..., min_length=1)
+    reason: str = Field(..., max_length=300)
+    unopened: bool = Field(False, description="The customer confirms: unopened, in the same state as when sold")
+    started_by: str = Field("customer", max_length=60, description="customer (online), or the staff member at the counter")
+
+
+class ReturnDecisionIn(BaseModel):
+    by: str = Field("", max_length=60)
+    checked: bool = Field(False, description="Approve: the manager checked the items are unopened and as sold")
+    note: str = Field("", max_length=300)
+
+
+class RefundIn(BaseModel):
+    by: str = Field("", max_length=60)
+    method: Literal["mpesa", "card", "cash"]
+    ref: str = Field("", max_length=60, description="The M-Pesa or card refund reference")
+
+
 class AdjustIn(BaseModel):
     store_id: str
     product_id: str
@@ -117,9 +144,10 @@ def who(named: str, header: Optional[str]) -> str:
     return (named or header or "").strip()
 
 
-def create_app(db: Optional[Database] = None) -> FastAPI:
+def create_app(db: Optional[Database] = None, return_days: Optional[int] = None, clock=None) -> FastAPI:
     db = db or database_from_env()
     inv = Inventory(db)
+    returns = Returns(inv, days=int(os.getenv("RETURN_DAYS") or 14) if return_days is None else return_days, clock=clock)
     app = FastAPI(title="Smart Shopping - Inventory Service")
 
     def guard(fn, *a, **kw):
@@ -178,7 +206,7 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     def put_product(product_id: str, p: ProductIn, staff: Optional[str] = StaffUser):
         if p.product_id != product_id:
             raise HTTPException(422, "product_id in path and body differ")
-        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes, who(p.changed_by, staff), p.category)
+        guard(inv.upsert_product, p.product_id, p.ean13, p.name, p.price_kes, who(p.changed_by, staff), p.category, p.perishable)
         return {"product_id": product_id}
 
     @app.get("/products/{product_id}/price-history")
@@ -252,6 +280,37 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/sales/{sale_id}/returns")
     def return_items(sale_id: str, r: ReturnIn):
         return guard(inv.return_items, sale_id, r.product_id, r.qty, r.return_id)
+
+    @app.get("/sales/{sale_id}/returnable")
+    def returnable(sale_id: str):
+        """What can still be returned from this sale, and until when (non-perishable items only)."""
+        return guard(returns.returnable, sale_id)
+
+    @app.post("/returns", status_code=201)
+    def request_return(r: ReturnRequestIn, staff: Optional[str] = StaffUser):
+        return guard(returns.request, r.sale_id, [l.model_dump() for l in r.lines], r.reason,
+                     staff or r.started_by, r.unopened)
+
+    @app.get("/returns")
+    def list_returns(store_id: str, status: Optional[str] = Query(None, description="Comma-separated; default: requested,approved"),
+                     limit: int = Query(100, ge=1, le=500)):
+        return guard(returns.list, store_id, status.split(",") if status else None, limit)
+
+    @app.get("/returns/{return_id}")
+    def get_return(return_id: str):
+        return guard(returns.get, return_id)
+
+    @app.post("/returns/{return_id}/approve")
+    def approve_return(return_id: str, d: ReturnDecisionIn, staff: Optional[str] = StaffUser):
+        return guard(returns.approve, return_id, who(d.by, staff), d.checked, d.note)
+
+    @app.post("/returns/{return_id}/reject")
+    def reject_return(return_id: str, d: ReturnDecisionIn, staff: Optional[str] = StaffUser):
+        return guard(returns.reject, return_id, who(d.by, staff), d.note)
+
+    @app.post("/returns/{return_id}/refunded")
+    def refunded(return_id: str, r: RefundIn, staff: Optional[str] = StaffUser):
+        return guard(returns.refunded, return_id, who(r.by, staff), r.method, r.ref)
 
     @app.post("/adjustments")
     def adjust(a: AdjustIn, staff: Optional[str] = StaffUser):

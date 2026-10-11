@@ -186,3 +186,19 @@ def test_offers_show_the_offer_price_and_the_old_one(client, inventory):
     assert (products["milk-500ml"]["price"], products["milk-500ml"]["was_price"], products["milk-500ml"]["offer"]) == (55, 65, "15% off")
     assert products["sugar-1kg"]["offer"] == "KES 30 off"
     assert products["yoghurt-500ml"]["was_price"] is None and products["yoghurt-500ml"]["offer"] is None
+
+
+def test_returns_need_the_order_and_its_payment(client, inventory, payments):
+    o = client.post("/api/orders", json={"name": "Jane", "phone": "0712345678",
+                                         "items": [{"product_id": "sugar-1kg", "qty": 2}]}).json()
+    url = f"/api/orders/{o['order_id']}/payments/{o['payment_id']}/returns"
+    assert client.get(f"/api/orders/{o['order_id']}/payments/pay-999/returns").status_code == 404  # not its payment
+    assert client.get(url).json()["open"] is False  # not paid yet
+    payments.settle(o["payment_id"], "paid", receipt="R1")
+    assert client.get(url).json()["open"] is True
+    ask = {"lines": [{"product_id": "sugar-1kg", "qty": 1}], "reason": "Bought too much"}
+    assert client.post(url, json=ask).status_code == 422  # must confirm unopened
+    r = client.post(url, json={**ask, "unopened": True})
+    assert r.status_code == 201 and inventory.returns[-1]["started_by"] == "customer"
+    bad = client.post(url, json={**ask, "lines": [{"product_id": "milk-500ml", "qty": 1}], "unopened": True})
+    assert bad.status_code == 409 and "perishables" in bad.json()["detail"]

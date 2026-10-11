@@ -51,6 +51,8 @@ services:
     environment:
       DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
       DATABASE_SCHEMA: inventory
+      # How many days after payment unopened, non-perishable items can be returned.
+      RETURN_DAYS: ${RETURN_DAYS:-14}
       UVICORN_ROOT_PATH: /inventory
     depends_on:
       db: {condition: service_healthy}

@@ -22,6 +22,8 @@ STOCK = {"maize-flour-2kg": 24, "sugar-1kg": 18, "rice-1kg": 30,
          "milk-500ml": 48, "cooking-oil-1l": 14, "bread-400g": 12}
 CATEGORIES = {"maize-flour-2kg": "Flour & rice", "rice-1kg": "Flour & rice", "sugar-1kg": "Sugar",
               "milk-500ml": "Milk", "cooking-oil-1l": "Cooking oil", "bread-400g": "Bread"}
+# Food that goes off: never taken back as a return.
+PERISHABLE = {"milk-500ml", "bread-400g", "uht-milk-500ml", "brown-bread-400g"}
 # Not on a sensor shelf: (product_id, EAN-13, name, price, category, stock)
 EXTRA_PRODUCTS = [
     ("wheat-flour-2kg", "6161000000071", "Wheat flour 2 kg", 230, "Flour & rice", 20),
@@ -48,7 +50,8 @@ def main(argv=None):
                  STOCK.get(p["product_id"], 0)) for p in json.loads(Path(args.catalogue).read_text())["products"]]
     for pid, ean13, name, price, category, stock in products + EXTRA_PRODUCTS:
         r = client.put(f"/products/{pid}", json={"product_id": pid, "ean13": ean13, "name": name,
-                                                  "price_kes": price, "category": category})
+                                                  "price_kes": price, "category": category,
+                                                  "perishable": pid in PERISHABLE})
         r.raise_for_status()
         if stock:
             r = client.post("/restocks", json={"store_id": args.store, "ean13": ean13, "qty": stock,

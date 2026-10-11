@@ -142,6 +142,18 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **Manager:** the Loyalty page shows members (name and a masked email, never birthdays or gender), points earned and spent, and discounts given.
 - **Switch it off:** set `LOYALTY_ENABLED=false` and restart. Accounts and orders keep working, points disappear from the shop, and balances are kept for later.
 
+### 6c. Returns (Customer, Staff and Manager), 3 min
+
+- **Customer:** open a paid online order. The **Returns** card says returns are accepted for 14 days.
+  - Tap **Return items**. Milk and bread are greyed out: food that goes off can't be returned.
+  - Choose 1 sugar, pick a reason, tick **unopened and in the same state**, and send. The card says to bring the items to the store.
+- **Staff (dashboard, Returns):** the request is under **Waiting to be checked**. Staff can also take a return at the counter: type the receipt code from a Scan & Go pass, choose the items and record it.
+- **Manager:**
+  - Tick **I've checked: unopened…** and **Approve**. The items go back into stock; check the stock figure on Overview.
+  - Under **Approved: refund due**, choose M-Pesa, type the refund reference and press **Refund given**. The customer's page shows **Refunded**.
+  - Refuse another return with a reason ("Opened"). The customer sees the reason.
+- **Point out:** refunds are paid by hand for now, so nothing moves money without a person; every step records who did it.
+
 ### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.
