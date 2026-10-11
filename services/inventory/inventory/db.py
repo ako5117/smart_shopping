@@ -3,13 +3,14 @@
 # Columns added after the first release; ALTER TABLE brings older database files up to date.
 ADDED_COLUMNS = {
     "products": [("price_kes", "INTEGER CHECK (price_kes IS NULL OR price_kes > 0)"),
-                 ("category", "TEXT NOT NULL DEFAULT ''")],
+                 ("category", "TEXT NOT NULL DEFAULT ''"), ("perishable", "INTEGER NOT NULL DEFAULT 0")],
     "sales": [("exited_at", "TEXT"), ("exited_by", "TEXT"),
               ("channel", "TEXT NOT NULL DEFAULT 'in_store'"), ("customer_name", "TEXT NOT NULL DEFAULT ''"),
               ("ready_at", "TEXT"), ("ready_by", "TEXT"),
               ("fulfilment", "TEXT NOT NULL DEFAULT 'collect'"), ("delivery_fee_kes", "INTEGER NOT NULL DEFAULT 0"),
               ("customer_phone", "TEXT NOT NULL DEFAULT ''"),
-              ("loyalty_discount_kes", "INTEGER NOT NULL DEFAULT 0"), ("customer_id", "TEXT NOT NULL DEFAULT ''")],
+              ("loyalty_discount_kes", "INTEGER NOT NULL DEFAULT 0"), ("customer_id", "TEXT NOT NULL DEFAULT ''"),
+              ("paid_at", "TEXT")],
     "sale_items": [("unit_price_kes", "INTEGER"), ("list_price_kes", "INTEGER")],
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
@@ -24,7 +25,8 @@ CREATE TABLE IF NOT EXISTS products (
     ean13 TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     price_kes INTEGER CHECK (price_kes IS NULL OR price_kes > 0),
-    category TEXT NOT NULL DEFAULT ''
+    category TEXT NOT NULL DEFAULT '',
+    perishable INTEGER NOT NULL DEFAULT 0  -- food that goes off: never taken back (see returns)
 );
 CREATE TABLE IF NOT EXISTS product_images (  -- one photo per product, as shown in the shops (inventory/images.py)
     product_id TEXT PRIMARY KEY REFERENCES products(product_id),
@@ -74,7 +76,8 @@ CREATE TABLE IF NOT EXISTS sales (
     delivery_fee_kes INTEGER NOT NULL DEFAULT 0,
     customer_phone TEXT NOT NULL DEFAULT '',  -- online orders: for order updates by SMS
     loyalty_discount_kes INTEGER NOT NULL DEFAULT 0,  -- online orders: taken off for loyalty points spent
-    customer_id TEXT NOT NULL DEFAULT ''  -- online orders by a signed-in customer (Customers Service)
+    customer_id TEXT NOT NULL DEFAULT '',  -- online orders by a signed-in customer (Customers Service)
+    paid_at TEXT  -- when the payment was confirmed (the returns window starts here)
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),
@@ -124,6 +127,35 @@ CREATE TABLE IF NOT EXISTS discrepancies (
     resolution TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     resolved_at TEXT
+);
+
+-- Returns (see returns.py): asked for by the customer online or started by staff at the counter,
+-- checked and approved by a manager (stock goes back), then refunded by hand.
+CREATE TABLE IF NOT EXISTS returns (
+    return_id TEXT PRIMARY KEY,
+    sale_id TEXT NOT NULL REFERENCES sales(sale_id),
+    store_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('requested', 'approved', 'rejected', 'refunded')),
+    reason TEXT NOT NULL,
+    started_by TEXT NOT NULL,          -- "customer" (online) or the staff member
+    created_at TEXT NOT NULL,
+    decided_by TEXT,
+    decided_at TEXT,
+    note TEXT NOT NULL DEFAULT '',     -- why it was rejected, or what was checked
+    refund_kes INTEGER NOT NULL DEFAULT 0,
+    refund_method TEXT,                -- mpesa | card | cash
+    refund_ref TEXT,
+    refunded_by TEXT,
+    refunded_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_returns_status ON returns(store_id, status);
+CREATE INDEX IF NOT EXISTS idx_returns_sale ON returns(sale_id);
+CREATE TABLE IF NOT EXISTS return_lines (
+    return_id TEXT NOT NULL REFERENCES returns(return_id),
+    product_id TEXT NOT NULL REFERENCES products(product_id),
+    qty INTEGER NOT NULL CHECK (qty > 0),
+    refund_kes INTEGER NOT NULL,       -- for the whole line: what was paid for these items
+    PRIMARY KEY (return_id, product_id)
 );
 """
 

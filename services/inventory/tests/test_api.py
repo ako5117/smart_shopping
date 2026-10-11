@@ -45,7 +45,7 @@ def test_reconcile_and_count_over_http():
 def test_read_endpoints_for_dashboard():
     c = client()
     assert c.get("/products").json() == [{"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml",
-                                          "price_kes": None, "category": "", "price_changed_by": None,
+                                          "price_kes": None, "category": "", "perishable": False, "price_changed_by": None,
                                           "price_changed_at": None, "image_version": None, "sale_price_kes": None, "discount": None}]
     c.post("/restocks", json={"store_id": "001", "ean13": "6161000000040", "qty": 5, "scan_id": "s1"})
     for sale_id in ("S1", "S2"):
@@ -105,7 +105,8 @@ def test_older_database_files_get_new_columns(tmp_path):
     old.close()
     db = Database(str(path))
     assert db.one("SELECT * FROM products") == {"product_id": "milk-500ml", "ean13": "6161000000040",
-                                                "name": "Milk 500 ml", "price_kes": None, "category": ""}
+                                                "name": "Milk 500 ml", "price_kes": None, "category": "",
+                                                "perishable": 0}
 
 
 def test_who_did_what_is_recorded():

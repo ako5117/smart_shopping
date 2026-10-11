@@ -79,6 +79,7 @@ one_of "$LOYALTY_ENABLED" true false || die "Answer true or false."
 LOYALTY_KES_PER_POINT="$(current LOYALTY_KES_PER_POINT)"; LOYALTY_REDEEM_POINTS="$(current LOYALTY_REDEEM_POINTS)"
 LOYALTY_REDEEM_KES="$(current LOYALTY_REDEEM_KES)"
 EMAIL_PROVIDER="$(current EMAIL_PROVIDER)"; EMAIL_PROVIDER="${EMAIL_PROVIDER:-outbox}"
+ask RETURN_DAYS "Days after payment that unopened, non-perishable items can be returned" "14"
 
 DARAJA_CONSUMER_KEY="$(current DARAJA_CONSUMER_KEY)"; DARAJA_CONSUMER_SECRET="$(current DARAJA_CONSUMER_SECRET)"
 DARAJA_SHORTCODE="$(current DARAJA_SHORTCODE)"; DARAJA_PASSKEY="$(current DARAJA_PASSKEY)"
@@ -209,6 +210,9 @@ DARAJA_PARTY_B=$DARAJA_PARTY_B
 
 # --- Cards (Paystack). Webhook URL to set on the Paystack dashboard: $PUBLIC_BASE_URL/pay/payments/card/webhook
 PAYSTACK_SECRET_KEY=$PAYSTACK_SECRET_KEY
+
+# --- Returns (services/inventory/README.md)
+RETURN_DAYS=$RETURN_DAYS
 
 # --- Customer accounts and loyalty points (services/customers/README.md)
 LOYALTY_ENABLED=$LOYALTY_ENABLED

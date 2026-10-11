@@ -26,7 +26,7 @@
     <h1>Products</h1>
     <div class="muted">Prices here are what Scan &amp; Go and the online shop charge (changes reach them within 30 seconds).</div>
   </div>
-  <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a><a href="loyalty" class="manager-only">Loyalty</a></nav>
+  <nav><a href="./">Overview</a><a href="products" aria-current="page">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a><a href="returns">Returns</a><a href="loyalty" class="manager-only">Loyalty</a></nav>
   <span class="muted who" id="me"></span>
 </header>
 <main>
@@ -56,6 +56,8 @@
       <label>Price (KES)<input id="p-price" type="number" min="1" step="1" placeholder="Not for sale yet"></label>
       <label>Category<input id="p-category" maxlength="40" list="categories" placeholder="e.g. Dairy"></label>
       <datalist id="categories"></datalist>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="p-perishable" style="width:auto">
+        Perishable (food that goes off): can't be returned</label>
       <button id="p-save">Save product</button>
     </form>
     <div class="muted" id="p-id-note" style="margin-top:6px"></div>
@@ -146,7 +148,7 @@ async function load() {
           ${p.image_version ? `<img src="api/products/${encodeURIComponent(p.product_id)}/image?v=${esc(p.image_version)}" alt="" loading="lazy">` : `<span>Add photo</span>`}
           <input type="file" accept="image/*" capture="environment" data-photo="${esc(p.product_id)}" aria-label="Photo of ${esc(p.name)}">
         </label>
-        <div>${esc(p.name)}<div class="muted"><span class="pid">${esc(p.product_id)}${p.category ? " · " : ""}</span>${esc(p.category)}</div>
+        <div>${esc(p.name)}<div class="muted"><span class="pid">${esc(p.product_id)}${p.category ? " · " : ""}</span>${esc(p.category)}${p.perishable ? " · perishable" : ""}</div>
           <div class="muted bc-inline" style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</div>
           ${p.image_version ? `<button type="button" class="rm-photo manager-only" data-rm-photo="${esc(p.product_id)}">Remove photo</button>` : ""}</div>
       </div></td>
@@ -170,6 +172,7 @@ function edit(product) {
   $("p-name").value = product ? product.name : "";
   $("p-price").value = product && product.price_kes ? product.price_kes : "";
   $("p-category").value = product ? product.category || "" : "";
+  $("p-perishable").checked = !!(product && product.perishable);
   $("p-id-note").textContent = product ? `Product code: ${product.product_id}` : "";
   show($("product-result"), "");
 }
@@ -253,7 +256,8 @@ $("product").addEventListener("submit", async (e) => {
   const category = $("p-category").value.trim();
   $("p-save").disabled = true;
   try {
-    await api(`api/products/${encodeURIComponent(id)}`, {method: "PUT", body: JSON.stringify({ean13, name, price_kes: price, category})});
+    await api(`api/products/${encodeURIComponent(id)}`, {method: "PUT", body: JSON.stringify({ean13, name, price_kes: price, category,
+                                                                                  perishable: $("p-perishable").checked})});
     edit(null);
     $("p-ean").value = "";
     show($("product-result"), `Saved ${name}${price ? ` at ${kes(price)}` : ""}.`, true);

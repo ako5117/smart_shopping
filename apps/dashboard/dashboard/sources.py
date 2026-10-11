@@ -61,6 +61,19 @@ class InventoryClient:
     def find_sale(self, store_id: str, code: str) -> httpx.Response:
         return self.http.get("/sales/lookup", params={"store_id": store_id, "code": code})
 
+    def returnable(self, sale_id: str) -> httpx.Response:
+        return self.http.get(f"/sales/{sale_id}/returnable")
+
+    def returns(self, store_id: str, statuses: str) -> List[dict]:
+        return self._get("/returns", store_id=store_id, status=statuses)
+
+    def start_return(self, body: dict, staff: str) -> httpx.Response:
+        return self.http.post("/returns", json=body, headers={"X-Staff-User": staff} if staff else None)
+
+    def return_action(self, return_id: str, action: str, body: dict) -> httpx.Response:
+        """approve, reject or refunded."""
+        return self.http.post(f"/returns/{return_id}/{action}", json=body)
+
     def online_orders(self, store_id: str) -> List[dict]:
         """Paid online orders not collected yet: to pack, or packed and waiting."""
         return self._get("/sales", store_id=store_id, channel="online", status="paid", uncollected="true", limit=200)

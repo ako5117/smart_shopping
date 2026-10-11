@@ -19,7 +19,7 @@ Every write is idempotent: a re-sent restock scan, a repeated commit, or a retri
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/products` | Registered products |
-| `PUT` | `/products/{product_id}` | Register a product, its EAN-13 barcode, its shelf price (`price_kes`) and its `category` (used for substitutes). Leaving out the price or category keeps the current one |
+| `PUT` | `/products/{product_id}` | Register a product, its EAN-13 barcode, its shelf price (`price_kes`) its `category` (used for substitutes) and whether it's `perishable` (never taken back as a return). Leaving out the price, category or perishable keeps the current one |
 | `GET` | `/products/{product_id}/price-history` | Every price change: old and new price, who, when |
 | `POST` | `/restocks` | Add stock from a barcode scan (`scan_id` makes re-sends safe) |
 | `GET` | `/stock/{store_id}` | Stock of every product in a store |
@@ -32,12 +32,35 @@ Every write is idempotent: a re-sent restock scan, a repeated commit, or a retri
 | `POST` | `/sales/{sale_id}/exit` | Staff checked the pass at the exit: `{"checked_by": "Mary"}`. A pass works once; unpaid orders are refused |
 | `POST` | `/sales/{sale_id}/commit` | Payment confirmed — take the items out of stock |
 | `POST` | `/sales/{sale_id}/cancel` | Abandon an unpaid sale |
-| `POST` | `/sales/{sale_id}/returns` | Return items from a paid sale (never more than were sold) |
+| `POST` | `/sales/{sale_id}/returns` | Put items from a paid sale straight back into stock (never more than were sold). For customer returns with a refund, use `/returns` below |
+| `GET` | `/sales/{sale_id}/returnable` | What can still be returned from a sale, until when, and its returns so far |
+| `POST` | `/returns` | Start a return: `{sale_id, lines: [{product_id, qty}], reason, unopened: true, started_by}` |
+| `GET` | `/returns?store_id=&status=` | Returns by status (default `requested,approved`) |
+| `POST` | `/returns/{return_id}/approve` | `{by, checked: true, note}`: the items were checked; they go back into stock and the refund is due |
+| `POST` | `/returns/{return_id}/reject` | `{by, note}`: refused, with the reason the customer sees |
+| `POST` | `/returns/{return_id}/refunded` | `{by, method: mpesa, card or cash, ref}`: the refund was paid |
 | `POST` | `/adjustments` | Correct stock, with a reason (damage, count, etc.) |
 | `POST` | `/reconcile` | Compare with the retailer's stock figures |
 | `GET` | `/sync/{store_id}` | Movements still waiting to reach the retailer's system, and the last error |
 | `GET` | `/discrepancies/{store_id}` | Open differences with the retailer's system |
 | `POST` | `/discrepancies/{id}/count` | Staff counted the shelf — adjust and close |
+
+## Returns
+
+The store's rules, set in `inventory/returns.py`:
+
+- **Only non-perishables:** products marked perishable (milk, bread and other food that goes off) are never taken back.
+- **Unopened and in the same state as sold:** the customer confirms it when asking, and a manager checks it before approving.
+- **Within `RETURN_DAYS` of payment:** 14 by default. Sales record when they were paid (`paid_at`); older sales count from when they were made.
+
+How a return goes:
+
+1. **Requested.** The customer asks from their order page in the online shop, or staff take it at the counter on the dashboard's **Returns** page, for online and Scan & Go sales alike.
+2. **Approved** by a manager after checking the items. They go back into stock as a `return` entry in the stock ledger, so the retailer sync and the stock counts see them. The refund is what was actually paid for those items: a points discount on the order is shared across its items, and the delivery fee isn't refunded.
+   - **Rejected** instead, with the reason, for example "opened". The customer sees it on their order page.
+3. **Refunded.** For now the money goes back by hand: M-Pesa to the number that paid, back to the card, or cash. The manager records the method and reference. Automatic M-Pesa reversals would need the Daraja security credential, which isn't set up.
+
+Items can't be returned twice. What's already back, or waiting to be checked, comes off what's left. Loyalty points earned on returned items aren't taken back yet.
 
 ## Retailer sync and reconciliation
 

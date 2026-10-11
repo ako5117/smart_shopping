@@ -19,6 +19,15 @@ When the Dispatch Service is set (`DISPATCH_URL`), checkout also offers **Delive
 - **Problems:** if the rider reports a problem, the page says the store will call the customer.
 - **Delivery unavailable:** if the Dispatch Service is down, **Deliver to me** isn't offered. If it fails at the moment of ordering, the order is cancelled before any payment request and its items are released.
 
+## Returns
+
+A paid order's page has a **Returns** card while the return period is open (14 days by default, `RETURN_DAYS` in the Inventory Service).
+
+- **Asking:** **Return items** opens a list of the order's items. Perishables are shown but can't be chosen. The customer picks how many of each, gives a reason and confirms the items are unopened and in the same state.
+- **At the store:** they bring the items with the order page. Staff check them, a manager approves, and the store refunds them.
+- **Status:** the card shows each return as it moves on: bring the items in, approved with the refund on its way, refunded (and how), or refused with the reason.
+- **Who can ask:** only someone with the order page's address (order and payment id) can see or ask for its returns.
+
 ## Accounts and loyalty points
 
 When the Customers Service is set (`CUSTOMERS_URL`), the shop has an **Account** tab. See [`services/customers`](../../services/customers) for the rules.
@@ -102,6 +111,7 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 | `POST` | `/api/account/signup`, `/api/account/code`, `/api/account/verify`, `/api/account/signout` | Create an account, send a sign-in code, check a code (sets the session cookie), sign out |
 | `PUT` / `GET` / `DELETE` | `/api/account/photo` | Profile photo |
 | `GET` | `/api/account/orders` | The account's orders with their items |
+| `GET` / `POST` | `/api/orders/{order_id}/payments/{payment_id}/returns` | What can be returned and the order's returns; ask for a return: `{lines: [{product_id, qty}], reason, unopened: true}` |
 | `GET` | `/api/delivery/quote?lat=&lng=` | Can we deliver here? Distance, express and scheduled fees and open slots, or `deliverable: false` with the reason |
 | `GET` | `/api/catalogue` | Products with price, category, status (`in` / `few` / `out`), how many can be ordered, and substitutes |
 | `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"address", "notes", "lat", "lng", "tier": "express" or "scheduled", "slot_start"}` for a delivery, plus `"use_points": true` for a signed-in customer to spend points: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |

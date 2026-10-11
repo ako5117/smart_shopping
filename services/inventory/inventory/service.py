@@ -49,8 +49,8 @@ class Inventory:
     # ------------------------------------------------------------ catalogue
 
     def upsert_product(self, product_id: str, ean13: str, name: str, price_kes: Optional[int] = None,
-                       changed_by: str = "", category: Optional[str] = None) -> None:
-        """Add or update a product. Leaving price_kes or category out keeps the current one. Price changes are logged."""
+                       changed_by: str = "", category: Optional[str] = None, perishable: Optional[bool] = None) -> None:
+        """Add or update a product. Leaving price_kes, category or perishable out keeps the current one. Price changes are logged."""
         if price_kes is not None and price_kes <= 0:
             raise ValueError("Price must be at least 1 KES")
         clash = self.db.one("SELECT product_id FROM products WHERE ean13 = ? AND product_id != ?", (ean13, product_id))
@@ -58,11 +58,13 @@ class Inventory:
             raise Conflict(f"Barcode {ean13} already belongs to {clash['product_id']}")
         old = self.db.one("SELECT price_kes FROM products WHERE product_id = ?", (product_id,))
         with self.db.tx() as c:
-            c.execute("INSERT INTO products (product_id, ean13, name, price_kes, category) VALUES (?, ?, ?, ?, ?) "
+            c.execute("INSERT INTO products (product_id, ean13, name, price_kes, category, perishable) VALUES (?, ?, ?, ?, ?, ?) "
                       "ON CONFLICT(product_id) DO UPDATE SET ean13 = excluded.ean13, name = excluded.name, "
                       "price_kes = COALESCE(excluded.price_kes, products.price_kes), "
-                      "category = CASE WHEN ? THEN excluded.category ELSE products.category END",
-                      (product_id, ean13, name, price_kes, (category or "").strip(), category is not None))
+                      "category = CASE WHEN ? THEN excluded.category ELSE products.category END, "
+                      "perishable = CASE WHEN ? THEN excluded.perishable ELSE products.perishable END",
+                      (product_id, ean13, name, price_kes, (category or "").strip(), int(bool(perishable)),
+                       category is not None, perishable is not None))
             old_price = old["price_kes"] if old else None
             if price_kes is not None and price_kes != old_price:
                 c.execute("INSERT INTO price_changes (product_id, old_price_kes, new_price_kes, changed_by, changed_at) "
@@ -78,6 +80,7 @@ class Inventory:
             "LEFT JOIN product_images pi ON pi.product_id = p.product_id ORDER BY p.product_id")
         offers = self.prices_now()
         for p in rows:
+            p["perishable"] = bool(p["perishable"])
             o = offers.get(p["product_id"])
             p["sale_price_kes"] = o["sale_price_kes"] if o else None
             p["discount"] = o["discount"] if o else None
@@ -356,8 +359,9 @@ class Inventory:
         with self.db.tx() as c:
             for it in self._items(sale_id).items():
                 self._record(c, sale["store_id"], it[0], "sale", -it[1], f"sale:{sale_id}:{it[0]}", source_ref=sale_id)
-            cur = c.execute("UPDATE sales SET status = 'paid', payment_ref = ?, updated_at = ? "
-                            "WHERE sale_id = ? AND status = 'pending_payment'", (payment_ref, now_iso(), sale_id))
+            ts = now_iso()
+            cur = c.execute("UPDATE sales SET status = 'paid', payment_ref = ?, updated_at = ?, paid_at = ? "
+                            "WHERE sale_id = ? AND status = 'pending_payment'", (payment_ref, ts, ts, sale_id))
             changed = cur.rowcount == 1
         if not changed:  # another payment committed it meanwhile
             return self._already_paid(self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,)), payment_ref)

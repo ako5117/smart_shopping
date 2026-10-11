@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Returns · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
+<style>
+  .returns { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .ret { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; overflow-wrap: anywhere; }
+  .ret .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .ret .code { font: 700 16px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; }
+  .ret ul, .pick { list-style: none; margin: 0; padding: 0; }
+  .ret li, .pick li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  .ret li:last-child, .pick li:last-child { border-bottom: 0; }
+  .ret .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .ret input[type=text], .ret select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+  .ret button { padding: 8px 12px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; }
+  .check input { width: auto; margin-top: 3px; }
+  .pick input[type=number] { width: 70px; }
+  .rule { background: var(--chip, #f2f4f3); border-radius: 8px; padding: 8px 10px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Returns</h1>
+    <div class="muted">Unopened, non-perishable items, within the return period. Staff take returns at the counter; a manager checks the items, approves, and records the refund.</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a><a href="returns" aria-current="page">Returns</a><a href="loyalty" class="manager-only">Loyalty</a></nav>
+  <span class="muted who" id="me"></span>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+
+  <section>
+    <h2>Take a return at the counter</h2>
+    <form id="find" class="fields" autocomplete="off" style="max-width:520px">
+      <label>Receipt or order code<input id="code" maxlength="40" required placeholder="Scan the receipt, or type the 8-character code"></label>
+      <button>Find the sale</button>
+    </form>
+    <div id="found" hidden style="margin-top:12px;max-width:620px">
+      <div class="rule" id="found-head"></div>
+      <ul class="pick" id="pick" style="margin-top:8px"></ul>
+      <form id="start" class="fields" style="margin-top:8px">
+        <label>Reason<input id="reason" maxlength="300" required placeholder="e.g. Bought too many"></label>
+        <label class="check"><input type="checkbox" id="unopened"> The items are unopened and in the same state as when sold</label>
+        <button id="start-btn">Record the return</button>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="t-requested">Waiting to be checked</h2>
+    <p class="muted staff-note">A manager checks the items and approves or refuses the return.</p>
+    <div class="returns" id="requested"></div>
+  </section>
+  <section>
+    <h2 id="t-approved">Approved: refund due</h2>
+    <p class="muted">Refunds are paid by hand for now: M-Pesa to the number that paid, back to the card, or cash at the counter. Record each one here.</p>
+    <div class="returns" id="approved"></div>
+  </section>
+  <section>
+    <h2>Done</h2>
+    <div class="returns" id="done"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
+const METHOD = {mpesa: "M-Pesa", card: "card", cash: "cash"};
+const when = (iso) => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
+let found = null, timer = null;
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : body.detail?.message || r.statusText);
+  return body;
+}
+function banner(text, ok = false) {
+  $("banner").hidden = !text;
+  $("banner").textContent = text || "";
+  $("banner").style.background = ok ? "var(--ok-bg)" : "";
+  $("banner").style.color = ok ? "var(--accent)" : "";
+}
+
+// ------------------------------------------------------------------ at the counter
+$("find").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  banner("");
+  try {
+    found = await api(`api/returns/lookup?code=${encodeURIComponent($("code").value.trim())}`);
+    renderFound();
+  } catch (err) { $("found").hidden = true; banner(err.message); }
+});
+
+function renderFound() {
+  const s = found.sale, r = found.returnable;
+  $("found").hidden = false;
+  const until = r.deadline ? new Date(r.deadline).toLocaleDateString([], {dateStyle: "medium"}) : "";
+  $("found-head").innerHTML = `<b>${esc(s.sale_id.slice(-8))}</b> · ${s.channel === "online" ? `online order for ${esc(s.customer_name)}` : "Scan & Go"} ·
+    paid ${esc(when(s.paid_at || s.created_at))} · ${kes(s.total)}<br>${r.open ? `Returns accepted until ${esc(until)}.` : `<b>${esc(r.reason || "Nothing left to return.")}</b>`}`;
+  $("pick").innerHTML = r.items.map((i) => `<li><span>${esc(i.name)} <span class="muted">· bought ${i.qty}${i.why_not ? ` · ${esc(i.why_not)}` : ` · ${kes(i.unit_refund_kes)} each`}</span></span>
+    ${i.returnable ? `<input type="number" min="0" max="${i.returnable}" value="0" data-pick="${esc(i.product_id)}" aria-label="How many ${esc(i.name)}">` : ""}</li>`).join("");
+  $("start").hidden = !r.open;
+}
+
+$("start").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const lines = [...document.querySelectorAll("[data-pick]")].map((i) => ({product_id: i.dataset.pick, qty: Number(i.value)})).filter((l) => l.qty > 0);
+  if (!lines.length) return banner("Enter how many of each item are coming back.");
+  if (!$("unopened").checked) return banner("Only unopened items in the same state as when sold can be returned.");
+  $("start-btn").disabled = true;
+  try {
+    const r = await api("api/returns", {method: "POST", body: JSON.stringify({sale_id: found.sale.sale_id, lines, reason: $("reason").value.trim(), unopened: true})});
+    banner(`Return ${r.return_id} recorded: ${kes(r.total_kes)} to refund once a manager has checked the items.`, true);
+    $("found").hidden = true; $("code").value = ""; $("reason").value = ""; $("unopened").checked = false;
+    load();
+  } catch (err) { banner(err.message); }
+  $("start-btn").disabled = false;
+});
+
+// ------------------------------------------------------------------ the lists
+function lines(r) {
+  return `<ul>${r.lines.map((l) => `<li><span>${l.qty} × ${esc(l.name || l.product_id)}</span><span>${kes(l.refund_kes)}</span></li>`).join("")}</ul>`;
+}
+function who(r) {
+  return r.channel === "online" ? `${esc(r.customer_name)}${r.customer_phone ? ` · ${esc(r.customer_phone)}` : ""} · online order`
+    : "Scan & Go";
+}
+function card(r) {
+  const head = `<div class="head"><span class="code">${esc(r.sale_id.slice(-8))}</span><span class="pill">${esc(r.return_id)}</span></div>
+    <div class="muted">${who(r)}</div>${lines(r)}
+    <div><b>${kes(r.total_kes)}</b> ${r.status === "rejected" ? "asked for" : r.status === "refunded" ? "refunded" : "to refund"} · “${esc(r.reason)}”</div>
+    <div class="muted small">Started by ${esc(r.started_by === "customer" ? "the customer, online" : r.started_by)} · ${esc(when(r.created_at))}</div>`;
+  if (r.status === "requested") {
+    return `<div class="ret">${head}
+      <div class="manager-only" style="display:grid;gap:6px">
+        <label class="check"><input type="checkbox" data-checked="${esc(r.return_id)}"> I've checked: unopened and in the same state as sold</label>
+        <div class="row"><button data-approve="${esc(r.return_id)}">Approve: back to stock</button></div>
+        <div class="row"><input type="text" maxlength="300" placeholder="Why it's refused" data-note="${esc(r.return_id)}">
+          <button class="secondary" data-reject="${esc(r.return_id)}">Refuse</button></div>
+      </div></div>`;
+  }
+  if (r.status === "approved") {
+    return `<div class="ret">${head}<div class="muted small">Approved by ${esc(r.decided_by)} · ${esc(when(r.decided_at))}</div>
+      <div class="row manager-only"><select data-method="${esc(r.return_id)}"><option value="mpesa">M-Pesa</option><option value="card">Card</option><option value="cash">Cash</option></select>
+        <input type="text" maxlength="60" placeholder="Refund reference" data-ref="${esc(r.return_id)}">
+        <button data-refunded="${esc(r.return_id)}">Refund given</button></div></div>`;
+  }
+  return `<div class="ret">${head}<div class="${r.status === "rejected" ? "" : "muted"}">${r.status === "rejected"
+    ? `<b>Refused</b> by ${esc(r.decided_by)}: ${esc(r.note)}`
+    : `Refunded by ${esc(r.refunded_by)} · ${esc(METHOD[r.refund_method] || r.refund_method)}${r.refund_ref ? ` ${esc(r.refund_ref)}` : ""} · ${esc(when(r.refunded_at))}`}</div></div>`;
+}
+
+async function load() {
+  clearTimeout(timer);
+  try {
+    const open = await api("api/returns");
+    const done = await api("api/returns?status=refunded,rejected");
+    const req = open.filter((r) => r.status === "requested"), app = open.filter((r) => r.status === "approved");
+    $("t-requested").textContent = `Waiting to be checked (${req.length})`;
+    $("t-approved").textContent = `Approved: refund due (${app.length})`;
+    const typing = document.activeElement && document.activeElement.closest(".ret");
+    if (!typing) {
+      $("requested").innerHTML = req.map(card).join("") || `<div class="muted">None.</div>`;
+      $("approved").innerHTML = app.map(card).join("") || `<div class="muted">None.</div>`;
+      $("done").innerHTML = done.slice(-12).reverse().map(card).join("") || `<div class="muted">None yet.</div>`;
+    }
+  } catch (err) { banner(err.message); }
+  timer = setTimeout(load, 10000);
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const id = b.dataset.approve || b.dataset.reject || b.dataset.refunded;
+  if (!id) return;
+  const q = (attr) => document.querySelector(`[data-${attr}="${CSS.escape(id)}"]`);
+  b.disabled = true;
+  try {
+    if (b.dataset.approve) {
+      const r = await api(`api/returns/${encodeURIComponent(id)}/approve`, {method: "POST", body: JSON.stringify({checked: q("checked").checked})});
+      banner(`Approved: the items are back in stock. Refund ${kes(r.refund_kes)}.`, true);
+    } else if (b.dataset.reject) {
+      await api(`api/returns/${encodeURIComponent(id)}/reject`, {method: "POST", body: JSON.stringify({note: q("note").value.trim()})});
+      banner("Return refused. The customer sees the reason on their order page.", true);
+    } else {
+      await api(`api/returns/${encodeURIComponent(id)}/refunded`, {method: "POST", body: JSON.stringify({method: q("method").value, ref: q("ref").value.trim()})});
+      banner("Refund recorded.", true);
+    }
+    document.activeElement?.blur();
+    load();
+  } catch (err) { banner(err.message); b.disabled = false; }
+});
+
+load();
+</script>
+</body>
+</html>

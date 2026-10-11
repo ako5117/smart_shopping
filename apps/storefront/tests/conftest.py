@@ -25,6 +25,7 @@ class FakeInventory:
         ]
         self.stock = {"milk-500ml": 10, "uht-milk-500ml": 0, "yoghurt-500ml": 8, "sugar-1kg": 4}
         self.sales = {}
+        self.returns = []
         self.refuse_online = False  # as if another customer took the last items a moment earlier
 
     def held(self):
@@ -80,6 +81,16 @@ class FakeInventory:
                                            "status": "pending_payment", "payment_ref": None, "exited_at": None,
                                            "ready_at": None, "created_at": NOW.isoformat()}
             return httpx.Response(201, json=self.sales[body["sale_id"]])
+        if method == "POST" and path == "/returns":
+            body = json.loads(request.content)
+            self.returns.append(body)
+            if body["lines"][0]["product_id"] == "milk-500ml":
+                return httpx.Response(409, json={"detail": "Milk 500 ml: Food and other perishables can't be returned"})
+            return httpx.Response(201, json={"return_id": "RET-1", "status": "requested", **body})
+        if path.startswith("/sales/") and path.endswith("/returnable"):
+            sale = self.sales.get(path.split("/")[2])
+            return httpx.Response(200, json={"sale_id": sale["sale_id"], "open": sale["status"] == "paid", "days": 14,
+                                             "items": [], "returns": []}) if sale else httpx.Response(404, json={"detail": "No sale"})
         if path.startswith("/sales/"):
             parts = path.split("/")
             sale = self.sales.get(parts[2])
