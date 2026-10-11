@@ -35,6 +35,17 @@ class InventoryClient:
     def save_product(self, product_id: str, body: dict) -> httpx.Response:
         return self.http.put(f"/products/{product_id}", json={"product_id": product_id, **body})
 
+    def put_image(self, product_id: str, data: bytes, content_type: str, staff: str) -> httpx.Response:
+        return self.http.put(f"/products/{product_id}/image", content=data,
+                             headers={"Content-Type": content_type or "application/octet-stream", "X-Staff-User": staff},
+                             timeout=30.0)
+
+    def get_image(self, product_id: str, if_none_match: str = "") -> httpx.Response:
+        return self.http.get(f"/products/{product_id}/image", headers={"If-None-Match": if_none_match} if if_none_match else None)
+
+    def delete_image(self, product_id: str) -> httpx.Response:
+        return self.http.delete(f"/products/{product_id}/image")
+
     def restock(self, body: dict) -> httpx.Response:
         return self.http.post("/restocks", json=body)
 
