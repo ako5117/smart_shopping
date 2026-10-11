@@ -46,7 +46,7 @@ def test_read_endpoints_for_dashboard():
     c = client()
     assert c.get("/products").json() == [{"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml",
                                           "price_kes": None, "category": "", "price_changed_by": None,
-                                          "price_changed_at": None}]
+                                          "price_changed_at": None, "image_version": None}]
     c.post("/restocks", json={"store_id": "001", "ean13": "6161000000040", "qty": 5, "scan_id": "s1"})
     for sale_id in ("S1", "S2"):
         c.post("/sales", json={"sale_id": sale_id, "store_id": "001", "items": [{"product_id": "milk-500ml", "qty": 1}]})
