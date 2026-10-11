@@ -45,6 +45,7 @@ smart_shopping/
 │   ├── shelf/               # Weight + camera fusion into shelf events
 │   ├── dispatch/            # Rider deliveries of online orders: assignment, handover, proof of delivery
 │   ├── notify/              # Texts to online customers (Africa's Talking SMS): paid, ready, on the way
+│   ├── customers/           # Customer accounts and loyalty points for the online shop
 │   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
 ├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide

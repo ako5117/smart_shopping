@@ -20,7 +20,7 @@ services:
       # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
       - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
-    depends_on: [inventory, payments, dispatch, notify, dashboard, scan_and_go, storefront, rider]
+    depends_on: [inventory, payments, dispatch, notify, customers, dashboard, scan_and_go, storefront, rider]
 
   # The shared database. Each service keeps its tables in its own schema.
   db:
@@ -148,6 +148,32 @@ services:
       inventory: {condition: service_started}
       dispatch: {condition: service_started}
 
+  # Customer accounts and loyalty points for the online shop. Internal only: the shop and dashboard call it.
+  # EMAIL_PROVIDER=outbox (the stand-in) keeps emails for the dashboard instead of sending them.
+  customers:
+    build: services/customers
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: customers
+      STORE_NAME: ${STORE_NAME:-Smart Shopping}
+      INVENTORY_URL: http://inventory:8010
+      LOYALTY_ENABLED: ${LOYALTY_ENABLED:-true}
+      LOYALTY_KES_PER_POINT: ${LOYALTY_KES_PER_POINT:-}
+      LOYALTY_REDEEM_POINTS: ${LOYALTY_REDEEM_POINTS:-}
+      LOYALTY_REDEEM_KES: ${LOYALTY_REDEEM_KES:-}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-outbox}
+    depends_on:
+      db: {condition: service_healthy}
+      inventory: {condition: service_started}
+
   dashboard:
     build:
       context: .
@@ -165,11 +191,12 @@ services:
       INVENTORY_URL: http://inventory:8010
       DISPATCH_URL: http://dispatch:8050
       NOTIFY_URL: http://notify:8070
+      CUSTOMERS_URL: http://customers:8090
       # standard: no shelf sensors (barcodes and stock counts); smart: smart shelves. See docs/tiers.md.
       STORE_TIER: ${STORE_TIER:-standard}
       UVICORN_ROOT_PATH: /dashboard
     volumes: [dashboard-data:/data]
-    depends_on: [inventory, dispatch, notify]
+    depends_on: [inventory, dispatch, notify, customers]
 
   scan_and_go:
     build: apps/scan_and_go
@@ -207,11 +234,12 @@ services:
       INVENTORY_URL: http://inventory:8010
       PAYMENTS_URL: http://payments:8000
       DISPATCH_URL: http://dispatch:8050
+      CUSTOMERS_URL: http://customers:8090
       SHELF_EVENTS_PATH: /shelf/shelf_events.jsonl
       STORE_TIER: ${STORE_TIER:-standard}
       UVICORN_ROOT_PATH: /store
     volumes: [dashboard-data:/shelf:ro]
-    depends_on: [inventory, payments, dispatch]
+    depends_on: [inventory, payments, dispatch, customers]
 
   # Riders' phone app: their deliveries, and the customer's code to finish each one.
   rider:

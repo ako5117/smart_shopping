@@ -121,6 +121,20 @@ case "$sms" in
   *) fail "SMS_PROVIDER must be africastalking, simulator or empty (it's \"$sms\")." ;;
 esac
 
+loyalty="$(val LOYALTY_ENABLED)"; email="$(val EMAIL_PROVIDER)"
+case "${loyalty:-true}" in
+  true) ok "Loyalty points: on." ;;
+  false) ok "Loyalty points: off (accounts and order history still work)." ;;
+  *) fail "LOYALTY_ENABLED must be true or false (it's \"$loyalty\")." ;;
+esac
+case "${email:-outbox}" in
+  outbox)
+    if $demo; then ok "Customer emails: stand-in (shown on the dashboard's Loyalty page, not sent)."
+    else warn "EMAIL_PROVIDER=outbox: sign-up codes are shown on the dashboard, not emailed. Real customers can't confirm their accounts until the store's own email is connected (services/customers/README.md)."
+    fi ;;
+  *) fail "EMAIL_PROVIDER must be outbox for now (it's \"$email\")." ;;
+esac
+
 echo "Logins ($STAFF_DIR)"
 if [ -s "$STAFF_DIR/users" ] && grep -qv '^#' "$STAFF_DIR/users"; then
   count="$(grep -cv '^#' "$STAFF_DIR/users")"

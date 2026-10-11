@@ -278,7 +278,8 @@ class Inventory:
 
     def create_sale(self, sale_id: str, store_id: str, items: List[Item], channel: str = "in_store",
                     customer_name: str = "", check_stock: bool = False, fulfilment: str = "collect",
-                    delivery_fee_kes: int = 0, customer_phone: str = "") -> dict:
+                    delivery_fee_kes: int = 0, customer_phone: str = "", loyalty_discount_kes: int = 0,
+                    customer_id: str = "") -> dict:
         """Called at checkout, before payment. Stock is not touched until the sale is paid.
 
         With check_stock (online orders, where the customer isn't holding the items), the sale is refused with
@@ -293,6 +294,8 @@ class Inventory:
             raise ValueError("Only online orders can be delivered")
         if delivery_fee_kes < 0 or (delivery_fee_kes and fulfilment != "delivery"):
             raise ValueError("A delivery fee only applies to deliveries")
+        if loyalty_discount_kes < 0 or (loyalty_discount_kes and channel != "online"):
+            raise ValueError("A loyalty discount only applies to online orders")
         if not items:
             raise ValueError("A sale needs at least one item")
         merged: Dict[str, int] = {}
@@ -319,9 +322,11 @@ class Inventory:
                 if short:
                     raise NotEnoughStock(short)
             c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name, "
-                      "fulfilment, delivery_fee_kes, customer_phone) VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?)",
+                      "fulfilment, delivery_fee_kes, customer_phone, loyalty_discount_kes, customer_id) "
+                      "VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                       (sale_id, store_id, ts, ts, channel, customer_name.strip(), fulfilment, delivery_fee_kes,
-                       customer_phone.strip()))
+                       customer_phone.strip(), loyalty_discount_kes, customer_id.strip()))
+            goods = 0
             for pid, qty in merged.items():
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
                 if not product:
@@ -330,6 +335,9 @@ class Inventory:
                 paid = offers[pid]["sale_price_kes"] if pid in offers and product["price_kes"] else product["price_kes"]
                 c.execute("INSERT INTO sale_items (sale_id, product_id, qty, unit_price_kes, list_price_kes) VALUES (?, ?, ?, ?, ?)",
                           (sale_id, pid, qty, paid, product["price_kes"]))
+                goods += (paid or 0) * qty
+            if loyalty_discount_kes and loyalty_discount_kes >= goods:
+                raise ValueError("A loyalty discount must be less than the goods total")
         return self.sale(sale_id)
 
     def commit_sale(self, sale_id: str, payment_ref: str) -> dict:

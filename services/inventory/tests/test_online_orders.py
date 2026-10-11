@@ -119,3 +119,16 @@ def test_delivery_orders_carry_their_fee(inv):
                 {"channel": "online", "fulfilment": "drone"}):
         with pytest.raises(ValueError):
             inv.create_sale("WEB-X", STORE, [Item(MILK, 1)], **bad)
+
+
+def test_loyalty_discount_on_online_orders(inv):
+    inv.restock(STORE, EAN[MILK], 5, "s1")
+    inv.upsert_product(MILK, EAN[MILK], MILK, price_kes=65)
+    price = 65
+    sale = inv.create_sale("WEB-1", STORE, [Item(MILK, 3)], channel="online", loyalty_discount_kes=50, customer_id="C1")
+    assert (sale["loyalty_discount_kes"], sale["customer_id"]) == (50, "C1")
+    with pytest.raises(ValueError):
+        inv.create_sale("WEB-2", STORE, [Item(MILK, 1)], channel="online", loyalty_discount_kes=price)  # not the whole order
+    with pytest.raises(ValueError):
+        inv.create_sale("SG-1", STORE, [Item(MILK, 1)], loyalty_discount_kes=10)  # online only, for now
+    assert inv.db.one("SELECT COUNT(*) AS n FROM sales")["n"] == 1

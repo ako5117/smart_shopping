@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import Settings, load_settings
-from .sources import DispatchClient, InventoryClient, NotifyClient, load_catalogue, read_shelf_events
+from .sources import CustomersClient, DispatchClient, InventoryClient, NotifyClient, load_catalogue, read_shelf_events
 
 log = logging.getLogger("dashboard")
 STATIC = Path(__file__).parent / "static"
@@ -225,13 +225,16 @@ def build_overview(settings: Settings, inventory: InventoryClient, now: Optional
 
 
 def create_app(settings: Optional[Settings] = None, inventory: Optional[InventoryClient] = None,
-               dispatch: Optional[DispatchClient] = None, notify: Optional[NotifyClient] = None) -> FastAPI:
+               dispatch: Optional[DispatchClient] = None, notify: Optional[NotifyClient] = None,
+               customers: Optional[CustomersClient] = None) -> FastAPI:
     settings = settings or load_settings()
     inventory = inventory or InventoryClient(settings.inventory_url)
     if dispatch is None and settings.dispatch_url:
         dispatch = DispatchClient(settings.dispatch_url)
     if notify is None and settings.notify_url:
         notify = NotifyClient(settings.notify_url)
+    if customers is None and settings.customers_url:
+        customers = CustomersClient(settings.customers_url)
     app = FastAPI(title="Smart Shopping - Store Dashboard")
 
     @app.get("/health")
@@ -251,6 +254,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.get("/exit")
     def exit_page():
         return FileResponse(STATIC / "exit.html")
+
+    @app.get("/loyalty")
+    def loyalty_page():
+        return FileResponse(STATIC / "loyalty.html")
 
     @app.get("/orders")
     def orders_page():
@@ -406,7 +413,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
             sale = priced(sale, products)
             for it in sale["items"]:
                 it["zones"] = where.get(it["product_id"], [])
-            sale["total"] = sum(it["line_total"] or 0 for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
+            sale["total"] = (sum(it["line_total"] or 0 for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
+                             - (sale.get("loyalty_discount_kes") or 0))
             sale["stage"] = "ready" if sale.get("ready_at") else "packing"
             sale["delivery"] = deliveries.get(sale["sale_id"])
             return sale
@@ -478,6 +486,32 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
             raise HTTPException(502, f"Notification Service unavailable: {e}")
         log.info("Text %s resent by %s", message_id, staff.name or "a staff member")
         return {**m, "body": DELIVERY_CODE.sub(r"\1****", m["body"])}
+
+    @app.get("/api/loyalty")
+    def loyalty(staff: Staff = Depends(current_staff)):
+        """Managers: the loyalty programme at a glance, and the newest members (names and points only)."""
+        require_manager(staff, "see loyalty members")
+        if customers is None:
+            return {"on": False}
+        try:
+            return {"on": True, "summary": customers.summary(), "members": customers.members(50)}
+        except httpx.HTTPError as e:
+            log.warning("Customers Service unavailable: %s", e)
+            return {"on": True, "error": "Loyalty can't be shown right now: the Customers Service is unavailable."}
+
+    @app.get("/api/loyalty/emails")
+    def loyalty_emails(staff: Staff = Depends(current_staff)):
+        """Managers, stand-in email only: the emails the shop would have sent, sign-up codes included, for demos."""
+        require_manager(staff, "see customer emails")
+        if customers is None:
+            return {"on": False, "emails": []}
+        try:
+            if customers.settings().get("email_provider") != "outbox":
+                return {"on": True, "outbox": False, "emails": []}
+            return {"on": True, "outbox": True, "emails": customers.emails(30)}
+        except httpx.HTTPError as e:
+            log.warning("Customers Service unavailable: %s", e)
+            return {"on": True, "outbox": True, "emails": [], "error": "The Customers Service is unavailable."}
 
     @app.get("/api/overview")
     def overview():

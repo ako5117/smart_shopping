@@ -152,7 +152,7 @@ def test_page_and_store_info(client):
     assert "Online shop" in client.get("/").text
     assert client.get("/api/store").json() == {
         "store_id": "001", "name": "Test Store", "currency": "KES", "hold_minutes": 15, "card": True,
-        "delivery": {"available": True, **DELIVERY_SETTINGS}}
+        "delivery": {"available": True, **DELIVERY_SETTINGS}, "accounts": {"available": False}}
 
 
 def test_standard_tier_has_no_live_shelf_signal(monkeypatch, tmp_path):

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loyalty · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
+<style>
+  .members, .emails { width: 100%; border-collapse: collapse; }
+  .members th, .members td, .emails td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .members td.num, .members th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .emails td.body { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rule { margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Loyalty</h1>
+    <div class="muted">Customer accounts from the online shop, and their points. Managers only.</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a><a href="loyalty" aria-current="page" class="manager-only">Loyalty</a></nav>
+  <span class="muted who" id="me"></span>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+  <section id="off" hidden>
+    <p>Customer accounts aren't set up for this store (the Customers Service isn't connected).</p>
+  </section>
+  <section id="programme" hidden>
+    <h2>Programme</h2>
+    <p class="rule" id="rule"></p>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><span class="muted">Members</span><b id="k-members">0</b></div>
+      <div class="kpi"><span class="muted">Points earned</span><b id="k-earned">0</b></div>
+      <div class="kpi"><span class="muted">Points spent</span><b id="k-redeemed">0</b></div>
+      <div class="kpi"><span class="muted">Points not yet spent</span><b id="k-out">0</b><span class="muted small" id="k-out-kes"></span></div>
+      <div class="kpi"><span class="muted">Discounts given</span><b id="k-discount">KES 0</b></div>
+    </div>
+  </section>
+  <section id="members-section" hidden>
+    <h2>Newest members</h2>
+    <table class="members"><thead><tr><th>Name</th><th>Email</th><th>Joined</th><th class="num">Paid orders</th><th class="num">Points</th></tr></thead>
+      <tbody id="members"></tbody></table>
+  </section>
+  <section id="emails-section" hidden>
+    <h2>Emails (stand-in)</h2>
+    <p class="muted">Email isn't connected yet, so the shop keeps its emails here instead of sending them. For a demo, read the customer's sign-up code here.
+      A store connects its own email service before real customers sign up (see services/customers/README.md).</p>
+    <table class="emails"><tbody id="emails"></tbody></table>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const kes = (n) => "KES " + Number(n || 0).toLocaleString("en-KE");
+const num = (n) => Number(n || 0).toLocaleString("en-KE");
+const when = (iso) => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
+
+async function api(path) {
+  const r = await fetch(path);
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+
+function banner(text) { $("banner").hidden = !text; $("banner").textContent = text || ""; }
+
+async function load() {
+  try {
+    const l = await api("api/loyalty");
+    $("off").hidden = l.on;
+    if (!l.on) return;
+    if (l.error) return banner(l.error);
+    banner("");
+    const s = l.summary;
+    $("programme").hidden = false;
+    $("rule").textContent = s.loyalty_enabled
+      ? `On: 1 point for every ${kes(s.kes_per_point)} spent online; ${num(s.redeem_points)} points take ${kes(s.redeem_kes)} off an order.`
+      : "Points are switched off (LOYALTY_ENABLED=false). Accounts and order history still work; balances are kept.";
+    $("k-members").textContent = num(s.members);
+    $("k-earned").textContent = num(s.points_earned);
+    $("k-redeemed").textContent = num(s.points_redeemed);
+    $("k-out").textContent = num(s.points_outstanding);
+    $("k-out-kes").textContent = `worth up to ${kes(Math.floor(s.points_outstanding / s.redeem_points) * s.redeem_kes)}`;
+    $("k-discount").textContent = kes(s.discount_given_kes);
+    $("members-section").hidden = false;
+    $("members").innerHTML = l.members.length ? l.members.map((m) => `<tr><td>${esc(m.name)}</td><td class="muted">${esc(m.email)}</td>
+      <td>${esc(when(m.created_at))}</td><td class="num">${num(m.orders)}</td><td class="num">${num(m.points)}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="muted">No members yet. Customers join from the Account tab in the online shop.</td></tr>`;
+    const e = await api("api/loyalty/emails");
+    $("emails-section").hidden = !e.outbox;
+    $("emails").innerHTML = e.emails.length ? e.emails.map((m) => `<tr><td style="white-space:nowrap">${esc(when(m.created_at))}</td>
+      <td>${esc(m.to_email)}<br><b>${esc(m.subject)}</b></td><td class="body">${esc(m.body)}</td></tr>`).join("")
+      : `<tr><td class="muted">No emails yet.</td></tr>`;
+  } catch (err) {
+    banner(err.message);
+  }
+}
+load();
+setInterval(load, 10000);
+</script>
+</body>
+</html>

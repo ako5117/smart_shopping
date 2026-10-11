@@ -121,6 +121,30 @@ class NotifyClient:
         return self.http.post(f"/messages/{message_id}/resend")
 
 
+class CustomersClient:
+    """The Customers Service: loyalty members and the stand-in email outbox."""
+
+    def __init__(self, base_url: str, http: Optional[httpx.Client] = None):
+        self.http = http or httpx.Client(base_url=base_url, timeout=5.0)
+
+    def _get(self, path: str, **params):
+        r = self.http.get(path, params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def summary(self) -> dict:
+        return self._get("/summary")
+
+    def members(self, limit: int = 50) -> List[dict]:
+        return self._get("/members", limit=limit)
+
+    def emails(self, limit: int = 30) -> List[dict]:
+        return self._get("/emails", limit=limit)
+
+    def settings(self) -> dict:
+        return self._get("/settings")
+
+
 def load_catalogue(path: str) -> dict:
     """Products and zones from the Shelf Service catalogue (services/shelf/config.example.json format)."""
     with open(path, encoding="utf-8") as f:

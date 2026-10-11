@@ -137,7 +137,7 @@ class Notifier:
             if not phone:
                 continue
             total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale.get("items", [])) \
-                + (sale.get("delivery_fee_kes") or 0)
+                + (sale.get("delivery_fee_kes") or 0) - (sale.get("loyalty_discount_kes") or 0)
             is_delivery = sale.get("fulfilment") == "delivery"
             if self._recent(sale.get("updated_at")) and not self._seen("paid", sale["sale_id"]):
                 pin = None

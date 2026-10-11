@@ -19,6 +19,19 @@ When the Dispatch Service is set (`DISPATCH_URL`), checkout also offers **Delive
 - **Problems:** if the rider reports a problem, the page says the store will call the customer.
 - **Delivery unavailable:** if the Dispatch Service is down, **Deliver to me** isn't offered. If it fails at the moment of ordering, the order is cancelled before any payment request and its items are released.
 
+## Accounts and loyalty points
+
+When the Customers Service is set (`CUSTOMERS_URL`), the shop has an **Account** tab. See [`services/customers`](../../services/customers) for the rules.
+
+- **Sign up:** name, phone, email and date of birth, plus gender and a photo if the customer wants. They accept the privacy notice and confirm their email with a 6-digit code. Signing in later works the same way: email, then the code. There's no password.
+- **Signed in:**
+  - Checkout fills in their name and number.
+  - Paid orders earn points (1 per KES 100 of goods by default).
+  - With enough points, **Use points** takes whole blocks off the order (100 points = KES 50). The discount is worked out by the Customers Service and recorded on the sale, never taken from the browser.
+  - If the order is cancelled, expires or fails before payment, the points come back.
+- **Orders tab:** shows the account's orders from any device, with **Buy again**. Signed out, it shows orders on this phone, as before.
+- **Customers Service down:** shopping, checkout and collection all still work. Points can't be spent until it's back, and the order says so.
+
 Riders, assignment and the handover are covered in [`services/dispatch`](../../services/dispatch) and [`apps/rider`](../rider).
 
 ## What "available" means
@@ -85,9 +98,13 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 |---|---|---|
 | `GET` | `/` | The shop |
 | `GET` | `/api/store` | Store name, how long orders are held, and how delivery is priced (store location, distance limit) |
+| `GET` / `PUT` / `DELETE` | `/api/account` | The signed-in customer (or `signed_in: false`); change details; delete the account |
+| `POST` | `/api/account/signup`, `/api/account/code`, `/api/account/verify`, `/api/account/signout` | Create an account, send a sign-in code, check a code (sets the session cookie), sign out |
+| `PUT` / `GET` / `DELETE` | `/api/account/photo` | Profile photo |
+| `GET` | `/api/account/orders` | The account's orders with their items |
 | `GET` | `/api/delivery/quote?lat=&lng=` | Can we deliver here? Distance, express and scheduled fees and open slots, or `deliverable: false` with the reason |
 | `GET` | `/api/catalogue` | Products with price, category, status (`in` / `few` / `out`), how many can be ordered, and substitutes |
-| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"address", "notes", "lat", "lng", "tier": "express" or "scheduled", "slot_start"}` for a delivery: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
+| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"address", "notes", "lat", "lng", "tier": "express" or "scheduled", "slot_start"}` for a delivery, plus `"use_points": true` for a signed-in customer to spend points: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
 | `GET` | `/api/orders/{order_id}/payments/{payment_id}` | Order stage: `awaiting_payment`, `payment_failed`, `packing`, `ready`, `collected`, `on_the_way`, `delivered` or `cancelled`, with the receipt, and for deliveries the code, rider and status |
 | `POST` | `/api/orders/{order_id}/pay` | Pay again while the order is still held: `{"method": "mpesa", "phone"}` or `{"method": "card", "email"}` |
 | `GET` | `/api/orders/{order_id}/qr.svg` | QR code of the order number, for collection |

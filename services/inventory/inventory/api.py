@@ -67,6 +67,8 @@ class SaleIn(BaseModel):
     fulfilment: Literal["collect", "delivery"] = "collect"
     delivery_fee_kes: int = Field(0, ge=0, description="Delivery orders: the fee charged on top of the items")
     customer_phone: str = Field("", max_length=16, description="Online orders: where order updates are texted")
+    loyalty_discount_kes: int = Field(0, ge=0, description="Online orders: taken off for loyalty points spent")
+    customer_id: str = Field("", max_length=40, description="Online orders by a signed-in customer")
 
 
 class ReadyIn(BaseModel):
@@ -204,7 +206,8 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.post("/sales", status_code=201)
     def create_sale(s: SaleIn):
         return guard(inv.create_sale, s.sale_id, s.store_id, [Item(i.product_id, i.qty) for i in s.items],
-                     s.channel, s.customer_name, s.check_stock, s.fulfilment, s.delivery_fee_kes, s.customer_phone)
+                     s.channel, s.customer_name, s.check_stock, s.fulfilment, s.delivery_fee_kes, s.customer_phone,
+                     s.loyalty_discount_kes, s.customer_id)
 
     @app.get("/sales")
     def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500),

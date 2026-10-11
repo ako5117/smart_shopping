@@ -13,6 +13,7 @@ Smart Shopping runs the same system in two tiers. A store starts on **Standard**
 
 - **Scan & Go:** customers scan barcodes with their own phone, pay by M-Pesa or card, and show a one-time pass at the exit.
 - **Online shop:** live stock, substitutes for sold-out items, and click & collect or delivery.
+- **Customer accounts and loyalty points:** online customers sign up with their email, earn 1 point per KES 100 spent, and spend 100 points for KES 50 off. The store can switch points off.
 - **Delivery:** express or a scheduled time slot, priced by distance from the store (up to 20 km; customers further away are told before they shop). The store's own riders deliver, with a rider app and a 4-digit code from the customer as proof of delivery.
 - **SMS updates** to online customers: order paid, ready to collect, on its way.
 - **Store dashboard:**

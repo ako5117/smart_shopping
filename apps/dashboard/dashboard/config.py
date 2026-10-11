@@ -13,6 +13,7 @@ class Settings:
     event_limit: int = 200
     dispatch_url: str = ""  # Dispatch Service; empty: no deliveries
     notify_url: str = ""  # Notification Service; empty: no texts to customers
+    customers_url: str = ""  # Customers Service; empty: no customer accounts or loyalty points
     store_tier: str = "smart"  # standard: no shelf sensors (barcodes and counts only); smart: with smart shelves
 
 
@@ -29,6 +30,7 @@ def load_settings() -> Settings:
         low_stock_threshold=int(os.getenv("LOW_STOCK_THRESHOLD", "5")),
         dispatch_url=os.getenv("DISPATCH_URL", ""),
         notify_url=os.getenv("NOTIFY_URL", ""),
+        customers_url=os.getenv("CUSTOMERS_URL", ""),
         store_tier=store_tier(os.getenv("STORE_TIER", "smart")),
     )
 
