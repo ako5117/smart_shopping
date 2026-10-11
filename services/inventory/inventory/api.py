@@ -6,12 +6,12 @@
 import os
 from typing import List, Literal, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from .db import Database, database_from_env
 from .service import Conflict, Inventory, Item, NotEnoughStock, NotFound
-from . import sync
+from . import images, sync
 
 
 class ProductIn(BaseModel):
@@ -126,6 +126,26 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.get("/products")
     def list_products():
         return inv.products()
+
+    @app.put("/products/{product_id}/image")
+    async def put_image(product_id: str, request: Request, staff: Optional[str] = StaffUser):
+        """The photo itself as the request body (JPEG, PNG or WebP); it's resized and re-encoded."""
+        data = await request.body()
+        return guard(inv.set_image, product_id, data, (staff or "").strip())
+
+    @app.get("/products/{product_id}/image")
+    def get_image(product_id: str, if_none_match: Optional[str] = Header(None)):
+        img = guard(inv.image, product_id)
+        tag = images.etag(img["updated_at"])
+        headers = {"ETag": tag, "Cache-Control": "public, max-age=86400"}
+        if if_none_match == tag:
+            return Response(status_code=304, headers=headers)
+        return Response(img["data"], media_type="image/jpeg", headers=headers)
+
+    @app.delete("/products/{product_id}/image", status_code=204)
+    def delete_image(product_id: str):
+        inv.delete_image(product_id)
+        return Response(status_code=204)
 
     @app.put("/products/{product_id}")
     def put_product(product_id: str, p: ProductIn, staff: Optional[str] = StaffUser):

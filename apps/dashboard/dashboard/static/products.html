@@ -6,6 +6,19 @@
 <title>Products · Store Dashboard</title>
 <link rel="stylesheet" href="static/app.css">
 <script src="static/me.js"></script>
+<style>
+  .ph { position: relative; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: var(--chip); display: grid;
+        place-items: center; cursor: pointer; flex: none; border: 1px dashed var(--line); }
+  .ph img { width: 100%; height: 100%; object-fit: cover; }
+  .ph.has { border-style: solid; }
+  .ph span { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; line-height: 1.1; padding: 2px; }
+  .ph input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .ph.busy::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, .35); }
+  .prodcell { display: flex; align-items: center; gap: 10px; }
+  .bc-inline { display: none; }
+  @media (max-width: 600px) { #table .bc { display: none; } .bc-inline { display: block; } #table .prodcell .muted .pid { display: none; } }
+  .rm-photo { background: none; color: var(--muted); padding: 2px 0; font-size: 12px; font-weight: 500; border: 0; cursor: pointer; text-decoration: underline; }
+</style>
 </head>
 <body>
 <header>
@@ -32,7 +45,7 @@
 
   <section class="half staff-note">
     <h2>Products and prices</h2>
-    <p class="muted" style="margin:0">Only managers can add products or change prices. You can restock and look up products.</p>
+    <p class="muted" style="margin:0">Only managers can add products or change prices. You can restock, look up products and add product photos (tap the square next to a product).</p>
   </section>
 
   <section class="half manager-only">
@@ -111,10 +124,18 @@ async function load() {
     return;
   }
   $("table").innerHTML = products.length ? `<table>
-    <tr><th>Product</th><th>Barcode</th><th class="num">Price</th><th class="num">In stock</th></tr>
+    <tr><th>Product</th><th class="bc">Barcode</th><th class="num">Price</th><th class="num">In stock</th></tr>
     ${products.map((p) => `<tr class="pick" data-id="${esc(p.product_id)}" tabindex="0" title="Edit">
-      <td>${esc(p.name)}<div class="muted">${esc(p.product_id)}${p.category ? " · " + esc(p.category) : ""}</div></td>
-      <td style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
+      <td><div class="prodcell">
+        <label class="ph ${p.image_version ? "has" : ""}" title="${p.image_version ? "Change the photo" : "Add a photo"}" data-photo-for="${esc(p.product_id)}">
+          ${p.image_version ? `<img src="api/products/${encodeURIComponent(p.product_id)}/image?v=${esc(p.image_version)}" alt="" loading="lazy">` : `<span>Add photo</span>`}
+          <input type="file" accept="image/*" capture="environment" data-photo="${esc(p.product_id)}" aria-label="Photo of ${esc(p.name)}">
+        </label>
+        <div>${esc(p.name)}<div class="muted"><span class="pid">${esc(p.product_id)}${p.category ? " · " : ""}</span>${esc(p.category)}</div>
+          <div class="muted bc-inline" style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</div>
+          ${p.image_version ? `<button type="button" class="rm-photo manager-only" data-rm-photo="${esc(p.product_id)}">Remove photo</button>` : ""}</div>
+      </div></td>
+      <td class="bc" style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
       <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}${p.price_changed_by ? `<div class="muted">set by ${esc(p.price_changed_by)}</div>` : ""}</td>
       <td class="num">${p.stock}</td></tr>`).join("")}
   </table>` : `<div class="empty">No products yet. Add the first one above.</div>`;
@@ -133,7 +154,46 @@ function edit(product) {
   show($("product-result"), "");
 }
 
+// Photos: tap the square to take one (the camera opens on a phone) or pick a file. It's made smaller here
+// first, so an upload over mobile data is quick; the Inventory Service resizes it again for the shops.
+async function shrink(file) {
+  try {
+    const bmp = await createImageBitmap(file, {imageOrientation: "from-image"});
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const canvas = Object.assign(document.createElement("canvas"), {width: Math.round(bmp.width * scale), height: Math.round(bmp.height * scale)});
+    canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    return await new Promise((ok) => canvas.toBlob((b) => ok(b || file), "image/jpeg", 0.88));
+  } catch { return file; }  // the server can still read it
+}
+$("table").addEventListener("change", async (e) => {
+  const input = e.target.closest("input[data-photo]");
+  if (!input || !input.files[0]) return;
+  const pid = input.dataset.photo, cell = input.closest(".ph");
+  cell.classList.add("busy");
+  try {
+    const blob = await shrink(input.files[0]);
+    const r = await fetch(`api/products/${encodeURIComponent(pid)}/image`, {method: "PUT", body: blob, headers: {"Content-Type": blob.type || "image/jpeg"}});
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.detail || r.statusText);
+    $("banner").hidden = true;
+    await load();
+  } catch (err) {
+    $("banner").hidden = false;
+    $("banner").textContent = "Could not save the photo: " + err.message;
+    cell.classList.remove("busy");
+  }
+});
+$("table").addEventListener("click", async (e) => {
+  const rm = e.target.closest("button[data-rm-photo]");
+  if (!rm) return;
+  e.stopPropagation();
+  if (!confirm("Remove this product's photo?")) return;
+  try { await api(`api/products/${encodeURIComponent(rm.dataset.rmPhoto)}/image`, {method: "DELETE"}); await load(); }
+  catch (err) { $("banner").hidden = false; $("banner").textContent = "Could not remove the photo: " + err.message; }
+}, true);
+
 $("table").addEventListener("click", (e) => {
+  if (e.target.closest(".ph, button[data-rm-photo]")) return;  // the photo square isn't "edit this product"
   const row = e.target.closest("tr[data-id]");
   if (row) { edit(products.find((p) => p.product_id === row.dataset.id)); $("p-name").focus(); }
 });

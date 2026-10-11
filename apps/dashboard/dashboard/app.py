@@ -16,7 +16,7 @@ from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -269,6 +269,40 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
         except httpx.HTTPError as e:
             raise HTTPException(502, f"Inventory Service unavailable: {e}")
         return [{**p, "stock": stock.get(pid, 0)} for pid, p in sorted(products.items(), key=lambda kv: kv[1]["name"].lower())]
+
+    @app.put("/api/products/{product_id}/image")
+    async def put_image(product_id: str, request: Request, staff: Staff = Depends(current_staff)):
+        """Managers and floor staff add or replace a product's photo (resized by the Inventory Service)."""
+        data = await request.body()
+        try:
+            r = inventory.put_image(product_id, data, request.headers.get("content-type", ""), staff.name or "")
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+        return _passthrough(r)
+
+    @app.get("/api/products/{product_id}/image")
+    def get_image(product_id: str, if_none_match: Optional[str] = Header(None)):
+        try:
+            r = inventory.get_image(product_id, if_none_match or "")
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+        if r.status_code == 304:
+            return Response(status_code=304, headers={"ETag": r.headers.get("etag", "")})
+        if r.status_code != 200:
+            raise HTTPException(r.status_code, "No photo")
+        return Response(r.content, media_type="image/jpeg",
+                        headers={"ETag": r.headers.get("etag", ""), "Cache-Control": "private, max-age=86400"})
+
+    @app.delete("/api/products/{product_id}/image")
+    def delete_image(product_id: str, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "remove product photos")
+        try:
+            r = inventory.delete_image(product_id)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+        if r.status_code >= 400:
+            raise HTTPException(r.status_code, "Could not remove the photo")
+        return {"removed": True}
 
     @app.get("/api/shelf-products")
     def shelf_products():

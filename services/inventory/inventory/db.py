@@ -25,6 +25,14 @@ CREATE TABLE IF NOT EXISTS products (
     price_kes INTEGER CHECK (price_kes IS NULL OR price_kes > 0),
     category TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS product_images (  -- one photo per product, as shown in the shops (inventory/images.py)
+    product_id TEXT PRIMARY KEY REFERENCES products(product_id),
+    data BLOB NOT NULL,  -- JPEG
+    width INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,  -- also the photo's version, so browsers can cache it
+    updated_by TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS stock_ledger (
     entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
     store_id TEXT NOT NULL,

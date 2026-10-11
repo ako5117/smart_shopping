@@ -45,6 +45,12 @@ class FakeInventory:
         path, method = request.url.path, request.method
         if path == "/products":
             return httpx.Response(200, json=self.products)
+        if path == "/products/milk-500ml/image":
+            if request.headers.get("if-none-match") == '"v7"':
+                return httpx.Response(304, headers={"ETag": '"v7"'})
+            return httpx.Response(200, content=b"\xff\xd8jpeg", headers={"Content-Type": "image/jpeg", "ETag": '"v7"'})
+        if path.startswith("/products/") and path.endswith("/image"):
+            return httpx.Response(404, json={"detail": "No photo"})
         if path == "/availability/001":
             return httpx.Response(200, json=self.availability())
         if method == "POST" and path == "/sales":
