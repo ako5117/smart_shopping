@@ -72,7 +72,7 @@ def test_second_payment_committing_at_the_same_moment_is_refused(inv):
 
 def test_duplicate_items_in_a_sale_are_merged(inv):
     sale = inv.create_sale("SALE-2", STORE, [Item(MILK, 1), Item(MILK, 2)])
-    assert sale["items"] == [{"product_id": MILK, "qty": 3, "unit_price_kes": None}]
+    assert sale["items"] == [{"product_id": MILK, "qty": 3, "unit_price_kes": None, "list_price_kes": None}]
 
 
 def test_same_sale_id_with_different_contents_conflicts(inv):
@@ -122,7 +122,7 @@ def test_sale_keeps_the_price_it_was_sold_at(inv):
     inv.upsert_product(MILK, EAN[MILK], "Milk 500 ml", price_kes=65)
     inv.create_sale("SALE-P", STORE, [Item(MILK, 2)])
     inv.upsert_product(MILK, EAN[MILK], "Milk 500 ml", price_kes=70)
-    assert inv.sale("SALE-P")["items"] == [{"product_id": MILK, "qty": 2, "unit_price_kes": 65}]
+    assert inv.sale("SALE-P")["items"] == [{"product_id": MILK, "qty": 2, "unit_price_kes": 65, "list_price_kes": 65}]
 
 
 def test_concurrent_requests_stay_consistent(inv):

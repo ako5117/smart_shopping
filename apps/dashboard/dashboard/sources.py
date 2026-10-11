@@ -46,6 +46,15 @@ class InventoryClient:
     def delete_image(self, product_id: str) -> httpx.Response:
         return self.http.delete(f"/products/{product_id}/image")
 
+    def discounts(self) -> List[dict]:
+        return self._get("/discounts")
+
+    def add_discount(self, body: dict) -> httpx.Response:
+        return self.http.post("/discounts", json=body)
+
+    def end_discount(self, discount_id: int, ended_by: str) -> httpx.Response:
+        return self.http.post(f"/discounts/{discount_id}/end", json={"ended_by": ended_by})
+
     def restock(self, body: dict) -> httpx.Response:
         return self.http.post("/restocks", json=body)
 

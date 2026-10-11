@@ -162,7 +162,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         r = inventory.get("/products")
         r.raise_for_status()
         return [{"product_id": p["product_id"], "name": p["name"], "category": p.get("category") or "",
-                 "price": p["price_kes"],
+                 # On offer: the offer price is what's charged; the shelf price is shown crossed out.
+                 "price": p.get("sale_price_kes") or p["price_kes"],
+                 "was_price": p["price_kes"] if p.get("sale_price_kes") else None,
+                 "offer": _offer_label(p.get("discount")) if p.get("sale_price_kes") else None,
                  # The photo staff added on the dashboard; the version in the address lets phones cache it for good.
                  "image_url": f"api/products/{p['product_id']}/image?v={p['image_version']}" if p.get("image_version") else None}
                 for p in r.json() if p.get("price_kes")]
@@ -496,6 +499,12 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         return Response(out.getvalue(), media_type="image/svg+xml", headers={"Cache-Control": "private, max-age=86400"})
 
     return app
+
+
+def _offer_label(discount: Optional[dict]) -> Optional[str]:
+    if not discount:
+        return None
+    return f"{discount['value']}% off" if discount["kind"] == "percent" else f"KES {discount['value']:,} off"
 
 
 def _age_s(record: dict, now: datetime) -> float:

@@ -63,7 +63,8 @@
   nav a[aria-current="page"] { background: var(--ok-bg); color: var(--accent); }
   label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
   .fields { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
-  .fields input { width: 100%; }
+  .fields input, .fields select { width: 100%; }
+  select { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); min-height: 30px; }
   .result { padding: 10px 12px; border-radius: 8px; margin-top: 10px; }
   .result.ok { background: var(--ok-bg); color: var(--accent); }
   .result.bad { background: var(--bad-bg); color: var(--bad); }

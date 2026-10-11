@@ -103,7 +103,9 @@ class Catalogue:
         r = self.inventory.get("/products")
         r.raise_for_status()
         products = [{"product_id": p["product_id"], "ean13": p["ean13"], "name": p["name"],
-                     "price": p.get("price_kes")}
+                     # On offer: the offer price is charged (the Inventory Service saves it on the sale)
+                     "price": p.get("sale_price_kes") or p.get("price_kes"),
+                     "was_price": p.get("price_kes") if p.get("sale_price_kes") else None}
                     for p in r.json()]
         self._by_id = {p["product_id"]: p for p in products}
         self._by_ean = {p["ean13"]: p for p in products}

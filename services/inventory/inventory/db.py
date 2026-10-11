@@ -9,7 +9,7 @@ ADDED_COLUMNS = {
               ("ready_at", "TEXT"), ("ready_by", "TEXT"),
               ("fulfilment", "TEXT NOT NULL DEFAULT 'collect'"), ("delivery_fee_kes", "INTEGER NOT NULL DEFAULT 0"),
               ("customer_phone", "TEXT NOT NULL DEFAULT ''")],
-    "sale_items": [("unit_price_kes", "INTEGER")],
+    "sale_items": [("unit_price_kes", "INTEGER"), ("list_price_kes", "INTEGER")],
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
 
@@ -77,9 +77,23 @@ CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),
     product_id TEXT NOT NULL REFERENCES products(product_id),
     qty INTEGER NOT NULL CHECK (qty > 0),
-    unit_price_kes INTEGER,
+    unit_price_kes INTEGER,  -- what the customer paid each, after any discount
+    list_price_kes INTEGER,  -- the shelf price at the time, before the discount
     PRIMARY KEY (sale_id, product_id)
 );
+CREATE TABLE IF NOT EXISTS discounts (  -- set by managers, per product: a percentage or an amount off
+    discount_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id TEXT NOT NULL REFERENCES products(product_id),
+    kind TEXT NOT NULL CHECK (kind IN ('percent', 'amount')),
+    value INTEGER NOT NULL CHECK (value > 0),
+    starts_at TEXT NOT NULL,
+    ends_at TEXT,  -- NULL: until a manager ends it
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    ended_by TEXT,
+    ended_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_discounts_product ON discounts(product_id, starts_at);
 CREATE TABLE IF NOT EXISTS outbox (
     outbox_id INTEGER PRIMARY KEY AUTOINCREMENT,
     entry_id INTEGER UNIQUE NOT NULL REFERENCES stock_ledger(entry_id),
