@@ -78,6 +78,29 @@ CREATE TABLE IF NOT EXISTS points (
 );
 CREATE INDEX IF NOT EXISTS idx_points_customer ON points(customer_id);
 
+-- Problems and bugs reported by customers (online shop or Scan & Go), answered by staff on the dashboard.
+CREATE TABLE IF NOT EXISTS reports (
+    report_id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('order', 'store', 'app', 'idea')),
+    message TEXT NOT NULL,
+    app TEXT NOT NULL,                -- store (online shop) | scan_and_go
+    order_id TEXT NOT NULL DEFAULT '',
+    customer_id TEXT,                 -- signed in when they reported
+    contact TEXT NOT NULL DEFAULT '', -- phone or email to reach them, if they gave one
+    context TEXT NOT NULL DEFAULT '', -- for app problems: page, browser, recent errors (JSON)
+    status TEXT NOT NULL CHECK (status IN ('open', 'in_progress', 'resolved')),
+    reply TEXT NOT NULL DEFAULT '',   -- what staff tell the customer
+    handled_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_reports_customer ON reports(customer_id);
+CREATE TABLE IF NOT EXISTS report_photos (
+    report_id TEXT PRIMARY KEY REFERENCES reports(report_id),
+    data BLOB NOT NULL
+);
+
 -- Stand-in email: messages are kept here (and shown on the dashboard) instead of being sent.
 CREATE TABLE IF NOT EXISTS emails (
     email_id INTEGER PRIMARY KEY AUTOINCREMENT,

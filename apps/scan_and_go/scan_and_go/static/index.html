@@ -59,6 +59,12 @@
   button:disabled { opacity: .45; cursor: default; }
   .row { display: flex; gap: 8px; align-items: center; }
   .grow { flex: 1; min-width: 0; }
+  select, textarea { font: inherit; width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 13px;
+                     background: var(--panel); color: var(--text); }
+  textarea { resize: vertical; min-height: 90px; }
+  details.report summary { cursor: pointer; font-weight: 650; color: var(--accent); list-style: none; }
+  details.report summary::-webkit-details-marker { display: none; }
+  details.report label { display: block; font-size: 14px; font-weight: 650; margin: 12px 0 6px; }
   input { font: inherit; width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 13px;
           background: var(--panel); color: var(--text); }
   input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ok-bg); }
@@ -185,6 +191,21 @@
     </div>
     <button class="secondary" style="width:100%" id="new-basket">Start a new basket</button>
   </section>
+
+  <details class="card report" id="report" hidden>
+    <summary>Something not right? Report a problem</summary>
+    <form id="report-form" novalidate>
+      <label for="r-kind">What is it about?</label>
+      <select id="r-kind"><option value="">Choose</option><option value="app">The app isn't working</option>
+        <option value="store">Something in the store</option><option value="order">My purchase</option><option value="idea">An idea</option></select>
+      <label for="r-message">What happened?</label>
+      <textarea id="r-message" maxlength="2000" placeholder="Tell us in your own words"></textarea>
+      <label for="r-contact">How can we reach you? <span class="muted" style="font-weight:500">(optional)</span></label>
+      <input id="r-contact" maxlength="120" placeholder="Phone or email">
+      <button style="width:100%;margin-top:12px" id="r-send">Send</button>
+      <p class="muted" id="r-done" hidden style="margin-bottom:0"></p>
+    </form>
+  </details>
 </main>
 
 <div class="bar" id="checkout-bar">
@@ -511,7 +532,27 @@ $("abandon").addEventListener("click", reset);
 
 // ------------------------------------------------------------------ start
 
+// Report a problem. For "the app isn't working", the screen and recent errors go along to help fix it.
+const recentErrors = [];
+window.addEventListener("error", (e) => { recentErrors.push(String(e.message).slice(0, 200)); recentErrors.splice(0, recentErrors.length - 3); });
+$("report-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const kind = $("r-kind").value, message = $("r-message").value.trim();
+  if (!kind || message.length < 5) { $("r-done").hidden = false; $("r-done").textContent = "Choose what it's about and tell us what happened."; return; }
+  $("r-send").disabled = true;
+  try {
+    const visible = ["scan", "phone", "wait", "receipt"].find((v) => !$(v + "-view").hidden) || "";
+    const r = await api("api/reports", {method: "POST", body: JSON.stringify({kind, message, contact: $("r-contact").value.trim(),
+      order_id: order?.order_id || "", context: kind === "app" ? {page: visible, screen: `${innerWidth}x${innerHeight}`, errors: recentErrors.join(" | ")} : {}})});
+    $("report-form").reset();
+    $("r-done").hidden = false;
+    $("r-done").textContent = `Thanks, we've got it (reference ${r.report_id}). A member of staff can help you right away too.`;
+  } catch (err) { $("r-done").hidden = false; $("r-done").textContent = err.message; }
+  $("r-send").disabled = false;
+});
+
 api("api/store").then((s) => {
+  $("report").hidden = !s.reports;
   $("store-name").textContent = s.name;
   document.title = `Scan & Go · ${s.name}`;
   cardOn = s.card;

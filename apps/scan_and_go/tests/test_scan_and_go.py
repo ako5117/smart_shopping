@@ -1,3 +1,8 @@
+import httpx
+from fastapi.testclient import TestClient
+
+from scan_and_go.app import create_app
+from scan_and_go.config import Settings
 from scan_and_go.app import RateLimiter, ean13_valid, mask_phone, phone_key
 from tests.conftest import BREAD, MILK, SUGAR
 
@@ -120,7 +125,7 @@ def test_store_offline(client, inventory):
 def test_page_and_store_info(client):
     assert "<title>Scan &amp; Go</title>" in client.get("/").text
     assert client.get("/api/store").json() == {"store_id": "001", "name": "Test Store", "currency": "KES",
-                                               "card": False}
+                                               "card": False, "reports": False}
 
 
 def test_pass_shows_exit_check(client, inventory, payments):
@@ -166,3 +171,29 @@ def test_offer_price_is_shown_and_the_old_price_kept(client, inventory):
     inventory.products[0]["sale_price_kes"] = 55  # milk, before the first scan fills the cache
     p = client.get(f"/api/products/{MILK}").json()
     assert (p["price"], p["was_price"]) == (55, 65)
+
+
+def test_problem_reports(inventory, payments):
+    import json as _json
+    sent = []
+
+    def customers(request):
+        body = _json.loads(request.content)
+        sent.append(body)
+        return httpx.Response(201, json={**body, "report_id": "R-00000000AA", "kind_label": "x", "status": "open"})
+
+    settings = Settings(store_id="001", store_name="Test Store", inventory_url="http://inv", payments_url="http://pay")
+    c = TestClient(create_app(settings,
+                              inventory=httpx.Client(base_url="http://inv", transport=httpx.MockTransport(inventory.handler)),
+                              payments=httpx.Client(base_url="http://pay", transport=httpx.MockTransport(payments.handler)),
+                              customers=httpx.Client(base_url="http://c", transport=httpx.MockTransport(customers))))
+    assert c.get("/api/store").json()["reports"] is True
+    r = c.post("/api/reports", json={"kind": "app", "message": "Camera won't open", "context": {"page": "scan"}})
+    assert r.json() == {"report_id": "R-00000000AA", "kind_label": "x", "status": "open"}
+    assert (sent[-1]["app"], sent[-1]["context"]["page"]) == ("scan_and_go", "scan") and "user_agent" in sent[-1]["context"]
+    assert c.post("/api/reports", json={"kind": "app", "message": "x"}).status_code == 422
+
+
+def test_no_reports_without_the_customers_service(client):
+    assert client.get("/api/store").json()["reports"] is False
+    assert client.post("/api/reports", json={"kind": "idea", "message": "More fruit please"}).status_code == 404

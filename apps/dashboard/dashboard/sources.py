@@ -157,6 +157,15 @@ class CustomersClient:
     def settings(self) -> dict:
         return self._get("/settings")
 
+    def reports(self, statuses: str = "") -> dict:
+        return self._get("/reports", status=statuses) if statuses else self._get("/reports")
+
+    def update_report(self, report_id: str, body: dict) -> httpx.Response:
+        return self.http.post(f"/reports/{report_id}", json=body)
+
+    def report_photo(self, report_id: str) -> httpx.Response:
+        return self.http.get(f"/reports/{report_id}/photo")
+
 
 def load_catalogue(path: str) -> dict:
     """Products and zones from the Shelf Service catalogue (services/shelf/config.example.json format)."""

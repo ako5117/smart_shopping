@@ -310,6 +310,7 @@ class Customers:
             c.execute("DELETE FROM customer_photos WHERE customer_id = ?", (customer_id,))
             c.execute("DELETE FROM sessions WHERE customer_id = ?", (customer_id,))
             c.execute("DELETE FROM codes WHERE email = ?", (r["email"],))
+            c.execute("UPDATE reports SET contact = '' WHERE customer_id = ?", (customer_id,))
             c.execute("UPDATE customers SET name = '', phone = NULL, email = ?, dob = NULL, gender = NULL, "
                       "updated_at = ?, deleted_at = ? WHERE customer_id = ?",
                       (f"deleted-{customer_id.lower()}@invalid", ts, ts, customer_id))

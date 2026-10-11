@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports · Store Dashboard</title>
+<link rel="stylesheet" href="static/app.css">
+<script src="static/me.js"></script>
+<style>
+  .reports { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  .rep { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; overflow-wrap: anywhere; }
+  .rep.app { border-color: var(--warn); }
+  .rep .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .rep .msg { white-space: pre-wrap; }
+  .rep img { max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; }
+  .rep textarea { font: inherit; width: 100%; min-height: 64px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+  .rep .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rep button { padding: 8px 12px; }
+  .ctx { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip, #f2f4f3); border-radius: 6px; padding: 6px 8px; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .filters button { padding: 6px 12px; }
+  .filters button[aria-pressed=true] { outline: 2px solid var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Reports</h1>
+    <div class="muted">Problems and ideas from customers, from the online shop and Scan &amp; Go. Answer them here: signed-in customers see the reply on their Account tab; call or message the others if they left a number or email.</div>
+  </div>
+  <nav><a href="./">Overview</a><a href="products">Products</a><a href="orders">Online orders</a><a href="exit">Exit check</a><a href="returns">Returns</a><a href="reports" aria-current="page">Reports</a><a href="loyalty" class="manager-only">Loyalty</a></nav>
+  <span class="muted who" id="me"></span>
+</header>
+<main>
+  <div id="banner" class="banner" hidden></div>
+  <section id="off" hidden><p>Problem reports aren't set up for this store (the Customers Service isn't connected).</p></section>
+  <section id="inbox" hidden>
+    <div class="filters" id="filters">
+      <button class="secondary" data-filter="open,in_progress" aria-pressed="true">To do <span id="n-todo"></span></button>
+      <button class="secondary" data-filter="resolved" aria-pressed="false">Resolved <span id="n-done"></span></button>
+    </div>
+    <div class="reports" id="reports"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const when = (iso) => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}); };
+const APP = {store: "Online shop", scan_and_go: "Scan & Go"};
+const STATUS = {open: "New", in_progress: "Being looked at", resolved: "Resolved"};
+let filter = "open,in_progress", timer = null;
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : r.statusText);
+  return body;
+}
+function banner(text, ok = false) {
+  $("banner").hidden = !text; $("banner").textContent = text || "";
+  $("banner").style.background = ok ? "var(--ok-bg)" : ""; $("banner").style.color = ok ? "var(--accent)" : "";
+}
+
+function card(r) {
+  const ctx = Object.entries(r.context || {}).filter(([, v]) => v).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join("<br>");
+  const who = [r.customer_name ? `${esc(r.customer_name)} (account)` : "", r.contact ? esc(r.contact) : ""].filter(Boolean).join(" · ") || "No contact left";
+  return `<div class="rep ${r.kind === "app" ? "app" : ""}">
+    <div class="head"><b>${esc(r.kind_label)}</b><span class="pill ${r.status === "resolved" ? "ok" : r.status === "open" ? "warn" : ""}">${STATUS[r.status]}</span></div>
+    <div class="muted small">${esc(r.report_id)} · ${APP[r.app] || esc(r.app)} · ${esc(when(r.created_at))}${r.order_id ? ` · order <b>${esc(r.order_id.slice(-8))}</b>` : ""}</div>
+    <div class="msg">${esc(r.message)}</div>
+    <div class="muted small">${who}</div>
+    ${r.has_photo ? `<a href="api/reports/${encodeURIComponent(r.report_id)}/photo" target="_blank" rel="noopener"><img src="api/reports/${encodeURIComponent(r.report_id)}/photo" alt="Photo sent with the report" loading="lazy"></a>` : ""}
+    ${ctx ? `<details><summary class="muted small">Page and browser details</summary><div class="ctx">${ctx}</div></details>` : ""}
+    ${r.handled_by ? `<div class="muted small">Last updated by ${esc(r.handled_by)} · ${esc(when(r.updated_at))}</div>` : ""}
+    <textarea placeholder="Reply to the customer (shown on their Account tab if they're signed in)" data-reply="${esc(r.report_id)}">${esc(r.reply)}</textarea>
+    <div class="row">
+      ${r.status === "open" ? `<button class="secondary" data-set="${esc(r.report_id)}" data-status="in_progress">I'm on it</button>` : ""}
+      ${r.status !== "resolved" ? `<button data-set="${esc(r.report_id)}" data-status="resolved">Resolved</button>`
+        : `<button class="secondary" data-set="${esc(r.report_id)}" data-status="open">Reopen</button>`}
+      <button class="secondary" data-set="${esc(r.report_id)}" data-status="">Save reply</button>
+    </div></div>`;
+}
+
+async function load() {
+  clearTimeout(timer);
+  try {
+    const b = await api(`api/reports?status=${encodeURIComponent(filter)}`);
+    $("off").hidden = b.on; $("inbox").hidden = !b.on;
+    if (!b.on) return;
+    if (b.error) banner(b.error);
+    const c = b.counts || {};
+    $("n-todo").textContent = `(${(c.open || 0) + (c.in_progress || 0)})`;
+    $("n-done").textContent = `(${c.resolved || 0})`;
+    const typing = document.activeElement && document.activeElement.closest(".rep");
+    if (!typing) $("reports").innerHTML = b.reports.map(card).join("") || `<div class="muted">Nothing here.</div>`;
+  } catch (err) { banner(err.message); }
+  timer = setTimeout(load, 15000);
+}
+
+$("filters").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-filter]");
+  if (!b) return;
+  filter = b.dataset.filter;
+  document.querySelectorAll("#filters button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  load();
+});
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-set]");
+  if (!b) return;
+  const id = b.dataset.set, reply = document.querySelector(`[data-reply="${CSS.escape(id)}"]`).value.trim();
+  b.disabled = true;
+  try {
+    await api(`api/reports/${encodeURIComponent(id)}`, {method: "POST", body: JSON.stringify({status: b.dataset.status || null, reply})});
+    banner(b.dataset.status === "resolved" ? "Marked resolved." : "Saved.", true);
+    document.activeElement?.blur();
+    load();
+  } catch (err) { banner(err.message); b.disabled = false; }
+});
+load();
+</script>
+</body>
+</html>

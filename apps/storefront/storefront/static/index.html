@@ -313,6 +313,20 @@
   .earn { color: #9a5b00; font-weight: 650; }
   @media (prefers-color-scheme: dark) { .earn { color: #f0b04a; } .pointsrow .ico { background: #3a2c12; color: #f0b04a; } }
 
+  /* ---- problem reports */
+  .kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kinds label { margin: 0; display: flex; gap: 8px; align-items: center; padding: 12px; border: 1.5px solid var(--line); border-radius: 14px;
+                 font-weight: 600; font-size: 14.5px; cursor: pointer; background: var(--panel); }
+  .kinds label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+  .kinds input { width: 18px; height: 18px; margin: 0; accent-color: var(--brand); flex: none; }
+  textarea { resize: vertical; min-height: 96px; }
+  .help { display: flex; gap: 12px; align-items: center; }
+  .help .ico { width: 38px; height: 38px; border-radius: 12px; background: var(--soft); color: var(--brand); display: grid; place-items: center; flex: none; }
+  .help div { flex: 1; min-width: 0; }
+  .rep { padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .rep:last-child { border-bottom: 0; }
+  .rep .reply { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: var(--brand-soft); }
+
   /* ---- toast */
   .toast { position: fixed; left: 50%; z-index: 10; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
            background: var(--text); color: var(--bg); padding: 10px 10px 10px 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px;
@@ -343,6 +357,7 @@
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c1.2-3.8 4.2-5.6 7.5-5.6s6.3 1.8 7.5 5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8.5v12M3.5 12.5h17M12 8.5C10 4 6.5 5 7.5 7.5c.6 1.3 4.5 1 4.5 1zm0 0c2-4.5 5.5-3.5 4.5-1-.6 1.3-4.5 1-4.5 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <!-- product placeholders, until the store adds a photo -->
     <symbol id="p-milk" viewBox="0 0 48 48"><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6z" fill="currentColor" opacity=".18"/><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6zM17 12h14M13 24h22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
     <symbol id="p-bread" viewBox="0 0 48 48"><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3z" fill="currentColor" opacity=".18"/><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3zM19 18l-2 4M26 17l-2 5M33 18l-2 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
@@ -491,6 +506,12 @@
       </form>
       <div class="row2"><button class="secondary" id="sign-out">Sign out</button><button class="danger" id="delete-account">Delete account</button></div>
     </div>
+    <div class="card" id="help-card" hidden style="margin-top:14px">
+      <div class="help"><span class="ico"><svg width="20" height="20"><use href="#i-flag"/></svg></span>
+        <div><b>Something not right?</b><div class="muted small">Tell us about an order, the store or the app, or share an idea.</div></div>
+        <button class="small secondary" id="report-open">Report</button></div>
+      <div id="my-reports"></div>
+    </div>
   </section>
 
   <!-- 3. Checkout -->
@@ -619,6 +640,7 @@
       <p class="muted small" id="returns-rule" style="margin:0"></p>
       <div id="returns-list"></div>
     </div>
+    <button type="button" class="ghost block" id="report-order" hidden>Problem with this order? Tell us</button>
     <button class="secondary block" id="back-from-order">Back to the shop</button>
   </section>
 </main>
@@ -687,6 +709,29 @@
     <p class="muted small" style="margin:6px 0 12px">Bring them to the store with this order page. Staff check them, and once approved the store refunds you.</p>
   </div>
   <div class="foot"><button id="return-send" disabled>Ask to return</button></div>
+</div>
+
+<div class="sheet" id="report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-heading" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="head"><h2 id="report-heading">Report a problem</h2>
+    <button class="iconbtn" id="close-report" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <form class="scroll" id="report-form" novalidate>
+    <div class="kinds" role="radiogroup" aria-label="What is it about?">
+      <label><input type="radio" name="rkind" value="order">An order</label>
+      <label><input type="radio" name="rkind" value="store">The store</label>
+      <label><input type="radio" name="rkind" value="app">The app isn't working</label>
+      <label><input type="radio" name="rkind" value="idea">An idea</label>
+    </div>
+    <p class="muted small" id="report-about" hidden style="margin:10px 2px 0"></p>
+    <label for="report-message">What happened?</label>
+    <textarea id="report-message" maxlength="2000" placeholder="Tell us in your own words"></textarea>
+    <label for="report-contact">How can we reach you? <span class="muted" style="font-weight:500">(optional)</span></label>
+    <input id="report-contact" maxlength="120" placeholder="Phone or email" autocomplete="email">
+    <label for="report-photo">Photo or screenshot <span class="muted" style="font-weight:500">(optional)</span></label>
+    <input id="report-photo" type="file" accept="image/*">
+    <p class="muted small" id="report-app-note" hidden style="margin:8px 2px">We'll attach the page you were on and your browser type, to help us fix it.</p>
+  </form>
+  <div class="foot"><button id="report-send" disabled>Send</button></div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
@@ -791,7 +836,7 @@ function show(v) {
   $("step-label").textContent = LABELS[v];
   closeCart();
   if (v === "orders") { renderOrders(); loadAccountOrders(); }
-  if (v === "account") renderAccount();
+  if (v === "account") { renderAccount(); loadReports(); }
   if (v === "shop" || v === "checkout") render();
 }
 
@@ -948,7 +993,7 @@ $("open-cart").addEventListener("click", openCart);
 $("close-cart").addEventListener("click", closeCart);
 $("keep-shopping").addEventListener("click", () => { closeCart(); if (view !== "shop") show("shop"); });
 $("scrim").addEventListener("click", () => { closeCart(); closeWhere(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCart(); closeWhere(); closeReturn(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCart(); closeWhere(); closeReturn(); closeReport(); } });
 
 document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => {
   if (b.dataset.tab === "cart") openCart();
@@ -1516,6 +1561,76 @@ $("return-send").addEventListener("click", async () => {
   } catch (err) { say(err.message); renderReturnSheet(); }
 });
 
+// ------------------------------------------------------------------ problem reports
+
+const recentErrors = [];  // sent with "the app isn't working" reports, to help fix it
+window.addEventListener("error", (e) => { recentErrors.push(String(e.message).slice(0, 200)); recentErrors.splice(0, recentErrors.length - 3); });
+window.addEventListener("unhandledrejection", (e) => { recentErrors.push(String(e.reason).slice(0, 200)); recentErrors.splice(0, recentErrors.length - 3); });
+let reportOrder = "";
+const rkind = () => document.querySelector('input[name="rkind"]:checked')?.value || "";
+const REPORT_STATUS = {open: "Received", in_progress: "Being looked at", resolved: "Resolved"};
+
+function openReport(orderId = "") {
+  reportOrder = orderId;
+  $("report-form").reset();
+  if (orderId) document.querySelector('input[name="rkind"][value="order"]').checked = true;
+  const c = acct.signed_in ? acct.customer : null;
+  $("report-contact").value = c ? c.email : store.get("web.phone", "");
+  renderReport();
+  hideToast(); closeCart();
+  $("report-sheet").classList.add("open"); $("report-sheet").setAttribute("aria-hidden", "false"); $("scrim").classList.add("open");
+}
+function closeReport() {
+  if (!$("report-sheet").classList.contains("open")) return;
+  $("report-sheet").classList.remove("open"); $("report-sheet").setAttribute("aria-hidden", "true"); $("scrim").classList.remove("open");
+}
+function renderReport() {
+  $("report-about").hidden = !reportOrder;
+  $("report-about").textContent = reportOrder ? `About order ${reportOrder.slice(-8)}` : "";
+  $("report-app-note").hidden = rkind() !== "app";
+  $("report-send").disabled = !rkind() || $("report-message").value.trim().length < 5;
+}
+$("report-open").addEventListener("click", () => openReport());
+$("report-order").addEventListener("click", () => openReport(order?.order_id || ""));
+$("close-report").addEventListener("click", closeReport);
+$("scrim").addEventListener("click", closeReport);
+$("report-form").addEventListener("input", renderReport);
+$("report-form").addEventListener("change", renderReport);
+$("report-send").addEventListener("click", async () => {
+  $("report-send").disabled = true;
+  try {
+    let photo_b64 = null;
+    const f = $("report-photo").files[0];
+    if (f) {
+      const blob = await shrink(f, 1600);
+      photo_b64 = await new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(blob); });
+    }
+    const context = rkind() === "app" ? {page: view, url: location.pathname, screen: `${innerWidth}x${innerHeight}`,
+                                          errors: recentErrors.join(" | ")} : {};
+    const r = await api("api/reports", {method: "POST", body: JSON.stringify({kind: rkind(), message: $("report-message").value.trim(),
+      order_id: reportOrder, contact: $("report-contact").value.trim(), context, photo_b64})});
+    store.set("web.reports", [r.report_id, ...store.get("web.reports", [])].slice(0, 10));
+    closeReport();
+    say(`Thanks, we've got it. Your reference is ${r.report_id}. ${acct.signed_in ? "Our reply will show on your Account tab." : "Staff will get back to you if you left a number or email."}`, "ok");
+    loadReports();
+  } catch (err) { say(err.message); renderReport(); }
+});
+
+async function loadReports() {
+  $("help-card").hidden = !acct.available;
+  if (!acct.available) return;
+  let list = [];
+  try {
+    if (acct.signed_in) list = await api("api/account/reports");
+    else list = (await Promise.all(store.get("web.reports", []).slice(0, 5).map((id) => api(`api/reports/${id}`).catch(() => null)))).filter(Boolean);
+  } catch {}
+  $("my-reports").innerHTML = list.length ? `<div class="muted small" style="margin:12px 0 2px">Your reports</div>` + list.map((r) => `<div class="rep">
+      <div style="display:flex;justify-content:space-between;gap:8px"><b class="small">${esc(r.kind_label || "")}${r.message ? ": " + esc(r.message.slice(0, 60)) : ""}</b>
+        <span class="pill ${r.status === "resolved" ? "" : "live"}">${esc(REPORT_STATUS[r.status])}</span></div>
+      <div class="muted small">${esc(r.report_id)}</div>
+      ${r.reply ? `<div class="reply small">${esc(r.reply)}</div>` : ""}</div>`).join("") : "";
+}
+
 // ------------------------------------------------------------------ account and loyalty points
 
 let acct = {available: false, signed_in: false, customer: null, settings: null};
@@ -1526,6 +1641,7 @@ const plural = (n, w) => `${Number(n).toLocaleString("en-KE")} ${w}${n === 1 ? "
 async function loadAccount() {
   try { acct = await api("api/account"); } catch { acct = {...acct, signed_in: false}; }
   $("account-tab").hidden = !acct.available;
+  $("report-order").hidden = !acct.available;
   $("tabs").classList.toggle("four", !!acct.available);
   if (!acct.signed_in) accountOrders = null;
   renderAccount();

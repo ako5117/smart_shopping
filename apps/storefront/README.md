@@ -28,6 +28,18 @@ A paid order's page has a **Returns** card while the return period is open (14 d
 - **Status:** the card shows each return as it moves on: bring the items in, approved with the refund on its way, refunded (and how), or refused with the reason.
 - **Who can ask:** only someone with the order page's address (order and payment id) can see or ask for its returns.
 
+## Report a problem
+
+When the Customers Service is set, customers can tell the store about an order, the store, the app, or an idea.
+
+- **Where:** from the Account tab, or **Problem with this order?** on an order page, which fills in the order number.
+- **What they send:** a short message, an optional photo, and optionally a phone or email.
+- **App problems:** "The app isn't working" also sends the page, screen size, browser and the page's last errors.
+- **Replies:** staff answer on the dashboard's Reports page. Signed-in customers see the reply on their Account tab; others see it from the reference the phone remembers.
+- **Scan & Go:** has the same form at the bottom of its page.
+
+See [`services/customers`](../../services/customers).
+
 ## Accounts and loyalty points
 
 When the Customers Service is set (`CUSTOMERS_URL`), the shop has an **Account** tab. See [`services/customers`](../../services/customers) for the rules.
@@ -112,6 +124,8 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 | `PUT` / `GET` / `DELETE` | `/api/account/photo` | Profile photo |
 | `GET` | `/api/account/orders` | The account's orders with their items |
 | `GET` / `POST` | `/api/orders/{order_id}/payments/{payment_id}/returns` | What can be returned and the order's returns; ask for a return: `{lines: [{product_id, qty}], reason, unopened: true}` |
+| `POST` | `/api/reports` | Report a problem: `{kind, message, order_id?, contact?, context?, photo_b64?}` |
+| `GET` | `/api/reports/{report_id}`, `/api/account/reports` | A report's status and reply; the signed-in customer's reports |
 | `GET` | `/api/delivery/quote?lat=&lng=` | Can we deliver here? Distance, express and scheduled fees and open slots, or `deliverable: false` with the reason |
 | `GET` | `/api/catalogue` | Products with price, category, status (`in` / `few` / `out`), how many can be ordered, and substitutes |
 | `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"address", "notes", "lat", "lng", "tier": "express" or "scheduled", "slot_start"}` for a delivery, plus `"use_points": true` for a signed-in customer to spend points: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |

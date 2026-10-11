@@ -125,9 +125,20 @@ class Catalogue:
         return self._by_id.get(product_id)
 
 
+class ReportIn(BaseModel):
+    kind: Literal["order", "store", "app", "idea"]
+    message: str = Field(..., min_length=5, max_length=2000)
+    order_id: str = Field("", max_length=40)
+    contact: str = Field("", max_length=120)
+    context: Dict[str, str] = Field(default_factory=dict)
+
+
 def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Client] = None,
-               payments: Optional[httpx.Client] = None) -> FastAPI:
+               payments: Optional[httpx.Client] = None, customers: Optional[httpx.Client] = None) -> FastAPI:
     settings = settings or load_settings()
+    if customers is None and settings.customers_url:
+        customers = httpx.Client(base_url=settings.customers_url, timeout=10.0)
+    report_limiter = RateLimiter(6, 3600)
     inventory = inventory or httpx.Client(base_url=settings.inventory_url, timeout=10.0)
     payments = payments or httpx.Client(base_url=settings.payments_url, timeout=40.0)
     catalogue = Catalogue(inventory)
@@ -206,9 +217,32 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     def index():
         return FileResponse(STATIC / "index.html")
 
+    @app.post("/api/reports", status_code=201)
+    def report(body: ReportIn, request: Request):
+        """Report a problem (the Customers Service keeps it; staff answer on the dashboard's Reports page)."""
+        if customers is None:
+            raise HTTPException(404, "Problem reports aren't set up in this store. Please ask a member of staff.")
+        who = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "")
+        if not report_limiter.allow(who):
+            raise HTTPException(429, "Thanks: we've had several reports from you in the last hour. Please ask a member of staff.")
+        context = {}
+        if body.kind == "app":  # only app problems carry the page and browser, to help fix them
+            context = {k[:40]: v[:500] for k, v in list(body.context.items())[:12]}
+            context["user_agent"] = request.headers.get("user-agent", "")[:300]
+        try:
+            r = customers.post("/reports", json={**body.model_dump(), "app": "scan_and_go", "context": context})
+        except httpx.HTTPError as e:
+            log.error("Customers Service unavailable: %s", e)
+            raise HTTPException(503, "Reports can't be sent right now. Please ask a member of staff.")
+        if r.status_code != 201:
+            raise HTTPException(422 if r.status_code == 422 else 502, "Please check what you wrote and try again.")
+        out = r.json()
+        return {k: out[k] for k in ("report_id", "kind_label", "status")}
+
     @app.get("/api/store")
     def store():
-        return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES", "card": card_available()}
+        return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES", "card": card_available(),
+                "reports": customers is not None}
 
     @app.get("/api/products/{ean13}")
     def product(ean13: str):

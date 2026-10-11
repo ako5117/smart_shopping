@@ -231,6 +231,7 @@ class FakeCustomers:
         self.orders = {}
         self.cancelled = []
         self.signups = []
+        self.reports = []
         self.photo = None
 
     def profile(self):
@@ -258,6 +259,18 @@ class FakeCustomers:
             return httpx.Response(201, json={"token": "tok-jane", "expires_at": "x", "customer": self.profile()})
         if path == "/sessions" and method == "DELETE":
             return httpx.Response(204)
+        if path == "/reports" and method == "POST":
+            rep = {**body, "report_id": f"R-{len(self.reports) + 1:010X}", "kind_label": "x", "status": "open", "created_at": "t",
+                   "customer_id": "C1" if signed_in else None, "reply": ""}
+            if len(body["message"]) < 5:
+                return httpx.Response(422, json={"detail": "Tell us what happened (a few words at least)"})
+            self.reports.append(rep)
+            return httpx.Response(201, json=rep)
+        if path.startswith("/reports/") and path.endswith("/public"):
+            rep = next((r for r in self.reports if r["report_id"] == path.split("/")[2]), None)
+            return httpx.Response(200, json={k: rep[k] for k in ("report_id", "status", "reply")}) if rep else httpx.Response(404, json={})
+        if path == "/me/reports" and signed_in:
+            return httpx.Response(200, json=[r for r in self.reports if r["customer_id"] == "C1"])
         if path.startswith("/orders/") and path.endswith("/cancel"):
             sale_id = path.split("/")[2]
             self.cancelled.append(sale_id)
