@@ -92,7 +92,9 @@ Open the online shop in the customer window (or on the phone, using the "same Wi
 - **Live availability:** the line under the search box reads "Live from the store shelves". Each product shows **In stock**, **Only N left** or **Out of stock**. What's promised online is the committed stock, less anything someone is paying for right now, less what shoppers in the store picked up in the last few minutes (the shelf sensors), less one kept back.
 - **Substitutes:** **Brown sugar 1 kg** is sold out, so the shop suggests **Sugar 1 kg** from the same category. Tap **Add** on the suggestion.
 - **Nearly gone:** **Brown bread 400 g** shows "Only 2 left". Add it and press **+**: the button stops at 2, and the shop suggests **Bread 400 g** instead.
+- **Cart:** tap the cart bar at the bottom to see the cart over the shop, change quantities, then **Keep shopping**. Nothing is lost.
 - **Order:** tap **Checkout**, enter a name and `0712 345 678`, then **Pay with M-Pesa**. The page moves to **Paid · we're packing it**, with a collection pass.
+- **Buy again:** under **Orders** at the bottom, each past order has **Buy again**, which puts the same items back in the cart (skipping anything sold out).
 - **The other channels see it at once:** back in the shop, Brown bread now shows **Out of stock**, because the online order took the last two. A Scan & Go shopper or another online customer can't be sold the same loaves.
 
 Now switch to the staff window:
