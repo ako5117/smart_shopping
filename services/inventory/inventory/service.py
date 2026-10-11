@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from . import images
 from .db import Database
 
 
@@ -70,9 +71,37 @@ class Inventory:
     def products(self) -> List[dict]:
         """Every product, with who last changed its price and when."""
         return self.db.all(
-            "SELECT p.*, pc.changed_by AS price_changed_by, pc.changed_at AS price_changed_at FROM products p "
+            "SELECT p.*, pc.changed_by AS price_changed_by, pc.changed_at AS price_changed_at, "
+            "pi.updated_at AS image_version FROM products p "
             "LEFT JOIN price_changes pc ON pc.change_id = "
-            "(SELECT MAX(change_id) FROM price_changes WHERE product_id = p.product_id) ORDER BY p.product_id")
+            "(SELECT MAX(change_id) FROM price_changes WHERE product_id = p.product_id) "
+            "LEFT JOIN product_images pi ON pi.product_id = p.product_id ORDER BY p.product_id")
+
+    # ---------------------------------------------------------------- photos
+
+    def set_image(self, product_id: str, data: bytes, updated_by: str = "") -> dict:
+        """Store a product's photo (replacing any earlier one), resized and re-encoded (inventory/images.py)."""
+        if not self.db.one("SELECT 1 AS x FROM products WHERE product_id = ?", (product_id,)):
+            raise NotFound(f"No product {product_id}")
+        jpeg, width, height = images.prepare(data)
+        version = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+        with self.db.tx() as c:
+            c.execute("INSERT INTO product_images (product_id, data, width, height, updated_at, updated_by) "
+                      "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (product_id) DO UPDATE SET data = excluded.data, "
+                      "width = excluded.width, height = excluded.height, updated_at = excluded.updated_at, "
+                      "updated_by = excluded.updated_by", (product_id, jpeg, width, height, version, updated_by))
+        return {"product_id": product_id, "image_version": version, "width": width, "height": height, "bytes": len(jpeg)}
+
+    def image(self, product_id: str) -> dict:
+        row = self.db.one("SELECT * FROM product_images WHERE product_id = ?", (product_id,))
+        if not row:
+            raise NotFound(f"No photo for {product_id}")
+        row["data"] = bytes(row["data"])  # PostgreSQL hands back a memoryview
+        return row
+
+    def delete_image(self, product_id: str) -> None:
+        with self.db.tx() as c:
+            c.execute("DELETE FROM product_images WHERE product_id = ?", (product_id,))
 
     def price_history(self, product_id: str, limit: int = 50) -> List[dict]:
         return self.db.all("SELECT * FROM price_changes WHERE product_id = ? ORDER BY change_id DESC LIMIT ?",

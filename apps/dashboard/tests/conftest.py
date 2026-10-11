@@ -33,6 +33,7 @@ class FakeInventory:
         self.down = False
         self.counts = []
         self.stock_counts = []  # POST /counts bodies
+        self.photos = {}  # product_id -> (bytes, who)
         self.restocks = []
         self.products = [{"product_id": "sugar-1kg", "ean13": "6161000000026", "name": "Sugar 1 kg"},
                          {"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}]
@@ -77,6 +78,21 @@ class FakeInventory:
                 return httpx.Response(422, json={"detail": "No open discrepancy with that id"})
             self.counts.append(body)
             return httpx.Response(200, json={"adjusted_by": body["counted_qty"] - 3, "stock": body["counted_qty"]})
+        if path.endswith("/image") and path.startswith("/products/"):
+            pid = path.split("/")[2]
+            if request.method == "PUT":
+                if not request.content.startswith(b"\xff\xd8"):
+                    return httpx.Response(422, json={"detail": "That file isn't a picture we can read."})
+                self.photos[pid] = (request.content, request.headers.get("x-staff-user", ""))
+                return httpx.Response(200, json={"product_id": pid, "image_version": "v1", "width": 900, "height": 600})
+            if request.method == "DELETE":
+                self.photos.pop(pid, None)
+                return httpx.Response(204)
+            if pid not in self.photos:
+                return httpx.Response(404, json={"detail": "No photo"})
+            if request.headers.get("if-none-match") == '"v1"':
+                return httpx.Response(304, headers={"ETag": '"v1"'})
+            return httpx.Response(200, content=self.photos[pid][0], headers={"Content-Type": "image/jpeg", "ETag": '"v1"'})
         if request.method == "POST" and path == "/counts":
             body = json.loads(request.content)
             p = next((p for p in self.products if p["ean13"] == body["ean13"]), None)
