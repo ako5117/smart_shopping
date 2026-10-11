@@ -13,8 +13,9 @@ When something runs low or out, the shop suggests substitutes from the same cate
 Service checks again when the order is placed, in the same transaction that records it, so two customers
 can't both buy the last one. Prices and totals come from the Inventory Service, never from the browser.
 Paid orders appear on the store dashboard to be packed. The customer collects with the pass on their
-phone, or a rider delivers (Dispatch Service): the delivery fee comes from the Dispatch Service's area
-list, and the customer gives the rider a 4-digit code shown on their order page.
+phone, or a rider delivers (Dispatch Service). Delivery is express or in a scheduled time slot, priced by
+the distance from the store; the Dispatch Service quotes the fee and says whether the address is too far.
+The customer gives the rider a 4-digit code shown on their order page.
 """
 
 import io
@@ -65,11 +66,12 @@ class Line(BaseModel):
 
 
 class DeliveryIn(BaseModel):
-    area: str = Field(..., min_length=1, max_length=60)
     address: str = Field(..., min_length=3, max_length=200)
     notes: str = Field("", max_length=300)
-    lat: Optional[float] = Field(None, ge=-90, le=90)
-    lng: Optional[float] = Field(None, ge=-180, le=180)
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+    tier: Literal["express", "scheduled"] = "scheduled"
+    slot_start: Optional[str] = Field(None, max_length=40)
 
 
 class OrderIn(BaseModel):
@@ -175,22 +177,38 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         r.raise_for_status()
         return r.json()
 
-    def fetch_areas() -> Dict[str, int]:
-        r = dispatch.get("/areas")
+    def fetch_delivery() -> dict:
+        r = dispatch.get("/delivery")
         r.raise_for_status()
-        return {a["area"]: a["fee_kes"] for a in r.json()}
+        return r.json()
 
-    areas_cache = Cached(fetch_areas, settings.products_cache_s)
+    delivery_cache = Cached(fetch_delivery, settings.products_cache_s)
 
-    def delivery_areas() -> Optional[Dict[str, int]]:
-        """Where riders go, with fees; None when delivery is off or the Dispatch Service is down."""
+    def delivery_settings() -> Optional[dict]:
+        """How far the store delivers and how it's priced; None when delivery is off or the Dispatch Service is down."""
         if dispatch is None:
             return None
         try:
-            return areas_cache.get()
+            return delivery_cache.get()
         except httpx.HTTPError as e:
             log.warning("Dispatch unavailable: %s", e)
             return None
+
+    def delivery_quote(lat: float, lng: float) -> dict:
+        """Fees and open slots for this location, from the Dispatch Service."""
+        if dispatch is None:
+            raise HTTPException(503, "This store doesn't deliver. Choose collect from the store.")
+        try:
+            r = dispatch.get("/delivery/quote", params={"lat": lat, "lng": lng})
+        except httpx.HTTPError as e:
+            log.warning("Dispatch unavailable: %s", e)
+            raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
+        if r.status_code == 422:
+            raise HTTPException(422, "That location isn't valid. Try finding it on the map again.")
+        if r.status_code != 200:
+            log.error("Delivery quote failed: %s %s", r.status_code, r.text[:200])
+            raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
+        return r.json()
 
     def delivery_for(sale: dict) -> Optional[dict]:
         if sale.get("fulfilment") != "delivery" or dispatch is None:
@@ -207,7 +225,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         except httpx.HTTPError as e:
             log.warning("Dispatch unavailable: %s", e)
             return None
-        return {"status": d["status"], "area": d["area"], "address": d["address"], "notes": d["notes"],
+        return {"status": d["status"], "tier": d.get("tier") or "scheduled", "slot": d.get("slot_label") or "",
+                "distance_km": d.get("distance_km"), "address": d["address"], "notes": d["notes"],
                 "fee": d["fee_kes"], "pin": d["pin"] if sale["status"] == "paid" else None, "rider": rider,
                 "picked_up_at": d.get("picked_up_at"), "delivered_at": d.get("delivered_at")}
 
@@ -305,11 +324,17 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
 
     @app.get("/api/store")
     def store():
-        areas = delivery_areas()
+        delivery = delivery_settings()
         return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES",
                 "hold_minutes": settings.order_hold_min, "card": card_available(),
-                "delivery": {"available": bool(areas),
-                             "areas": [{"area": a, "fee": fee} for a, fee in (areas or {}).items()]}}
+                "delivery": {"available": bool(delivery), **(delivery or {})}}
+
+    @app.get("/api/delivery/quote")
+    def quote(lat: float, lng: float):
+        """Can we deliver here, and for how much? Asked before shopping and again at checkout."""
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+            raise HTTPException(422, "That location isn't valid. Try finding it on the map again.")
+        return delivery_quote(lat, lng)
 
     @app.get("/api/catalogue")
     def catalogue():
@@ -344,12 +369,17 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         if body.fulfilment == "delivery":
             if body.delivery is None:
                 raise HTTPException(422, "Enter where to deliver.")
-            areas = delivery_areas()
-            if not areas:
-                raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
-            if body.delivery.area not in areas:
-                raise HTTPException(422, f"We don't deliver to {body.delivery.area}.")
-            fee = areas[body.delivery.area]
+            d = body.delivery
+            q = delivery_quote(d.lat, d.lng)  # the fee comes from here, never from the browser
+            if not q["deliverable"]:
+                raise HTTPException(422, q["reason"])
+            option = q[d.tier]
+            if not option["available"]:
+                raise HTTPException(422, "Express delivery has closed for today. Choose a delivery time instead."
+                                    if d.tier == "express" else "No delivery times are left. Choose express or collect.")
+            if d.tier == "scheduled" and not any(_same_time(s["start"], d.slot_start) for s in option["slots"]):
+                raise HTTPException(422, "That delivery time isn't available any more. Choose another.")
+            fee = option["fee_kes"]
 
         # Fresh numbers for the check, not the few-seconds-old copy the page was showing.
         held_cache.clear()
@@ -383,8 +413,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             try:
                 r = dispatch.post("/deliveries", json={
                     "sale_id": sale_id, "store_id": settings.store_id, "customer_name": body.name.strip(),
-                    "customer_phone": body.phone.strip(), "area": d.area, "address": d.address, "notes": d.notes,
-                    "lat": d.lat, "lng": d.lng})
+                    "customer_phone": body.phone.strip(), "tier": d.tier, "slot_start": d.slot_start,
+                    "address": d.address, "notes": d.notes, "lat": d.lat, "lng": d.lng})
                 ok = r.status_code == 201
                 if not ok:
                     log.error("Dispatch refused delivery %s: %s %s", sale_id, r.status_code, r.text[:200])
@@ -505,6 +535,13 @@ def _offer_label(discount: Optional[dict]) -> Optional[str]:
     if not discount:
         return None
     return f"{discount['value']}% off" if discount["kind"] == "percent" else f"KES {discount['value']:,} off"
+
+
+def _same_time(a: Optional[str], b: Optional[str]) -> bool:
+    try:
+        return bool(a and b) and datetime.fromisoformat(a) == datetime.fromisoformat(b)
+    except ValueError:
+        return False
 
 
 def _age_s(record: dict, now: datetime) -> float:

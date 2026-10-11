@@ -103,7 +103,8 @@ function deliveryBlock(o) {
   const d = o.delivery;
   if (o.fulfilment !== "delivery") return "";
   if (!d) return `<div class="deliver"><span class="pill warn">Delivery</span><div class="muted">Delivery details unavailable.</div></div>`;
-  const where = `<div><span class="pill">Delivery · ${esc(d.area)}</span> ${esc(d.address)}${d.notes ? ` <span class="muted">(${esc(d.notes)})</span>` : ""}</div>`;
+  const when = d.tier === "express" ? `<span class="pill warn">Express</span> ` : d.slot_label ? `<span class="pill">${esc(d.slot_label)}</span> ` : "";
+  const where = `<div><span class="pill">Delivery · ${esc(d.area)}</span> ${when}${esc(d.address)}${d.notes ? ` <span class="muted">(${esc(d.notes)})</span>` : ""}</div>`;
   let body = "";
   if (d.status === "unassigned" || d.status === "assigned") {
     body = riderPicker(o);

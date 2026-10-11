@@ -23,15 +23,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Protocol, Tuple
 
 from .db import Database
+from .pricing import TIERS, Pricing
 
 MAX_PIN_ATTEMPTS = 5
 UNPAID_EXPIRY = timedelta(hours=2)  # an order still unpaid after this is never going to be
 ACTIVE = ("unassigned", "assigned", "picked_up", "failed")
 STATUSES = ("awaiting_payment", "unassigned", "assigned", "picked_up", "delivered", "failed", "cancelled")
-
-# Demo delivery areas around a Nairobi store, with fees in KES. Set DELIVERY_AREAS to the store's own.
-DEFAULT_AREAS = "Kilimani:150,Kileleshwa:150,Lavington:200,Westlands:200,Upper Hill:200,CBD:250"
-
 
 class NotFound(Exception):
     pass
@@ -62,24 +59,13 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def parse_areas(spec: str) -> Dict[str, int]:
-    """"Kilimani:150,Westlands:200" -> {"Kilimani": 150, "Westlands": 200}."""
-    areas = {}
-    for part in spec.split(","):
-        if not part.strip():
-            continue
-        name, _, fee = part.rpartition(":")
-        if not name.strip() or not fee.strip().isdigit():
-            raise ValueError(f"Delivery area {part!r} should look like Name:fee, e.g. Kilimani:150")
-        areas[name.strip()] = int(fee)
-    if not areas:
-        raise ValueError("No delivery areas configured")
-    return areas
-
-
 class Dispatch:
-    def __init__(self, db: Database, inventory: Inventory, areas: Dict[str, int]):
-        self.db, self.inventory, self.areas = db, inventory, areas
+    def __init__(self, db: Database, inventory: Inventory, pricing: Pricing, clock=None):
+        self.db, self.inventory, self.pricing = db, inventory, pricing
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
+
+    def quote(self, lat: float, lng: float) -> dict:
+        return self.pricing.quote(lat, lng, self.clock())
 
     # ---------------------------------------------------------------- riders
 
@@ -113,27 +99,39 @@ class Dispatch:
 
     # ------------------------------------------------------------ deliveries
 
-    def create(self, sale_id: str, store_id: str, customer_name: str, customer_phone: str, area: str,
-               address: str, notes: str = "", lat: Optional[float] = None, lng: Optional[float] = None) -> dict:
-        """Called when the online order is placed, before payment. The fee comes from the area."""
-        if area not in self.areas:
-            raise ValueError(f"We don't deliver to {area}")
+    def create(self, sale_id: str, store_id: str, customer_name: str, customer_phone: str, address: str,
+               lat: Optional[float], lng: Optional[float], tier: str = "scheduled", slot_start: Optional[str] = None,
+               notes: str = "") -> dict:
+        """Called when the online order is placed, before payment. The fee comes from the distance and the tier."""
         if not address.strip():
             raise ValueError("Enter the delivery address")
-        if (lat is None) != (lng is None) or (lat is not None and not (-90 <= lat <= 90 and -180 <= lng <= 180)):
-            raise ValueError("Location must have both latitude and longitude")
+        if lat is None or lng is None:
+            raise ValueError("Share your location (or pick it on the map) so we know how far it is")
+        if tier not in TIERS:
+            raise ValueError("Choose express or scheduled delivery")
         existing = self.db.one("SELECT * FROM deliveries WHERE sale_id = ?", (sale_id,))
         if existing:
             return self.get(sale_id, include_pin=True)
+        q = self.quote(lat, lng)
+        if not q["deliverable"]:
+            raise ValueError(q["reason"])
+        slot = {"start": None, "end": None, "label": "Express"}
+        if tier == "express":
+            if not q["express"]["available"]:
+                raise ValueError("Express delivery isn't available right now. Choose a delivery time instead.")
+        else:
+            slot = self.pricing.slot(slot_start, self.clock())
+        fee = q[tier]["fee_kes"]
         ts = now_iso()
         pin = f"{secrets.randbelow(10000):04d}"
         with self.db.tx() as c:
             c.execute("INSERT INTO deliveries (sale_id, store_id, status, customer_name, customer_phone, area, address, "
-                      "notes, lat, lng, fee_kes, pin, created_at, updated_at) "
-                      "VALUES (?, ?, 'awaiting_payment', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                      (sale_id, store_id, customer_name.strip(), customer_phone.strip(), area, address.strip(),
-                       notes.strip(), lat, lng, self.areas[area], pin, ts, ts))
-            _event(c, sale_id, "created", customer_name.strip())
+                      "notes, lat, lng, fee_kes, pin, tier, slot_start, slot_end, slot_label, distance_km, created_at, updated_at) "
+                      "VALUES (?, ?, 'awaiting_payment', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      (sale_id, store_id, customer_name.strip(), customer_phone.strip(), f"{q['distance_km']:g} km",
+                       address.strip(), notes.strip(), lat, lng, fee, pin, tier, slot["start"], slot["end"], slot["label"],
+                       q["distance_km"], ts, ts))
+            _event(c, sale_id, "created", customer_name.strip(), slot["label"])
         return self.get(sale_id, include_pin=True)
 
     def sync_payments(self, store_id: Optional[str] = None) -> None:
@@ -174,7 +172,9 @@ class Dispatch:
         if rider_id:
             where += " AND rider_id = ?"
             args.append(rider_id)
-        rows = self.db.all(f"SELECT * FROM deliveries WHERE {where} ORDER BY created_at LIMIT ?", (*args, limit))
+        rows = self.db.all(f"SELECT * FROM deliveries WHERE {where} "
+                           # express first, then scheduled ones by their slot
+                           "ORDER BY CASE WHEN tier = 'express' THEN 0 ELSE 1 END, COALESCE(slot_start, created_at), created_at LIMIT ?", (*args, limit))
         return [self._view(d) for d in rows]
 
     def events(self, sale_id: str) -> List[dict]:

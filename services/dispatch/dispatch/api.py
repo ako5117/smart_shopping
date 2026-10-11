@@ -9,14 +9,15 @@ returned only to the online shop, for the customer (GET /deliveries/{sale_id}?in
 
 import logging
 import os
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .db import Database, database_from_env
-from .service import DEFAULT_AREAS, Conflict, Dispatch, Locked, NotFound, WrongPin, parse_areas
+from .pricing import Pricing, from_env as pricing_from_env
+from .service import Conflict, Dispatch, Locked, NotFound, WrongPin
 
 log = logging.getLogger("dispatch")
 
@@ -51,7 +52,8 @@ class DeliveryIn(BaseModel):
     store_id: str = Field(..., min_length=1, max_length=20)
     customer_name: str = Field(..., min_length=1, max_length=60)
     customer_phone: str = Field(..., min_length=9, max_length=16)
-    area: str = Field(..., min_length=1, max_length=60)
+    tier: Literal["express", "scheduled"] = "scheduled"
+    slot_start: Optional[str] = Field(None, max_length=40, description="Scheduled: the slot's start, from /delivery/quote")
     address: str = Field(..., min_length=3, max_length=200)
     notes: str = Field("", max_length=300)
     lat: Optional[float] = None
@@ -87,11 +89,11 @@ class ReleaseIn(ByIn):
     rider_id: Optional[str] = Field(None, description="Set when the rider gives the job back themselves")
 
 
-def create_app(db: Optional[Database] = None, inventory=None, areas: Optional[dict] = None) -> FastAPI:
+def create_app(db: Optional[Database] = None, inventory=None, pricing: Optional[Pricing] = None, clock=None) -> FastAPI:
     db = db or database_from_env()
     inventory = inventory or HttpInventory(os.getenv("INVENTORY_URL", "http://localhost:8010"))
-    areas = areas or parse_areas(os.getenv("DELIVERY_AREAS") or DEFAULT_AREAS)
-    dispatch = Dispatch(db, inventory, areas)
+    pricing = pricing or pricing_from_env()
+    dispatch = Dispatch(db, inventory, pricing, clock)
     app = FastAPI(title="Smart Shopping - Dispatch Service")
 
     def guard(fn, *a, **kw):
@@ -112,15 +114,20 @@ def create_app(db: Optional[Database] = None, inventory=None, areas: Optional[di
     def health():
         return {"status": "ok"}
 
-    @app.get("/areas")
-    def list_areas():
-        """Where the store delivers, and the fee for each area."""
-        return [{"area": a, "fee_kes": fee} for a, fee in areas.items()]
+    @app.get("/delivery")
+    def delivery_settings():
+        """How delivery is priced and how far the store delivers (shown by the online shop)."""
+        return pricing.public()
+
+    @app.get("/delivery/quote")
+    def delivery_quote(lat: float, lng: float):
+        """Can the store deliver here? Express and scheduled fees, and the open time slots."""
+        return guard(dispatch.quote, lat, lng)
 
     @app.post("/deliveries", status_code=201)
     def create(d: DeliveryIn):
-        return guard(dispatch.create, d.sale_id, d.store_id, d.customer_name, d.customer_phone, d.area,
-                     d.address, d.notes, d.lat, d.lng)
+        return guard(dispatch.create, d.sale_id, d.store_id, d.customer_name, d.customer_phone, d.address, d.lat, d.lng,
+                     d.tier, d.slot_start, d.notes)
 
     @app.get("/deliveries")
     def list_deliveries(store_id: str, status: Optional[str] = Query(None, description="Comma-separated; default: active"),

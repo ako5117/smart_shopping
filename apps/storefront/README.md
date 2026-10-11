@@ -12,7 +12,8 @@ Customers order online, pay with M-Pesa, and collect from the store or have a ri
 
 When the Dispatch Service is set (`DISPATCH_URL`), checkout also offers **Deliver to me**.
 
-- **At checkout:** the customer picks their area (each has its own fee, from the Dispatch Service), types the address and directions, and can tap **Share my location** so the rider gets a map pin. The delivery fee is added to the order in the Inventory Service and is part of what M-Pesa charges.
+- **Before shopping:** the top of the shop asks **Delivery or collect?** The customer shares their location or taps it on a map (Leaflet with OpenStreetMap tiles, loaded only when they open it). The Dispatch Service answers with the distance and the fees, or says the place is too far (beyond 20 km by default) and that the order would need to be collected from the store. The phone remembers the place.
+- **At checkout:** **Express** (out as soon as it's packed, about an hour) or **Choose a time** (a 2-hour slot, today or the next two days), each with its fee, then the address and directions for the rider. The fee is quoted again by the Dispatch Service when the order is placed, never taken from the browser. It's added to the order in the Inventory Service and is part of what M-Pesa charges.
 - **Order page:** shows the customer's **4-digit delivery code** as soon as the order is paid. It goes **Paid → Packing → On the way → Delivered**. Once a rider has the job, it shows their name with a **Call** button.
 - **At the door:** the customer gives the rider the code, and the order page changes to **Delivered**. Without the code the rider can't mark it delivered.
 - **Problems:** if the rider reports a problem, the page says the store will call the customer.
@@ -83,9 +84,10 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/` | The shop |
-| `GET` | `/api/store` | Store name, how long orders are held, and the delivery areas and fees |
+| `GET` | `/api/store` | Store name, how long orders are held, and how delivery is priced (store location, distance limit) |
+| `GET` | `/api/delivery/quote?lat=&lng=` | Can we deliver here? Distance, express and scheduled fees and open slots, or `deliverable: false` with the reason |
 | `GET` | `/api/catalogue` | Products with price, category, status (`in` / `few` / `out`), how many can be ordered, and substitutes |
-| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"area", "address", "notes", "lat", "lng"}` for a delivery: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
+| `POST` | `/api/orders` | `{"name", "phone", "items": [{"product_id", "qty"}]}`, plus `"payment_method": "card"` and `"email"` to pay by card (the answer then has a `checkout_url`), plus `"fulfilment": "delivery"` and `"delivery": {"address", "notes", "lat", "lng", "tier": "express" or "scheduled", "slot_start"}` for a delivery: record the order and send the M-Pesa prompt. `409` with `detail.short` (each with substitutes) if something isn't available |
 | `GET` | `/api/orders/{order_id}/payments/{payment_id}` | Order stage: `awaiting_payment`, `payment_failed`, `packing`, `ready`, `collected`, `on_the_way`, `delivered` or `cancelled`, with the receipt, and for deliveries the code, rider and status |
 | `POST` | `/api/orders/{order_id}/pay` | Pay again while the order is still held: `{"method": "mpesa", "phone"}` or `{"method": "card", "email"}` |
 | `GET` | `/api/orders/{order_id}/qr.svg` | QR code of the order number, for collection |

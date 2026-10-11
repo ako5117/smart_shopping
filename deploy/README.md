@@ -135,7 +135,7 @@ Four scripts do the work on the server:
 | Script | What it does |
 |---|---|
 | `scripts/server-setup.sh` | Once, on a fresh Droplet. Installs Docker, sets the firewall to SSH, HTTP and HTTPS only, adds 2 GB of swap, turns on automatic security updates, sets Nairobi time, and schedules the nightly backup. |
-| `scripts/configure.sh` | Asks a few questions and writes `.env`: domain, live store or partner demo, store name, M-Pesa, cards, delivery areas, off-site backups. It generates the passwords. Run it again to change answers; it keeps the database password. |
+| `scripts/configure.sh` | Asks a few questions and writes `.env`: domain, live store or partner demo, store name, M-Pesa, cards, the store location and delivery fees, off-site backups. It generates the passwords. Run it again to change answers; it keeps the database password. |
 | `scripts/preflight.sh` | Checks everything before a deploy: settings, logins, DNS, disk, memory and backups. It refuses on anything that would break the store or take real money wrongly. |
 | `scripts/deploy.sh` | Preflight, then a database backup, then pulls the latest code, builds, starts, waits until every service is healthy, and checks the public pages. It prints the command to go back to the previous version. |
 
@@ -187,7 +187,7 @@ The database is never rolled back by a deploy. If an update went wrong with the 
   - The Daraja **security credential** (the encrypted initiator password) isn't needed: it's only for refunds, payouts and balance queries, which aren't built yet. Don't put it anywhere until they are.
 - **Cards** (optional): use a Paystack live key (`sk_live_...`), and set the webhook URL on the Paystack dashboard to `https://<domain>/pay/payments/card/webhook`. Run one test-key payment end to end first.
 - **Texts** (optional): an Africa's Talking live app with SMS credit, its username and API key in `./scripts/configure.sh`, and a sender ID once approved. Place a test order with your own number and check the texts arrive.
-- **Delivery areas** and fees for the store (`./scripts/configure.sh`).
+- **Delivery:** the store's exact location (`STORE_LAT` / `STORE_LNG`, from Google Maps), the fees and the distance limit (`./scripts/configure.sh`). Fees are by distance; see `services/dispatch/README.md`.
 - **Logins:** everyone has their own. Remove the demo logins (`manager`, `staff`, `rider`) if the server was a demo first.
 - **Backups:** `./scripts/preflight.sh` shows whether the nightly backup is scheduled and whether copies go off-site.
 - **A real purchase:** buy something cheap with Scan & Go and the online shop, check it on the dashboard, then refund it by hand.
