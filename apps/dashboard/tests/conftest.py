@@ -34,6 +34,7 @@ class FakeInventory:
         self.counts = []
         self.stock_counts = []  # POST /counts bodies
         self.photos = {}  # product_id -> (bytes, who)
+        self.offers = []  # discounts
         self.restocks = []
         self.products = [{"product_id": "sugar-1kg", "ean13": "6161000000026", "name": "Sugar 1 kg"},
                          {"product_id": "milk-500ml", "ean13": "6161000000040", "name": "Milk 500 ml"}]
@@ -93,6 +94,20 @@ class FakeInventory:
             if request.headers.get("if-none-match") == '"v1"':
                 return httpx.Response(304, headers={"ETag": '"v1"'})
             return httpx.Response(200, content=self.photos[pid][0], headers={"Content-Type": "image/jpeg", "ETag": '"v1"'})
+        if path == "/discounts" and request.method == "GET":
+            return httpx.Response(200, json=[d for d in self.offers if d["state"] != "ended"])
+        if path == "/discounts" and request.method == "POST":
+            body = json.loads(request.content)
+            if any(d["product_id"] == body["product_id"] and d["state"] != "ended" for d in self.offers):
+                return httpx.Response(409, json={"detail": "Sugar 1 kg already has an offer for that time. End it first."})
+            d = {**body, "discount_id": len(self.offers) + 1, "state": "live", "name": "Sugar 1 kg", "price_kes": 180,
+                 "sale_price_kes": 162}
+            self.offers.append(d)
+            return httpx.Response(201, json=d)
+        if path.startswith("/discounts/") and path.endswith("/end"):
+            d = self.offers[int(path.split("/")[2]) - 1]
+            d.update(state="ended", ended_by=json.loads(request.content)["ended_by"])
+            return httpx.Response(200, json=d)
         if request.method == "POST" and path == "/counts":
             body = json.loads(request.content)
             p = next((p for p in self.products if p["ean13"] == body["ean13"]), None)

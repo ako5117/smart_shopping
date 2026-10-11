@@ -63,6 +63,21 @@
     <div id="product-result" class="result" hidden></div>
   </section>
 
+  <section class="half manager-only" id="offers">
+    <h2>Discounts</h2>
+    <p class="muted" style="margin-top:0">Put a product on offer. Scan &amp; Go and the online shop charge the offer price straight away, and show the old price crossed out.</p>
+    <form id="offer-form" class="fields" autocomplete="off">
+      <label>Product<select id="offer-product" required></select></label>
+      <label>Discount<span style="display:flex;gap:6px">
+        <input id="offer-value" type="number" min="1" max="100000" required placeholder="10" style="flex:1">
+        <select id="offer-kind" style="width:auto"><option value="percent">% off</option><option value="amount">KES off</option></select></span></label>
+      <label>Ends (optional)<input id="offer-ends" type="datetime-local"></label>
+      <button id="offer-save">Start offer</button>
+    </form>
+    <div id="offer-result" class="result" hidden></div>
+    <div class="scroll" id="offer-list" style="margin-top:10px"></div>
+  </section>
+
   <section class="half manager-only" id="count">
     <h2>Stock count</h2>
     <p class="muted" style="margin-top:0">Count what's on the shelf and in the store room, then save. Stock becomes your count; the difference is kept with your name.</p>
@@ -136,9 +151,14 @@ async function load() {
           ${p.image_version ? `<button type="button" class="rm-photo manager-only" data-rm-photo="${esc(p.product_id)}">Remove photo</button>` : ""}</div>
       </div></td>
       <td class="bc" style="font-variant-numeric:tabular-nums">${esc(p.ean13)}</td>
-      <td class="num">${p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}${p.price_changed_by ? `<div class="muted">set by ${esc(p.price_changed_by)}</div>` : ""}</td>
+      <td class="num">${p.sale_price_kes ? `<b>${kes(p.sale_price_kes)}</b><div class="muted"><s>${kes(p.price_kes)}</s> · offer</div>`
+        : p.price_kes ? kes(p.price_kes) : `<span class="pill warn">No price</span>`}${p.price_changed_by ? `<div class="muted">set by ${esc(p.price_changed_by)}</div>` : ""}</td>
       <td class="num">${p.stock}</td></tr>`).join("")}
   </table>` : `<div class="empty">No products yet. Add the first one above.</div>`;
+  const chosen = $("offer-product").value;
+  $("offer-product").innerHTML = products.filter((p) => p.price_kes).map((p) =>
+    `<option value="${esc(p.product_id)}">${esc(p.name)} · ${kes(p.price_kes)}</option>`).join("");
+  if (chosen) $("offer-product").value = chosen;
   const categories = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
   $("categories").innerHTML = categories.map((c) => `<option value="${esc(c)}">`).join("");
 }
@@ -315,7 +335,42 @@ async function loadCounts() {
   } catch { /* the banner already says if Inventory is down */ }
 }
 
-window.me.then((m) => { if (m.is_manager) loadCounts(); });
+async function loadOffers() {
+  try {
+    const list = await api("api/discounts");
+    const when = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}); };
+    $("offer-list").innerHTML = list.length ? `<table>
+      <tr><th>Offer</th><th class="num">Price</th><th></th></tr>
+      ${list.map((d) => `<tr><td>${esc(d.name)}<div class="muted">${d.kind === "percent" ? d.value + "% off" : kes(d.value) + " off"}
+          · ${d.state === "scheduled" ? "starts " + when(d.starts_at) : d.ends_at ? "until " + when(d.ends_at) : "until ended"} · ${esc(d.created_by)}</div></td>
+        <td class="num"><b>${kes(d.sale_price_kes)}</b><div class="muted"><s>${kes(d.price_kes)}</s></div></td>
+        <td><button type="button" class="secondary" data-end-offer="${d.discount_id}">End</button></td></tr>`).join("")}</table>`
+      : `<div class="empty">No offers running.</div>`;
+  } catch { /* the banner says if Inventory is down */ }
+}
+$("offer-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {product_id: $("offer-product").value, kind: $("offer-kind").value, value: Number($("offer-value").value)};
+  if ($("offer-ends").value) body.ends_at = new Date($("offer-ends").value).toISOString();
+  $("offer-save").disabled = true;
+  try {
+    const d = await api("api/discounts", {method: "POST", body: JSON.stringify(body)});
+    show($("offer-result"), `${d.name} is on offer: ${kes(d.sale_price_kes)} (was ${kes(d.price_kes)}).`, true);
+    $("offer-value").value = ""; $("offer-ends").value = "";
+    await Promise.all([load(), loadOffers()]);
+  } catch (err) {
+    show($("offer-result"), "Could not start the offer: " + err.message, false);
+  } finally { $("offer-save").disabled = false; }
+});
+$("offer-list").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-end-offer]");
+  if (!b) return;
+  b.disabled = true;
+  try { await api(`api/discounts/${b.dataset.endOffer}/end`, {method: "POST"}); await Promise.all([load(), loadOffers()]); }
+  catch (err) { show($("offer-result"), "Could not end the offer: " + err.message, false); b.disabled = false; }
+});
+
+window.me.then((m) => { if (m.is_manager) { loadCounts(); loadOffers(); } });
 api("api/shelf-products").then((list) => { shelfProducts = list; }).catch(() => {});
 load();
 </script>

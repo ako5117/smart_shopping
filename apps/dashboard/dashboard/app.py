@@ -34,6 +34,13 @@ class CountIn(BaseModel):
     counted_by: str = Field("", max_length=60, description="Only used when not signed in through the proxy")
 
 
+class DiscountIn(BaseModel):
+    product_id: str = Field(..., min_length=1, max_length=64)
+    kind: str = Field(..., pattern=r"^(percent|amount)$")
+    value: int = Field(..., gt=0, le=100000)
+    ends_at: Optional[str] = Field(None, max_length=40, description="ISO date-time; empty: until ended")
+
+
 class StockCountIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     counted_qty: int = Field(..., ge=0, le=100000)
@@ -269,6 +276,24 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
         except httpx.HTTPError as e:
             raise HTTPException(502, f"Inventory Service unavailable: {e}")
         return [{**p, "stock": stock.get(pid, 0)} for pid, p in sorted(products.items(), key=lambda kv: kv[1]["name"].lower())]
+
+    @app.get("/api/discounts")
+    def list_discounts():
+        try:
+            return inventory.discounts()
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Inventory Service unavailable: {e}")
+
+    @app.post("/api/discounts", status_code=201)
+    def add_discount(body: DiscountIn, staff: Staff = Depends(current_staff)):
+        """Managers put a product on offer: a percentage or an amount (KES) off. The shops charge it at once."""
+        require_manager(staff, "set discounts")
+        return call(inventory.add_discount, {**body.model_dump(exclude_none=True), "created_by": staff.name or ""})
+
+    @app.post("/api/discounts/{discount_id}/end")
+    def end_discount(discount_id: int, staff: Staff = Depends(current_staff)):
+        require_manager(staff, "end discounts")
+        return call(inventory.end_discount, discount_id, staff.name or "")
 
     @app.put("/api/products/{product_id}/image")
     async def put_image(product_id: str, request: Request, staff: Staff = Depends(current_staff)):

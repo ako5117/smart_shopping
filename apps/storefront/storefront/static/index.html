@@ -109,6 +109,8 @@
   .product .tag { position: absolute; left: 8px; top: 8px; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; }
   .tag.few { background: var(--accent); color: #fff; }
   .tag.out { background: var(--text); color: var(--bg); }
+  .tag.offer { background: #d92d20; color: #fff; left: auto; right: 8px; }
+  .product .was { color: var(--muted); font-weight: 500; font-size: 13px; text-decoration: line-through; margin-left: 6px; }
   .product .add { position: absolute; right: 8px; bottom: 8px; width: 40px; height: 40px; border-radius: 50%; padding: 0;
                   display: grid; place-items: center; box-shadow: 0 4px 12px rgba(14, 107, 71, .35); }
   .product .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -590,13 +592,14 @@ function renderShop() {
   $("list-count").textContent = list.length ? `${list.length} item${list.length === 1 ? "" : "s"}` : "";
   $("products").innerHTML = list.length ? list.map((p) => {
     const qty = basket[p.product_id] || 0, out = p.status === "out";
-    const tag = out ? `<span class="tag out">Out of stock</span>` : p.status === "few" ? `<span class="tag few">Only ${p.left} left</span>` : "";
+    const tag = (out ? `<span class="tag out">Out of stock</span>` : p.status === "few" ? `<span class="tag few">Only ${p.left} left</span>` : "")
+      + (p.offer ? `<span class="tag offer">${esc(p.offer)}</span>` : "");
     const plus = !out && !qty ? `<button class="add" data-add="${esc(p.product_id)}" aria-label="Add ${esc(p.name)}"><svg width="20" height="20"><use href="#i-plus"/></svg></button>` : "";
     const subs = out || (qty && qty >= p.max) ? subsHtml(p) : "";
     return `<article class="product ${out ? "out" : ""}">
       <div class="pic" ${tile(p)}>${picInner(p)}${tag}${plus}</div>
       <div class="body">
-        <div class="price">${kes(p.price)}</div>
+        <div class="price">${kes(p.price)}${p.was_price ? `<span class="was">${kes(p.was_price)}</span>` : ""}</div>
         <div class="name">${esc(p.name)}</div>
         <div class="cat">${esc(p.category)}</div>
         ${qty ? `<div class="qtyrow">${stepper(p.product_id, qty)}</div>` : ""}${subs}
@@ -619,7 +622,7 @@ function cartLine(pid, withProblems) {
   else if (withProblems && qty > p.max) problem = `<div class="problem">Only ${p.max} available now.
     <button type="button" class="small" data-set="${esc(pid)}" data-q="${p.max}">Change to ${p.max}</button></div>`;
   return `<div class="line">${picture(p, "thumb")}
-    <div class="what"><b>${esc(p.name)}</b><span class="muted small">${kes(p.price)} each · ${kes(qty * p.price)}</span></div>
+    <div class="what"><b>${esc(p.name)}</b><span class="muted small">${kes(p.price)} each${p.was_price ? ` <s>${kes(p.was_price)}</s>` : ""} · ${kes(qty * p.price)}</span></div>
     <div>${stepper(pid, qty)}</div>${problem}</div>`;
 }
 

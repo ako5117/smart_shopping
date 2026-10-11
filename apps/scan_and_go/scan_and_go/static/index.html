@@ -260,7 +260,7 @@ function renderBasket() {
   $("checkout").disabled = items === 0;
   $("basket").innerHTML = basket.length ? basket.map((l, i) => `
     <div class="line">
-      <div>${esc(l.name)}<div class="muted">${kes(l.price)} each</div></div>
+      <div>${esc(l.name)}<div class="muted">${kes(l.price)} each${l.was_price ? ` <s>${kes(l.was_price)}</s> <b style="color:#d92d20">offer</b>` : ""}</div></div>
       <div class="num"><b>${kes(l.qty * l.price)}</b></div>
       <div class="qty"><button aria-label="One less" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span>
         <button aria-label="One more" data-i="${i}" data-d="1">+</button></div>

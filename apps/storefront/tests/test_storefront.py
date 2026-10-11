@@ -177,3 +177,12 @@ def test_product_photos(client, inventory):
     assert client.get("/api/products/milk-500ml/image", headers={"If-None-Match": '"v7"'}).status_code == 304
     assert client.get("/api/products/sugar-1kg/image").status_code == 404
     assert client.get("/api/products/..%2Fsecret/image").status_code == 404
+
+
+def test_offers_show_the_offer_price_and_the_old_one(client, inventory):
+    inventory.products[0].update(sale_price_kes=55, discount={"kind": "percent", "value": 15})
+    inventory.products[3].update(sale_price_kes=150, discount={"kind": "amount", "value": 30})
+    products = {p["product_id"]: p for p in client.get("/api/catalogue").json()["products"]}
+    assert (products["milk-500ml"]["price"], products["milk-500ml"]["was_price"], products["milk-500ml"]["offer"]) == (55, 65, "15% off")
+    assert products["sugar-1kg"]["offer"] == "KES 30 off"
+    assert products["yoghurt-500ml"]["was_price"] is None and products["yoghurt-500ml"]["offer"] is None

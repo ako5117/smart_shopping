@@ -31,6 +31,19 @@ class RestockIn(BaseModel):
     recorded_by: str = Field("", max_length=60, description="Who restocked (defaults to the signed-in staff member)")
 
 
+class DiscountIn(BaseModel):
+    product_id: str
+    kind: Literal["percent", "amount"]
+    value: int = Field(..., gt=0, description="Percent off (1-90), or KES off")
+    starts_at: Optional[str] = Field(None, description="ISO date-time; default now")
+    ends_at: Optional[str] = Field(None, description="ISO date-time; default: until ended")
+    created_by: str = Field("", max_length=60, description="Manager (defaults to the signed-in staff member)")
+
+
+class EndIn(BaseModel):
+    ended_by: str = Field("", max_length=60)
+
+
 class StockCountIn(BaseModel):
     store_id: str
     ean13: str = Field(..., pattern=r"^\d{13}$")
@@ -126,6 +139,18 @@ def create_app(db: Optional[Database] = None) -> FastAPI:
     @app.get("/products")
     def list_products():
         return inv.products()
+
+    @app.get("/discounts")
+    def list_discounts(include_past: bool = False):
+        return inv.discounts(include_past)
+
+    @app.post("/discounts", status_code=201)
+    def add_discount(d: DiscountIn, staff: Optional[str] = StaffUser):
+        return guard(inv.add_discount, d.product_id, d.kind, d.value, who(d.created_by, staff), d.starts_at, d.ends_at)
+
+    @app.post("/discounts/{discount_id}/end")
+    def end_discount(discount_id: int, body: EndIn, staff: Optional[str] = StaffUser):
+        return guard(inv.end_discount, discount_id, who(body.ended_by, staff))
 
     @app.put("/products/{product_id}/image")
     async def put_image(product_id: str, request: Request, staff: Optional[str] = StaffUser):

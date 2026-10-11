@@ -70,12 +70,84 @@ class Inventory:
 
     def products(self) -> List[dict]:
         """Every product, with who last changed its price and when."""
-        return self.db.all(
+        rows = self.db.all(
             "SELECT p.*, pc.changed_by AS price_changed_by, pc.changed_at AS price_changed_at, "
             "pi.updated_at AS image_version FROM products p "
             "LEFT JOIN price_changes pc ON pc.change_id = "
             "(SELECT MAX(change_id) FROM price_changes WHERE product_id = p.product_id) "
             "LEFT JOIN product_images pi ON pi.product_id = p.product_id ORDER BY p.product_id")
+        offers = self.prices_now()
+        for p in rows:
+            o = offers.get(p["product_id"])
+            p["sale_price_kes"] = o["sale_price_kes"] if o else None
+            p["discount"] = o["discount"] if o else None
+        return rows
+
+    # ------------------------------------------------------------- discounts
+
+    def add_discount(self, product_id: str, kind: str, value: int, created_by: str, starts_at: Optional[str] = None,
+                     ends_at: Optional[str] = None) -> dict:
+        """A manager puts a product on offer: `value` percent off, or `value` KES off. One offer per product at a time."""
+        product = self.db.one("SELECT * FROM products WHERE product_id = ?", (product_id,))
+        if not product:
+            raise NotFound(f"No product {product_id}")
+        if kind not in ("percent", "amount"):
+            raise ValueError("A discount is a percentage or an amount (KES) off")
+        if kind == "percent" and not 1 <= value <= 90:
+            raise ValueError("A percentage discount is between 1% and 90%")
+        if kind == "amount" and (not product["price_kes"] or value >= product["price_kes"]):
+            raise ValueError(f"An amount off must be less than the price (KES {product['price_kes'] or 0})")
+        now = datetime.now(timezone.utc)
+        start = _when(starts_at) or now
+        end = _when(ends_at)
+        if end and end <= max(start, now):
+            raise ValueError("The discount must end after it starts, and in the future")
+        clash = [d for d in self._discount_rows(product_id) if _overlaps(d, start, end)]
+        if clash:
+            raise Conflict(f"{product['name']} already has an offer for that time. End it first.")
+        with self.db.tx() as c:
+            row = c.execute("INSERT INTO discounts (product_id, kind, value, starts_at, ends_at, created_by, created_at) "
+                            "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING discount_id",
+                            (product_id, kind, value, start.isoformat(), end.isoformat() if end else None, created_by,
+                             now.isoformat())).fetchone()
+        return self.discount(row["discount_id"])
+
+    def end_discount(self, discount_id: int, ended_by: str) -> dict:
+        d = self.discount(discount_id)
+        if d["ended_at"] or (d["ends_at"] and _when(d["ends_at"]) <= datetime.now(timezone.utc)):
+            raise Conflict("That offer has already ended")
+        with self.db.tx() as c:
+            c.execute("UPDATE discounts SET ended_at = ?, ended_by = ? WHERE discount_id = ?", (now_iso(), ended_by, discount_id))
+        return self.discount(discount_id)
+
+    def discount(self, discount_id: int) -> dict:
+        d = self.db.one("SELECT d.*, p.name, p.price_kes FROM discounts d JOIN products p ON p.product_id = d.product_id "
+                        "WHERE d.discount_id = ?", (discount_id,))
+        if not d:
+            raise NotFound(f"No discount {discount_id}")
+        return _with_state(d)
+
+    def discounts(self, include_past: bool = False, limit: int = 100) -> List[dict]:
+        rows = [_with_state(d) for d in self.db.all(
+            "SELECT d.*, p.name, p.price_kes FROM discounts d JOIN products p ON p.product_id = d.product_id "
+            "ORDER BY d.starts_at DESC, d.discount_id DESC LIMIT ?", (limit,))]
+        return rows if include_past else [d for d in rows if d["state"] != "ended"]
+
+    def _discount_rows(self, product_id: str) -> List[dict]:
+        return self.db.all("SELECT * FROM discounts WHERE product_id = ? AND ended_at IS NULL", (product_id,))
+
+    def prices_now(self, now: Optional[datetime] = None) -> Dict[str, dict]:
+        """Per product with a live offer: {sale_price_kes, discount}. What every channel charges right now."""
+        now = now or datetime.now(timezone.utc)
+        out: Dict[str, dict] = {}
+        for d in self.db.all("SELECT d.*, p.price_kes FROM discounts d JOIN products p ON p.product_id = d.product_id "
+                             "WHERE d.ended_at IS NULL AND d.starts_at <= ?", (now.isoformat(),)):
+            if d["ends_at"] and _when(d["ends_at"]) <= now or not d["price_kes"]:
+                continue
+            out[d["product_id"]] = {"sale_price_kes": discounted(d["price_kes"], d["kind"], d["value"]),
+                                    "discount": {"discount_id": d["discount_id"], "kind": d["kind"], "value": d["value"],
+                                                 "ends_at": d["ends_at"]}}
+        return out
 
     # ---------------------------------------------------------------- photos
 
@@ -234,6 +306,7 @@ class Inventory:
                 raise Conflict(f"Sale {sale_id} already exists with different contents")
             return self.sale(sale_id)
         ts = now_iso()
+        offers = self.prices_now()
         with self.db.tx() as c:
             if check_stock:
                 avail = _availability(lambda sql, a: c.execute(sql, a).fetchall(), store_id)
@@ -253,9 +326,10 @@ class Inventory:
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
                 if not product:
                     raise NotFound(f"Unknown product {pid}")
-                # The price at the time of sale, so later price changes don't alter receipts.
-                c.execute("INSERT INTO sale_items (sale_id, product_id, qty, unit_price_kes) VALUES (?, ?, ?, ?)",
-                          (sale_id, pid, qty, product["price_kes"]))
+                # The price at the time of sale (after any offer), so later changes don't alter receipts.
+                paid = offers[pid]["sale_price_kes"] if pid in offers and product["price_kes"] else product["price_kes"]
+                c.execute("INSERT INTO sale_items (sale_id, product_id, qty, unit_price_kes, list_price_kes) VALUES (?, ?, ?, ?, ?)",
+                          (sale_id, pid, qty, paid, product["price_kes"]))
         return self.sale(sale_id)
 
     def commit_sale(self, sale_id: str, payment_ref: str) -> dict:
@@ -316,7 +390,7 @@ class Inventory:
         sale = self.db.one("SELECT * FROM sales WHERE sale_id = ?", (sale_id,))
         if not sale:
             raise NotFound(f"No sale {sale_id}")
-        sale["items"] = self.db.all("SELECT product_id, qty, unit_price_kes FROM sale_items WHERE sale_id = ? "
+        sale["items"] = self.db.all("SELECT product_id, qty, unit_price_kes, list_price_kes FROM sale_items WHERE sale_id = ? "
                                     "ORDER BY product_id", (sale_id,))
         return sale
 
@@ -376,13 +450,50 @@ class Inventory:
         sales = self.db.all(f"SELECT * FROM sales WHERE {' AND '.join(where)} "
                             "ORDER BY created_at DESC, sale_id DESC LIMIT ?", (*args, limit))
         for s in sales:
-            s["items"] = self.db.all("SELECT product_id, qty, unit_price_kes FROM sale_items WHERE sale_id = ? "
+            s["items"] = self.db.all("SELECT product_id, qty, unit_price_kes, list_price_kes FROM sale_items WHERE sale_id = ? "
                                      "ORDER BY product_id", (s["sale_id"],))
         return sales
 
     def _items(self, sale_id: str) -> Dict[str, int]:
         return {r["product_id"]: r["qty"] for r in
                 self.db.all("SELECT product_id, qty FROM sale_items WHERE sale_id = ? ORDER BY product_id", (sale_id,))}
+
+
+def discounted(price: int, kind: str, value: int) -> int:
+    """The offer price in whole KES (rounded to the nearest shilling, never below 1)."""
+    if kind == "percent":
+        return max(1, int(price * (100 - value) / 100 + 0.5))
+    return max(1, price - value)
+
+
+def _when(ts: Optional[str]) -> Optional[datetime]:
+    if not ts:
+        return None
+    try:
+        t = datetime.fromisoformat(ts)
+    except ValueError:
+        raise ValueError(f"Not a date and time: {ts!r}")
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _overlaps(d: dict, start: datetime, end: Optional[datetime]) -> bool:
+    d_start, d_end = _when(d["starts_at"]), _when(d["ends_at"])
+    now = datetime.now(timezone.utc)
+    if d_end and d_end <= now:
+        return False  # already over
+    return (end is None or d_start < end) and (d_end is None or start < d_end)
+
+
+def _with_state(d: dict) -> dict:
+    now = datetime.now(timezone.utc)
+    if d["ended_at"] or (d["ends_at"] and _when(d["ends_at"]) <= now):
+        state = "ended"
+    elif _when(d["starts_at"]) > now:
+        state = "scheduled"
+    else:
+        state = "live"
+    price = d.get("price_kes")
+    return {**d, "state": state, "sale_price_kes": discounted(price, d["kind"], d["value"]) if price else None}
 
 
 def _availability(query, store_id: str, now: Optional[datetime] = None) -> Dict[str, dict]:

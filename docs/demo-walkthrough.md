@@ -56,6 +56,7 @@ Everything else is the real software.
 - **Restock:** type `6161000000040` (milk), quantity `12`, then **Add to stock**. In a store, a handheld scanner types the barcode.
 - **Product photos:** tap the grey square next to a product (on a phone the camera opens), take or pick a photo, and it appears in the online shop within seconds. Floor staff can add photos too; only managers remove them.
 - **Change a price:** click **Milk 500 ml** in the list, change the price to `70`, then **Save product**. Scan & Go charges the new price within 30 seconds.
+- **An offer:** under **Discounts**, pick Sugar 1 kg, enter `10` and **% off**, then **Start offer**. The online shop shows KES 162 with KES 180 crossed out and a **10% off** tag, and charges KES 162. **End** stops it.
 - **Who's allowed:** in a private window, sign in as `staff`. The price editor is gone, and staff can restock but not change prices. Each person has their own login.
 - **Stock count:** under **Stock count**, type `6161000000026` (sugar), counted `9`, then **Save count**. It shows what the records said and corrects stock to the count, under your name. **Recent counts** keeps the history. This is how a store without shelf sensors keeps its stock right.
 - **The store's own system:** every stock change is queued to sync with the store's existing till system (see **Retailer sync** at the top of the Overview). We connect to the store's POS rather than replace it.

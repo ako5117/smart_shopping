@@ -16,7 +16,7 @@ def test_barcode_checks():
 
 def test_product_lookup(client):
     assert client.get(f"/api/products/{MILK}").json() == {"product_id": "milk-500ml", "ean13": MILK,
-                                                         "name": "Milk 500 ml", "price": 65}
+                                                         "name": "Milk 500 ml", "price": 65, "was_price": None}
     assert client.get("/api/products/6161000000041").status_code == 422
     assert client.get("/api/products/4006381333931").status_code == 404  # valid barcode, not our product
     r = client.get(f"/api/products/{BREAD}")
@@ -158,3 +158,11 @@ def test_product_priced_away_between_scan_and_checkout(client, inventory, paymen
     assert r.status_code == 409 and payments.pushes == []
     [sale] = inventory.sales.values()
     assert sale["status"] == "cancelled"
+
+
+
+def test_offer_price_is_shown_and_the_old_price_kept(client, inventory):
+    """A manager's discount: Scan & Go shows the offer price (the Inventory Service charges it on the sale)."""
+    inventory.products[0]["sale_price_kes"] = 55  # milk, before the first scan fills the cache
+    p = client.get(f"/api/products/{MILK}").json()
+    assert (p["price"], p["was_price"]) == (55, 65)
