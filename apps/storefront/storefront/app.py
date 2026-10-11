@@ -41,6 +41,7 @@ from .shelf import picked_up, read_recent_lines
 log = logging.getLogger("storefront")
 STATIC = Path(__file__).parent / "static"
 ORDER_ID = re.compile(r"^WEB-[0-9A-F]{16}$")
+PRODUCT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 PAYMENT_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 REFRESH_AFTER_S = 15  # ask Daraja directly if no callback has arrived by then
 MAX_SUBSTITUTES = 3
@@ -161,7 +162,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         r = inventory.get("/products")
         r.raise_for_status()
         return [{"product_id": p["product_id"], "name": p["name"], "category": p.get("category") or "",
-                 "price": p["price_kes"]} for p in r.json() if p.get("price_kes")]
+                 "price": p["price_kes"],
+                 # The photo staff added on the dashboard; the version in the address lets phones cache it for good.
+                 "image_url": f"api/products/{p['product_id']}/image?v={p['image_version']}" if p.get("image_version") else None}
+                for p in r.json() if p.get("price_kes")]
 
     def fetch_held() -> Dict[str, dict]:
         r = inventory.get(f"/availability/{settings.store_id}")
@@ -466,6 +470,21 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "result": payment.get("result_desc"),
             **priced_sale(sale, names),
         }
+
+    @app.get("/api/products/{product_id}/image")
+    def product_image(product_id: str, request: Request):
+        """A product's photo, from the Inventory Service. Versioned addresses (?v=...) are cached by phones for a year."""
+        if not PRODUCT_ID.match(product_id):
+            raise HTTPException(404, "No photo")
+        inm = request.headers.get("if-none-match")
+        r = upstream("Inventory", lambda: inventory.get(f"/products/{product_id}/image",
+                                                        headers={"If-None-Match": inm} if inm else None))
+        cache = "public, max-age=31536000, immutable" if request.query_params.get("v") else "public, max-age=3600"
+        if r.status_code == 304:
+            return Response(status_code=304, headers={"ETag": r.headers.get("etag", ""), "Cache-Control": cache})
+        if r.status_code != 200:
+            raise HTTPException(404, "No photo")
+        return Response(r.content, media_type="image/jpeg", headers={"ETag": r.headers.get("etag", ""), "Cache-Control": cache})
 
     @app.get("/api/orders/{order_id}/qr.svg")
     def order_qr(order_id: str):

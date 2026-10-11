@@ -164,3 +164,16 @@ def test_standard_tier_has_no_live_shelf_signal(monkeypatch, tmp_path):
     assert load_settings().shelf_events_path == ""
     monkeypatch.setenv("STORE_TIER", "smart")
     assert load_settings().shelf_events_path.endswith("shelf_events.jsonl")
+
+
+def test_product_photos(client, inventory):
+    """Staff add photos on the dashboard; the shop shows them, cached by phones."""
+    inventory.products[0]["image_version"] = "v7"
+    products = {p["product_id"]: p for p in client.get("/api/catalogue").json()["products"]}
+    assert products["milk-500ml"]["image_url"] == "api/products/milk-500ml/image?v=v7"
+    assert products["sugar-1kg"]["image_url"] is None
+    r = client.get("/api/products/milk-500ml/image", params={"v": "v7"})
+    assert r.status_code == 200 and r.content == b"\xff\xd8jpeg" and "immutable" in r.headers["cache-control"]
+    assert client.get("/api/products/milk-500ml/image", headers={"If-None-Match": '"v7"'}).status_code == 304
+    assert client.get("/api/products/sugar-1kg/image").status_code == 404
+    assert client.get("/api/products/..%2Fsecret/image").status_code == 404
