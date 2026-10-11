@@ -150,6 +150,7 @@
   nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--panel); border-top: 1px solid var(--line);
              padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); }
   nav.tabs .inner { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); }
+  nav.tabs.four .inner { grid-template-columns: repeat(4, 1fr); }
   nav.tabs button { background: transparent; color: var(--muted); padding: 6px 0; border-radius: 12px; display: grid; justify-items: center;
                     gap: 2px; font-size: 12px; font-weight: 650; position: relative; }
   nav.tabs button.on { color: var(--brand); }
@@ -265,6 +266,53 @@
   .pill { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--muted); }
   .pill.live { background: var(--brand-soft); color: var(--brand); }
 
+  /* ---- account and points */
+  .reward { background: linear-gradient(140deg, #0e6b47, #19a06a 60%, #f0b04a); color: #fff; border-radius: 24px; padding: 20px 18px;
+            margin-bottom: 14px; box-shadow: 0 10px 30px rgba(14, 107, 71, .28); position: relative; overflow: hidden; }
+  .reward::after { content: ""; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%;
+                   background: rgba(255, 255, 255, .12); }
+  .reward .kicker { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+  .reward .pts { font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; margin: 4px 0; font-variant-numeric: tabular-nums; }
+  .reward .pts small { font-size: 16px; font-weight: 600; opacity: .85; }
+  .reward .bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .25); margin: 12px 0 6px; overflow: hidden; }
+  .reward .bar i { display: block; height: 100%; background: #fff; border-radius: 4px; }
+  .reward p { margin: 6px 0 0; opacity: .92; }
+  .reward button { background: #fff; color: #0e6b47; margin-top: 14px; }
+  .reward button.secondary { background: rgba(255, 255, 255, .18); color: #fff; }
+  .reward .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .perks { display: grid; gap: 10px; margin: 0 0 14px; padding: 0; list-style: none; }
+  .perks li { display: flex; gap: 12px; align-items: center; background: var(--panel); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .perks .ico, .profile .ico { width: 38px; height: 38px; border-radius: 12px; background: var(--brand-soft); color: var(--brand);
+                               display: grid; place-items: center; flex: none; }
+  .profile { display: flex; gap: 14px; align-items: center; }
+  .avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center;
+            font-weight: 800; font-size: 22px; overflow: hidden; flex: none; position: relative; cursor: pointer; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .profile .who { flex: 1; min-width: 0; }
+  .profile .who b { display: block; font-size: 18px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; font-size: 14.5px; }
+  .check input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; accent-color: var(--brand); }
+  details.notice { background: var(--soft); border-radius: 12px; padding: 10px 12px; margin-top: 10px; font-size: 14px; }
+  details.notice summary { font-weight: 650; cursor: pointer; }
+  details.notice ul { margin: 8px 0 0; padding-left: 18px; }
+  .codebox { font: 700 28px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .4em; text-align: center; }
+  .pointsrow { display: flex; align-items: center; gap: 12px; }
+  .pointsrow .ico { width: 38px; height: 38px; border-radius: 12px; background: #fff4dc; color: #9a5b00; display: grid; place-items: center; flex: none; }
+  .pointsrow div { flex: 1; min-width: 0; }
+  .switch { position: relative; width: 50px; height: 30px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 15px; transition: background .2s; cursor: pointer; }
+  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff;
+                        transition: transform .2s; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+  .switch input:checked + span { background: var(--brand); }
+  .switch input:checked + span::after { transform: translateX(20px); }
+  .switch input:focus-visible + span { box-shadow: 0 0 0 4px var(--brand-soft); }
+  button.danger { background: var(--bad-bg); color: var(--bad); }
+  .earn { color: #9a5b00; font-weight: 650; }
+  @media (prefers-color-scheme: dark) { .earn { color: #f0b04a; } .pointsrow .ico { background: #3a2c12; color: #f0b04a; } }
+
   /* ---- toast */
   .toast { position: fixed; left: 50%; z-index: 10; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
            background: var(--text); color: var(--bg); padding: 10px 10px 10px 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px;
@@ -292,6 +340,9 @@
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
     <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c1.2-3.8 4.2-5.6 7.5-5.6s6.3 1.8 7.5 5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="8.5" width="17" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8.5v12M3.5 12.5h17M12 8.5C10 4 6.5 5 7.5 7.5c.6 1.3 4.5 1 4.5 1zm0 0c2-4.5 5.5-3.5 4.5-1-.6 1.3-4.5 1-4.5 1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <!-- product placeholders, until the store adds a photo -->
     <symbol id="p-milk" viewBox="0 0 48 48"><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6z" fill="currentColor" opacity=".18"/><path d="M17 6h14v6l4 6v22a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V18l4-6zM17 12h14M13 24h22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></symbol>
     <symbol id="p-bread" viewBox="0 0 48 48"><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3z" fill="currentColor" opacity=".18"/><path d="M8 22c0-7 7-11 16-11s16 4 16 11c0 2-1.5 3-3 3v13a2 2 0 0 1-2 2H13a2 2 0 0 1-2-2V25c-1.5 0-3-1-3-3zM19 18l-2 4M26 17l-2 5M33 18l-2 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/></symbol>
@@ -341,8 +392,105 @@
 
   <!-- 2. Orders (this phone's recent orders) -->
   <section id="orders-view" hidden>
-    <div class="section-title"><h2>Your orders</h2><span class="muted small">On this phone</span></div>
+    <div class="section-title"><h2>Your orders</h2><span class="muted small" id="orders-where">On this phone</span></div>
     <div class="past" id="past"></div>
+  </section>
+
+  <!-- 2b. Account and loyalty points -->
+  <section id="account-view" hidden>
+    <div id="acct-out">
+      <div class="reward">
+        <div class="kicker" id="reward-kicker">Rewards</div>
+        <div class="pts" style="font-size:28px" id="reward-pitch-title">Shop, earn, save</div>
+        <p id="reward-pitch">Create a free account to see your orders on any phone.</p>
+        <div class="acts"><button id="join-open">Create account</button><button class="secondary" id="signin-open">Sign in</button></div>
+      </div>
+      <ul class="perks">
+        <li id="perk-points"><span class="ico"><svg width="20" height="20"><use href="#i-star"/></svg></span><span id="perk-points-text"></span></li>
+        <li><span class="ico"><svg width="20" height="20"><use href="#i-repeat"/></svg></span><span>Your orders on any phone, and Buy again in one tap</span></li>
+        <li><span class="ico"><svg width="20" height="20"><use href="#i-bag"/></svg></span><span>Faster checkout: your name and number filled in</span></li>
+      </ul>
+    </div>
+
+    <form class="card" id="join-form" hidden novalidate>
+      <h2>Create your account</h2>
+      <label for="j-name" style="margin-top:0">Full name</label>
+      <input id="j-name" autocomplete="name" maxlength="60" required>
+      <label for="j-phone">Phone number</label>
+      <input id="j-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required>
+      <label for="j-email">Email</label>
+      <input id="j-email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
+      <div class="row2">
+        <div><label for="j-dob">Date of birth</label><input id="j-dob" type="date" required></div>
+        <div><label for="j-gender">Gender <span class="muted" style="font-weight:500">(optional)</span></label>
+          <select id="j-gender"><option value="">Prefer not to say</option><option value="female">Female</option>
+            <option value="male">Male</option><option value="other">Other</option></select></div>
+      </div>
+      <label class="check" style="margin-top:16px"><input type="checkbox" id="j-consent">
+        <span>I've read the privacy notice below and agree to <span class="store-name"></span> keeping these details for my account.</span></label>
+      <details class="notice"><summary>Privacy notice</summary>
+        <ul>
+          <li><b>What we keep:</b> your name, phone number, email and date of birth, your gender and photo if you give them, and your orders and points.</li>
+          <li><b>Why:</b> to run your account and points, show your orders, and contact you about them. Your date of birth confirms you're 18 or over and may be used for a birthday treat.</li>
+          <li><b>Who sees it:</b> only you and the store's staff who need it. Staff see your name and points, not your date of birth or gender. We don't sell it.</li>
+          <li><b>Your choice:</b> change your details or delete your account any time on this page. Deleting erases your details; the store keeps a record of past sales, without your name, for its accounts.</li>
+        </ul>
+      </details>
+      <button class="block" style="margin-top:16px" id="join-send">Email me a code</button>
+      <button type="button" class="ghost block" data-acct-back>Back</button>
+    </form>
+
+    <form class="card" id="signin-form" hidden>
+      <h2>Sign in</h2>
+      <p class="muted" style="margin-top:0">We'll email you a 6-digit code. No password needed.</p>
+      <label for="s-email" style="margin-top:0">Email</label>
+      <input id="s-email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
+      <button class="block" style="margin-top:16px">Email me a code</button>
+      <button type="button" class="ghost block" data-acct-back>Back</button>
+    </form>
+
+    <form class="card" id="code-form" hidden>
+      <h2>Check your email</h2>
+      <p class="muted" style="margin-top:0" id="code-sent">We sent a code.</p>
+      <label for="c-code" style="margin-top:0">6-digit code</label>
+      <input id="c-code" class="codebox" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" required>
+      <button class="block" style="margin-top:16px">Confirm</button>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <button type="button" class="ghost" id="code-resend">Send a new code</button>
+        <button type="button" class="ghost" data-acct-back>Back</button>
+      </div>
+      <p class="muted small" id="code-demo" hidden style="margin-bottom:0">Demo: emails aren't sent yet. The code is on the dashboard under <b>Loyalty</b>.</p>
+    </form>
+
+    <div id="acct-in" hidden>
+      <div class="card profile">
+        <label class="avatar" id="avatar" title="Change photo"><span id="avatar-initials"></span>
+          <input type="file" accept="image/*" id="photo-input" aria-label="Add or change your photo"></label>
+        <div class="who"><b id="p-name"></b><span class="muted small" id="p-email"></span><br><span class="muted small" id="p-since"></span></div>
+      </div>
+      <div class="reward" id="points-card">
+        <div class="kicker">Your points</div>
+        <div class="pts"><span id="p-points">0</span> <small>points</small></div>
+        <div class="bar"><i id="p-bar" style="width:0"></i></div>
+        <p id="p-worth"></p>
+        <p class="small" id="p-pending" hidden></p>
+      </div>
+      <form class="card" id="profile-form">
+        <h2>Your details</h2>
+        <label for="e-name" style="margin-top:0">Full name</label>
+        <input id="e-name" autocomplete="name" maxlength="60" required>
+        <label for="e-phone">Phone number</label>
+        <input id="e-phone" type="tel" inputmode="tel" autocomplete="tel" required>
+        <div class="row2">
+          <div><label for="e-dob">Date of birth</label><input id="e-dob" type="date" required></div>
+          <div><label for="e-gender">Gender</label>
+            <select id="e-gender"><option value="">Prefer not to say</option><option value="female">Female</option>
+              <option value="male">Male</option><option value="other">Other</option></select></div>
+        </div>
+        <div class="row2" style="margin-top:14px"><button>Save</button><button type="button" class="secondary" id="photo-remove">Remove photo</button></div>
+      </form>
+      <div class="row2"><button class="secondary" id="sign-out">Sign out</button><button class="danger" id="delete-account">Delete account</button></div>
+    </div>
   </section>
 
   <!-- 3. Checkout -->
@@ -404,11 +552,18 @@
           <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com">
         </div>
       </div>
+      <div class="card" id="points-box" hidden>
+        <div class="pointsrow"><span class="ico"><svg width="20" height="20"><use href="#i-gift"/></svg></span>
+          <div><b id="pb-title"></b><div class="muted small" id="pb-text"></div></div>
+          <label class="switch" id="pb-switch"><input type="checkbox" id="use-points" aria-label="Use my points"><span></span></label>
+          <button type="button" class="small secondary" id="pb-signin" hidden>Sign in</button></div>
+      </div>
       <div class="card">
         <div class="section-title" style="margin:0 0 4px"><h2 style="margin:0">Order summary</h2>
           <button type="button" class="ghost small" id="edit-cart">Edit</button></div>
         <div id="lines"></div>
         <div class="rline" id="fee-line" hidden><span>Delivery</span><span class="num" id="fee-amount"></span></div>
+        <div class="rline" id="points-line" hidden><span>Points</span><span class="num earn" id="points-amount"></span></div>
         <div class="rline total"><span>Total</span><span class="num" id="checkout-total"></span></div>
       </div>
       <button type="button" class="ghost" id="back-to-shop" style="display:block;margin:0 auto">← Keep shopping</button>
@@ -454,6 +609,7 @@
       <h2 id="receipt-store"></h2>
       <div id="receipt-lines"></div>
       <div class="rline" id="receipt-fee-line" hidden><span>Delivery</span><span class="num" id="receipt-fee"></span></div>
+      <div class="rline" id="receipt-points-line" hidden><span>Points</span><span class="num earn" id="receipt-points"></span></div>
       <div class="rline total"><span>Total</span><span class="num" id="receipt-total"></span></div>
       <p class="muted small" id="receipt-meta" style="margin-bottom:0"></p>
     </div>
@@ -474,6 +630,7 @@
   <div class="inner">
     <button class="on" data-tab="shop"><svg width="24" height="24"><use href="#i-store"/></svg>Shop</button>
     <button data-tab="orders"><svg width="24" height="24"><use href="#i-receipt"/></svg>Orders<i id="orders-badge" hidden>1</i></button>
+    <button data-tab="account" id="account-tab" hidden><svg width="24" height="24"><use href="#i-user"/></svg>Account</button>
     <button data-tab="cart"><svg width="24" height="24"><use href="#i-bag"/></svg>Cart<i id="cart-badge" hidden>0</i></button>
   </div>
 </nav>
@@ -592,13 +749,14 @@ async function api(path, options = {}) {
   return body;
 }
 
-const LABELS = {shop: "Order online, collect or deliver", orders: "Your orders", checkout: "Checkout", wait: "Paying", order: "Your order"};
+const LABELS = {shop: "Order online, collect or deliver", orders: "Your orders", account: "Your account", checkout: "Checkout",
+                wait: "Paying", order: "Your order"};
 function show(v) {
   if (v !== view) window.scrollTo({top: 0});
   view = v;
   hideToast();
-  for (const name of ["shop", "orders", "checkout", "wait", "order"]) $(name + "-view").hidden = name !== v;
-  const browsing = v === "shop" || v === "orders";
+  for (const name of ["shop", "orders", "account", "checkout", "wait", "order"]) $(name + "-view").hidden = name !== v;
+  const browsing = v === "shop" || v === "orders" || v === "account";
   $("tabs").hidden = !browsing;
   document.body.classList.toggle("no-nav", !browsing);
   $("basket-bar").hidden = !browsing;
@@ -607,7 +765,8 @@ function show(v) {
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === v));
   $("step-label").textContent = LABELS[v];
   closeCart();
-  if (v === "orders") renderOrders();
+  if (v === "orders") { renderOrders(); loadAccountOrders(); }
+  if (v === "account") renderAccount();
   if (v === "shop" || v === "checkout") render();
 }
 
@@ -705,9 +864,13 @@ function renderCheckout() {
   $("lines").innerHTML = ids.length ? ids.map((pid) => cartLine(pid, true)).join("") : `<p class="muted" style="margin:0">Your cart is empty.</p>`;
   $("fee-line").hidden = fulfil() !== "delivery";
   $("fee-amount").textContent = kes(fee());
-  $("checkout-total").textContent = kes(total() + fee());
+  renderPointsBox();
+  const off = pointsOff();
+  $("points-line").hidden = !off;
+  $("points-amount").textContent = "− " + kes(off);
+  $("checkout-total").textContent = kes(total() + fee() - off);
   const card = payMethod() === "card";
-  $("pay-button").textContent = `Pay ${kes(total() + fee())} ${card ? "by card" : "with M-Pesa"}`;
+  $("pay-button").textContent = `Pay ${kes(total() + fee() - off)} ${card ? "by card" : "with M-Pesa"}`;
   $("email-field").hidden = !card;
   $("email").required = card;
   $("phone-label").textContent = card ? "Phone number (for the store or rider to reach you)" : "M-Pesa number";
@@ -792,9 +955,23 @@ function remember(s) {
   store.set("web.history", pastOrders);
 }
 
+function ordersList() {
+  // Signed in: the account's orders from any phone, plus anything on this phone not yet in the account.
+  if (!acct.signed_in || !accountOrders) return pastOrders;
+  const local = Object.fromEntries(pastOrders.map((h) => [h.order_id, h]));
+  const mine = accountOrders.filter((o) => o.status !== "cancelled" && o.status !== "pending_payment").map((o) => ({
+    order_id: o.order_id, payment_id: local[o.order_id]?.payment_id, at: o.at, total: o.total, fulfilment: o.fulfilment,
+    stage: local[o.order_id]?.stage || o.stage, lines: o.lines.map((l) => ({product_id: l.product_id, name: l.name, qty: l.qty})),
+    points: o.points_earned}));
+  const ids = new Set(mine.map((o) => o.order_id));
+  return [...mine, ...pastOrders.filter((h) => !ids.has(h.order_id))].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+
 function renderOrders() {
   $("orders-badge").hidden = true;
-  $("past").innerHTML = pastOrders.length ? pastOrders.map((h) => {
+  const list = ordersList();
+  $("orders-where").textContent = acct.signed_in ? "On all your devices" : "On this phone";
+  $("past").innerHTML = list.length ? list.map((h) => {
     const when = new Date(h.at), live = !DONE_STAGES.includes(h.stage);
     const shown = h.lines.slice(0, 4).map((l) => picture(products[l.product_id] || {name: l.name, category: ""}, "thumb")).join("");
     const more = h.lines.length > 4 ? `<span class="more">+${h.lines.length - 4}</span>` : "";
@@ -804,7 +981,8 @@ function renderOrders() {
         <span class="pill ${live ? "live" : ""}">${live ? "In progress" : h.fulfilment === "delivery" ? "Delivered" : "Collected"}</span></div>
       <div class="muted small">${count} item${count === 1 ? "" : "s"} · ${kes(h.total)} · ${h.fulfilment === "delivery" ? "Delivery" : "Collect"} · ${esc(h.order_id.slice(-8))}</div>
       <div class="thumbs">${shown}${more}</div>
-      <div class="acts"><button class="secondary" data-track="${esc(h.order_id)}">${live ? "Track" : "Receipt"}</button>
+      ${h.points ? `<div class="earn small" style="margin-bottom:8px">+${h.points} points</div>` : ""}
+      <div class="acts"><button class="secondary" data-track="${esc(h.order_id)}" ${h.payment_id ? "" : "disabled"}>${live ? "Track" : "Receipt"}</button>
         <button data-again="${esc(h.order_id)}"><svg width="16" height="16" style="vertical-align:-3px;margin-right:6px"><use href="#i-repeat"/></svg>Buy again</button></div>
     </div>`;
   }).join("") : `<div class="empty"><svg width="56" height="56"><use href="#i-receipt"/></svg>
@@ -814,7 +992,7 @@ function renderOrders() {
 }
 
 function buyAgain(orderId) {
-  const h = pastOrders.find((x) => x.order_id === orderId);
+  const h = ordersList().find((x) => x.order_id === orderId);
   if (!h) return;
   const before = {...basket};
   let added = 0;
@@ -834,7 +1012,7 @@ function buyAgain(orderId) {
 }
 
 function trackPast(orderId) {
-  const h = pastOrders.find((x) => x.order_id === orderId);
+  const h = ordersList().find((x) => x.order_id === orderId);
   if (!h || !h.payment_id) return;
   order = {...(order && order.order_id === orderId ? order : {}), order_id: h.order_id, payment_id: h.payment_id, total: h.total, paid: true,
            stage: h.stage, fulfilment: h.fulfilment, viewing: true};
@@ -1004,7 +1182,9 @@ $("where-map-open").addEventListener("click", async () => {
 
 function startCheckout() {
   say("");
-  $("name").value = $("name").value || store.get("web.name", "");
+  const me = acct.signed_in ? acct.customer : null;
+  $("name").value = $("name").value || me?.name || store.get("web.name", "");
+  if (me && !$("phone").value) $("phone").value = "0" + me.phone.slice(3);
   $("phone").value = $("phone").value || store.get("web.phone", "");
   $("email").value = $("email").value || store.get("web.email", "");
   const saved = store.get("web.delivery", null);
@@ -1045,7 +1225,7 @@ $("order-form").addEventListener("submit", async (e) => {
   say("");
   try {
     const name = $("name").value.trim(), phone = $("phone").value.trim();
-    const body = {name, phone, fulfilment: fulfil(), payment_method: payMethod(),
+    const body = {name, phone, fulfilment: fulfil(), payment_method: payMethod(), use_points: pointsOff() > 0,
                   items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
     if (body.payment_method === "card") body.email = $("email").value.trim();
     if (body.fulfilment === "delivery") {
@@ -1099,8 +1279,11 @@ function offerRetry(text) {
 
 async function poll() {
   if (!order) return;
+  const {order_id, payment_id} = order;
   try {
-    const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
+    const s = await api(`api/orders/${order_id}/payments/${payment_id}`);
+    // A reply about another order (one still in flight when the customer started a new order or paid again) is stale.
+    if (!order || order.order_id !== order_id || order.payment_id !== payment_id) return;
     if (s.stage === "cancelled") return forgetOrder("That order was cancelled. Nothing was charged.");
     if (["packing", "ready", "collected", "on_the_way", "delivered"].includes(s.stage)) return showOrder(s);
     if (s.stage === "payment_failed" && view === "wait") {
@@ -1197,6 +1380,9 @@ function showOrder(s) {
   }
   $("receipt-fee-line").hidden = !s.delivery_fee;
   $("receipt-fee").textContent = kes(s.delivery_fee);
+  $("receipt-points-line").hidden = !s.points_discount;
+  $("receipt-points").textContent = "− " + kes(s.points_discount);
+  if (s.points && !order.pointsSeen && !viewing) { order.pointsSeen = true; loadAccount(); }  // the new balance
   $("receipt-store").textContent = s.store_name;
   $("receipt-lines").innerHTML = s.lines.map((l) => `
     <div class="rline"><span>${l.qty} × ${esc(l.name)}</span><span class="num">${kes(l.line_total)}</span></div>`).join("");
@@ -1205,6 +1391,7 @@ function showOrder(s) {
   $("receipt-meta").textContent = [
     paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
+    s.points && s.points.earn ? `${s.points.earn} point${s.points.earn === 1 ? "" : "s"} earned` : "",
   ].filter(Boolean).join(" · ");
   if (!DONE_STAGES.includes(s.stage)) pollTimer = setTimeout(poll, ORDER_POLL_MS);
 }
@@ -1216,6 +1403,190 @@ $("back-from-order").addEventListener("click", () => {
   show("shop");
 });
 $("view-order").addEventListener("click", () => { show("order"); poll(); });
+
+// ------------------------------------------------------------------ account and loyalty points
+
+let acct = {available: false, signed_in: false, customer: null, settings: null};
+let accountOrders = null, acctStep = "home", codeEmail = "";
+const loyal = () => acct.settings && acct.settings.loyalty_enabled ? acct.settings : null;
+const plural = (n, w) => `${Number(n).toLocaleString("en-KE")} ${w}${n === 1 ? "" : "s"}`;
+
+async function loadAccount() {
+  try { acct = await api("api/account"); } catch { acct = {...acct, signed_in: false}; }
+  $("account-tab").hidden = !acct.available;
+  $("tabs").classList.toggle("four", !!acct.available);
+  if (!acct.signed_in) accountOrders = null;
+  renderAccount();
+  render();
+}
+
+async function loadAccountOrders() {
+  if (!acct.signed_in) return;
+  try { accountOrders = await api("api/account/orders"); if (view === "orders") renderOrders(); } catch {}
+}
+
+function pointsOff() {
+  const l = loyal(), c = acct.customer;
+  if (!l || !acct.signed_in || !c || !$("use-points").checked) return 0;
+  return Math.min(Math.floor(c.loyalty.points / l.redeem_points), Math.floor(Math.max(0, total() - 1) / l.redeem_kes)) * l.redeem_kes;
+}
+
+function renderPointsBox() {
+  const l = loyal();
+  $("points-box").hidden = !l || !total();
+  if ($("points-box").hidden) return;
+  const earn = Math.floor((total() - pointsOff()) / l.kes_per_point);
+  if (!acct.signed_in) {
+    $("pb-title").textContent = `Earn ${plural(earn, "point")} on this order`;
+    $("pb-text").textContent = "Sign in or create a free account first.";
+    $("pb-switch").hidden = true; $("pb-signin").hidden = false;
+    return;
+  }
+  $("pb-signin").hidden = true;
+  const pts = acct.customer.loyalty.points;
+  const can = Math.min(Math.floor(pts / l.redeem_points), Math.floor(Math.max(0, total() - 1) / l.redeem_kes));
+  $("pb-switch").hidden = !can;
+  if (!can) $("use-points").checked = false;
+  $("pb-title").textContent = can ? `Use ${plural(can * l.redeem_points, "point")}: ${kes(can * l.redeem_kes)} off` : `You have ${plural(pts, "point")}`;
+  $("pb-text").textContent = `You'll earn ${plural(earn, "point")} on this order` +
+    (can ? "." : `. ${l.redeem_points} points take ${kes(l.redeem_kes)} off.`);
+}
+$("use-points").addEventListener("change", () => render());
+$("pb-signin").addEventListener("click", () => { acctStep = "signin"; show("account"); });
+
+function renderAccount() {
+  const l = loyal(), c = acct.customer;
+  document.querySelectorAll(".store-name").forEach((e) => (e.textContent = $("store-name").textContent));
+  const signedIn = acct.signed_in && c;
+  $("acct-out").hidden = signedIn || acctStep !== "home";
+  for (const step of ["join", "signin", "code"]) $(step + "-form").hidden = signedIn || acctStep !== step;
+  $("acct-in").hidden = !signedIn;
+  $("reward-kicker").textContent = l ? `${$("store-name").textContent} Rewards` : "Your account";
+  $("reward-pitch-title").textContent = l ? "Earn points on every order" : "Shop faster with an account";
+  $("reward-pitch").textContent = l ? `${l.kes_per_point === 100 ? "1 point for every KES 100" : `1 point per ${kes(l.kes_per_point)}`} you spend online. ` +
+    `${l.redeem_points} points take ${kes(l.redeem_kes)} off an order.` : "See your orders on any phone and check out in seconds.";
+  $("perk-points").hidden = !l;
+  if (l) $("perk-points-text").textContent = `${l.redeem_points} points = ${kes(l.redeem_kes)} off. Points are added when your order is paid.`;
+  $("code-demo").hidden = acct.settings?.email_provider !== "outbox";
+  if (!signedIn) return;
+  $("p-name").textContent = c.name;
+  $("p-email").textContent = c.email;
+  const since = new Date(c.member_since);
+  $("p-since").textContent = isNaN(since) ? "" : "Member since " + since.toLocaleDateString([], {month: "long", year: "numeric"});
+  $("avatar-initials").textContent = c.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const img = $("avatar").querySelector("img");
+  if (c.photo_version) {
+    const src = `api/account/photo?v=${encodeURIComponent(c.photo_version)}`;
+    if (!img) $("avatar").insertAdjacentHTML("afterbegin", `<img alt="" src="${src}">`);
+    else if (!img.src.endsWith(src)) img.src = src;
+    $("avatar-initials").hidden = true;
+  } else { if (img) img.remove(); $("avatar-initials").hidden = false; }
+  $("photo-remove").hidden = !c.photo_version;
+  $("points-card").hidden = !l;
+  if (l) {
+    const p = c.loyalty.points;
+    $("p-points").textContent = p.toLocaleString("en-KE");
+    $("p-bar").style.width = `${Math.round(100 * (p % l.redeem_points) / l.redeem_points)}%`;
+    $("p-worth").textContent = c.loyalty.worth_kes ? `Worth ${kes(c.loyalty.worth_kes)} off your next order.` +
+      ` ${plural(c.loyalty.to_next, "point")} to the next ${kes(l.redeem_kes)}.`
+      : `${plural(c.loyalty.to_next, "more point")} and you get ${kes(l.redeem_kes)} off.`;
+    $("p-pending").hidden = !c.loyalty.pending_orders;
+    $("p-pending").textContent = "Points for an order still waiting for payment are added once it's paid.";
+  }
+  if (document.activeElement?.closest?.("#profile-form")) return;  // don't overwrite while they type
+  $("e-name").value = c.name; $("e-phone").value = "0" + c.phone.slice(3); $("e-dob").value = c.dob || ""; $("e-gender").value = c.gender || "";
+}
+
+function acctGo(step) { acctStep = step; say(""); renderAccount(); window.scrollTo({top: 0}); }
+$("join-open").addEventListener("click", () => acctGo("join"));
+$("signin-open").addEventListener("click", () => acctGo("signin"));
+document.querySelectorAll("[data-acct-back]").forEach((b) => b.addEventListener("click", () => acctGo("home")));
+
+function codeSent(email) {
+  codeEmail = email;
+  $("code-sent").textContent = `We emailed a 6-digit code to ${email}. It works for 10 minutes.`;
+  $("c-code").value = "";
+  acctGo("code");
+  $("c-code").focus();
+}
+
+$("join-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!$("j-consent").checked) return say("Please read and accept the privacy notice to join.");
+  const body = {name: $("j-name").value.trim(), phone: $("j-phone").value.trim(), email: $("j-email").value.trim(),
+                dob: $("j-dob").value, gender: $("j-gender").value || null, consent: true};
+  if (!body.name || !body.phone || !body.email || !body.dob) return say("Fill in your name, phone, email and date of birth.");
+  try { const r = await api("api/account/signup", {method: "POST", body: JSON.stringify(body)}); codeSent(r.email); }
+  catch (err) { say(err.message); }
+});
+$("signin-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try { const r = await api("api/account/code", {method: "POST", body: JSON.stringify({email: $("s-email").value.trim()})}); codeSent(r.email); }
+  catch (err) { say(err.message); }
+});
+$("code-resend").addEventListener("click", async () => {
+  try { await api("api/account/code", {method: "POST", body: JSON.stringify({email: codeEmail})}); say("A new code is on its way.", "ok"); }
+  catch (err) { say(err.message); }
+});
+$("code-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("api/account/verify", {method: "POST", body: JSON.stringify({email: codeEmail, code: $("c-code").value.trim()})});
+    acctStep = "home";
+    await loadAccount();
+    say(`Welcome, ${acct.customer.name.split(" ")[0]}! You're signed in.`, "ok");
+    loadAccountOrders();
+  } catch (err) { say(err.message); }
+});
+$("profile-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    acct.customer = await api("api/account", {method: "PUT", body: JSON.stringify({name: $("e-name").value.trim(),
+      phone: $("e-phone").value.trim(), dob: $("e-dob").value, gender: $("e-gender").value || null})});
+    document.activeElement?.blur();
+    renderAccount();
+    toast("Details saved");
+  } catch (err) { say(err.message); }
+});
+$("photo-input").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    const r = await fetch("api/account/photo", {method: "PUT", body: await shrink(f), headers: {"Content-Type": "image/jpeg"}});
+    const b = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof b.detail === "string" ? b.detail : "That photo couldn't be saved.");
+    acct.customer = b;
+    renderAccount();
+    toast("Photo saved");
+  } catch (err) { say(err.message); }
+});
+$("photo-remove").addEventListener("click", async () => {
+  try { acct.customer = await api("api/account/photo", {method: "DELETE"}); renderAccount(); } catch (err) { say(err.message); }
+});
+$("sign-out").addEventListener("click", async () => {
+  await api("api/account/signout", {method: "POST"}).catch(() => {});
+  accountOrders = null;
+  await loadAccount();
+  toast("Signed out");
+});
+$("delete-account").addEventListener("click", async () => {
+  if (!confirm("Delete your account? Your details and photo are erased and your points are lost. This can't be undone.")) return;
+  try { await api("api/account", {method: "DELETE"}); accountOrders = null; await loadAccount(); say("Your account was deleted.", "ok"); }
+  catch (err) { say(err.message); }
+});
+
+// Phones take big photos: shrink before uploading (the server crops and re-encodes it anyway).
+async function shrink(file, max = 800) {
+  try {
+    const bmp = await createImageBitmap(file, {imageOrientation: "from-image"});
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((ok) => c.toBlob((b) => ok(b || file), "image/jpeg", 0.85));
+  } catch { return file; }
+}
 
 // ------------------------------------------------------------------ start
 
@@ -1230,6 +1601,7 @@ api("api/store").then((s) => {
   renderWhere();
   if (delivery.available && where) refreshQuote();
   document.title = `${s.name} · Online shop`;
+  if (s.accounts && s.accounts.available) loadAccount();
 }).catch(() => {});
 show("shop");
 // Coming back from the card page: the address has ?order=...; the order itself is remembered in this browser.

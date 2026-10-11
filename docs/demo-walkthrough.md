@@ -126,6 +126,22 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **Rider:** type a wrong code first. It's refused: "4 tries left". Then type the customer's code and tap **Delivered**. The customer's page shows **Delivered**.
 - **If something goes wrong:** on another delivery, the rider taps **Problem** and types "Customer not answering". The dashboard card turns red and shows the customer's number to call. **Rider tries again** sends the rider back out.
 
+### 6b. Accounts and loyalty points (Customer and Manager), 3 min
+
+- **Customer:** in the online shop, open the **Account** tab. It shows the offer: 1 point for every KES 100 spent, and 100 points take KES 50 off.
+  - Tap **Create account** and fill in a name, phone number, email and date of birth. Gender is optional.
+  - Open **Privacy notice** and point out what's kept and why, and that the customer can delete it all. Tick the box and tap **Email me a code**.
+- **Manager (dashboard, Loyalty):** email isn't connected for the demo, so the shop keeps its emails here. Read the 6-digit code from the newest one.
+- **Customer:**
+  - Type the code. They're signed in and see their points card.
+  - Add a photo by tapping the round picture, if you like.
+  - Shop and check out: name and number are filled in, and the order shows "You'll earn N points".
+  - Pay. After payment the receipt says how many points were earned and the Account tab shows the new balance.
+  - Once the balance reaches 100, checkout offers **Use 100 points: KES 50 off**. The total drops, and that's what M-Pesa charges.
+- **Orders tab:** signed in, it says "On all your devices". Sign in on another phone and the same orders, with **Buy again**, are there.
+- **Manager:** the Loyalty page shows members (name and a masked email, never birthdays or gender), points earned and spent, and discounts given.
+- **Switch it off:** set `LOYALTY_ENABLED=false` and restart. Accounts and orders keep working, points disappear from the shop, and balances are kept for later.
+
 ### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.

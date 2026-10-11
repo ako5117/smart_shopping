@@ -36,6 +36,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from . import account
 from .config import Settings, load_settings
 from .shelf import picked_up, read_recent_lines
 
@@ -82,6 +83,7 @@ class OrderIn(BaseModel):
     delivery: Optional[DeliveryIn] = None
     payment_method: Literal["mpesa", "card"] = "mpesa"
     email: Optional[str] = Field(None, max_length=120, description="Card payments: the card receipt goes here")
+    use_points: bool = Field(False, description="Signed-in customers: spend loyalty points on this order")
 
 
 class PayIn(BaseModel):
@@ -143,14 +145,18 @@ def substitutes(product: dict, products: List[dict], available: Dict[str, int]) 
 
 
 def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Client] = None,
-               payments: Optional[httpx.Client] = None, clock=None, dispatch: Optional[httpx.Client] = None) -> FastAPI:
+               payments: Optional[httpx.Client] = None, clock=None, dispatch: Optional[httpx.Client] = None,
+               customers: Optional[httpx.Client] = None) -> FastAPI:
     settings = settings or load_settings()
     inventory = inventory or httpx.Client(base_url=settings.inventory_url, timeout=10.0)
     payments = payments or httpx.Client(base_url=settings.payments_url, timeout=40.0)
     if dispatch is None and settings.dispatch_url:
         dispatch = httpx.Client(base_url=settings.dispatch_url, timeout=10.0)
+    if customers is None and settings.customers_url:
+        customers = httpx.Client(base_url=settings.customers_url, timeout=10.0)
     clock = clock or (lambda: datetime.now(timezone.utc))
     limiter = RateLimiter(settings.stk_limit_per_phone, settings.stk_limit_window_s)
+    accounts = account.Accounts(customers)
     app = FastAPI(title="Smart Shopping - Online store")
 
     def upstream(name: str, fn):
@@ -266,7 +272,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                   "qty": it["qty"], "price": it.get("unit_price_kes"),
                   "line_total": (it.get("unit_price_kes") or 0) * it["qty"]} for it in sale["items"]]
         fee = sale.get("delivery_fee_kes") or 0
-        return {"lines": lines, "delivery_fee": fee, "total": sum(l["line_total"] for l in lines) + fee}
+        points_off = sale.get("loyalty_discount_kes") or 0
+        return {"lines": lines, "delivery_fee": fee, "points_discount": points_off,
+                "total": sum(l["line_total"] for l in lines) + fee - points_off}
 
     def start_payment(sale_id: str, phone: str, amount: int) -> dict:
         if not limiter.allow(phone_key(phone)):
@@ -305,6 +313,11 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         raise HTTPException(409, {"message": f"Not enough in stock: {names}. Change your basket and try again.",
                                   "short": detail})
 
+    def sale_total(sale: dict) -> int:
+        """What the customer pays: the goods, plus any delivery fee, less any points discount."""
+        return (sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
+                - (sale.get("loyalty_discount_kes") or 0))
+
     def online_sale(order_id: str) -> dict:
         if not ORDER_ID.match(order_id):
             raise HTTPException(404, "Order not found")
@@ -325,9 +338,11 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     @app.get("/api/store")
     def store():
         delivery = delivery_settings()
+        loyalty = accounts.settings()
         return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES",
                 "hold_minutes": settings.order_hold_min, "card": card_available(),
-                "delivery": {"available": bool(delivery), **(delivery or {})}}
+                "delivery": {"available": bool(delivery), **(delivery or {})},
+                "accounts": {"available": accounts.on, **(loyalty or {})}}
 
     @app.get("/api/delivery/quote")
     def quote(lat: float, lng: float):
@@ -391,11 +406,30 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             not_enough(short, products, available)
 
         sale_id = "WEB-" + secrets.token_hex(8).upper()
-        r = upstream("Inventory", lambda: inventory.post("/sales", json={
-            "sale_id": sale_id, "store_id": settings.store_id, "channel": "online", "customer_name": body.name.strip(),
-            "customer_phone": body.phone.strip(),
-            "check_stock": True, "fulfilment": body.fulfilment, "delivery_fee_kes": fee,
-            "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
+        # Signed in: the order earns points, and can spend them (the discount is worked out by the Customers Service).
+        goods = sum(by_id[pid]["price"] * q for pid, q in merged.items())
+        linked = accounts.start_order(request, sale_id, goods, body.use_points)
+        points_off = (linked or {}).get("discount_kes", 0)
+
+        def abandon():
+            upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+            held_cache.clear()
+            if linked:
+                accounts.cancel_order(sale_id)
+
+        try:
+            r = upstream("Inventory", lambda: inventory.post("/sales", json={
+                "sale_id": sale_id, "store_id": settings.store_id, "channel": "online", "customer_name": body.name.strip(),
+                "customer_phone": body.phone.strip(),
+                "check_stock": True, "fulfilment": body.fulfilment, "delivery_fee_kes": fee,
+                "loyalty_discount_kes": points_off, "customer_id": (linked or {}).get("customer_id", ""),
+                "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
+        except HTTPException:
+            if linked:
+                accounts.cancel_order(sale_id)
+            raise
+        if r.status_code >= 400 and linked:
+            accounts.cancel_order(sale_id)
         if r.status_code == 409 and isinstance(r.json().get("detail"), dict):
             held_cache.clear()
             not_enough(r.json()["detail"]["short"], products, available)
@@ -405,9 +439,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         sale = r.json()
         held_cache.clear()
         if any(not it.get("unit_price_kes") for it in sale["items"]):
-            upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+            abandon()
             raise HTTPException(409, "Something in your basket isn't sold online any more. Please remove it.")
-        total = sum(it["unit_price_kes"] * it["qty"] for it in sale["items"]) + sale.get("delivery_fee_kes", 0)
+        total = sale_total(sale)
         if body.fulfilment == "delivery":
             d = body.delivery
             try:
@@ -422,8 +456,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 log.error("Dispatch unavailable for %s: %s", sale_id, e)
                 ok = False
             if not ok:
-                upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
-                held_cache.clear()
+                abandon()
                 raise HTTPException(503, "Delivery isn't available right now. Choose collect from the store, or try again later.")
         try:
             if body.payment_method == "card":
@@ -431,10 +464,9 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             else:
                 payment = start_payment(sale_id, body.phone, total)
         except HTTPException:
-            upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
-            held_cache.clear()
+            abandon()
             raise
-        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total,
+        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total, "points_discount": points_off,
                 "checkout_url": payment.get("checkout_url")}
 
     @app.post("/api/orders/{order_id}/pay", status_code=201)
@@ -446,7 +478,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         if _age_s(sale, clock()) > settings.order_hold_min * 60:
             upstream("Inventory", lambda: inventory.post(f"/sales/{order_id}/cancel"))
             raise HTTPException(409, "This order has expired and its items were released. Please place it again.")
-        total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"]) + (sale.get("delivery_fee_kes") or 0)
+        total = sale_total(sale)
         if body.method == "card":
             payment = start_card_payment(order_id, body.email, total, request)
         elif body.phone:
@@ -501,6 +533,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "ready_at": sale.get("ready_at"),
             "collected_at": sale.get("exited_at"),
             "result": payment.get("result_desc"),
+            "points": points_for(sale),
             **priced_sale(sale, names),
         }
 
@@ -528,6 +561,27 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         segno.make(order_id, error="m").save(out, kind="svg", scale=6, border=2, dark="#000", light="#fff", xmldecl=False)
         return Response(out.getvalue(), media_type="image/svg+xml", headers={"Cache-Control": "private, max-age=86400"})
 
+    def points_for(sale: dict) -> Optional[dict]:
+        """For a signed-in customer's order: points spent on it, and earned (or to be earned once paid)."""
+        loyalty = accounts.settings() if sale.get("customer_id") else None
+        if not loyalty or not loyalty.get("loyalty_enabled"):
+            return None
+        goods = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale["items"])
+        off = sale.get("loyalty_discount_kes") or 0
+        return {"earn": max(0, goods - off) // loyalty["kes_per_point"], "discount": off,
+                "spent": off // loyalty["redeem_kes"] * loyalty["redeem_points"]}
+
+    def sale_lines(sale_id: str) -> Optional[dict]:
+        try:
+            sale = online_sale(sale_id)
+            names = {p["product_id"]: p["name"] for p in products_cache.get()}
+        except (HTTPException, httpx.HTTPError):
+            return None
+        return {"status": sale["status"], "fulfilment": sale.get("fulfilment", "collect"),
+                "stage": "cancelled" if sale["status"] == "cancelled" else "collected" if sale.get("exited_at") else "paid"
+                if sale["status"] == "paid" else "awaiting_payment", **priced_sale(sale, names)}
+
+    account.install(app, accounts, RateLimiter(10, 900), sale_lines)
     return app
 
 

@@ -75,6 +75,8 @@ class FakeInventory:
                                            "delivery_fee_kes": body.get("delivery_fee_kes", 0),
                                            "customer_name": body.get("customer_name", ""),
                                            "customer_phone": body.get("customer_phone", ""),
+                                           "loyalty_discount_kes": body.get("loyalty_discount_kes", 0),
+                                           "customer_id": body.get("customer_id", ""),
                                            "status": "pending_payment", "payment_ref": None, "exited_at": None,
                                            "ready_at": None, "created_at": NOW.isoformat()}
             return httpx.Response(201, json=self.sales[body["sale_id"]])
@@ -203,6 +205,102 @@ class FakeDispatch:
             r = self.riders.get(path.split("/")[2])
             return httpx.Response(200, json=r) if r else httpx.Response(404, json={"detail": "No rider"})
         return httpx.Response(404, json={"detail": "not found"})
+
+
+LOYALTY = {"loyalty_enabled": True, "kes_per_point": 100, "redeem_points": 100, "redeem_kes": 50, "min_age": 18,
+           "privacy_version": "2026-10", "email_provider": "outbox"}
+
+
+class FakeCustomers:
+    """The Customers Service as the shop sees it: one customer, Jane, whose code is 123456."""
+
+    def __init__(self):
+        self.down = False
+        self.points = 250
+        self.orders = {}
+        self.cancelled = []
+        self.signups = []
+        self.photo = None
+
+    def profile(self):
+        return {"customer_id": "C1", "name": "Jane Wanjiru", "phone": "254712345678", "email": "jane@example.com",
+                "dob": "1994-05-17", "gender": "female", "photo_version": "p1" if self.photo else None,
+                "loyalty": {"enabled": True, "points": self.points, "worth_kes": self.points // 100 * 50}}
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if self.down:
+            raise httpx.ConnectError("refused", request=request)
+        path, method = request.url.path, request.method
+        signed_in = request.headers.get("x-session") == "tok-jane"
+        body = json.loads(request.content) if request.content and request.headers.get("content-type", "").startswith("application/json") else {}
+        if path == "/settings":
+            return httpx.Response(200, json=LOYALTY)
+        if path == "/signup":
+            self.signups.append(body)
+            return httpx.Response(202, json={"email": body["email"].lower(), "sent": True}) if body.get("consent") else \
+                httpx.Response(422, json={"detail": "Please read and accept the privacy notice to join."})
+        if path == "/codes":
+            return httpx.Response(202, json={"email": body["email"], "sent": True})
+        if path == "/sessions" and method == "POST":
+            if body["code"] != "123456":
+                return httpx.Response(422, json={"detail": {"message": "That code isn't right. 4 tries left.", "attempts_left": 4}})
+            return httpx.Response(201, json={"token": "tok-jane", "expires_at": "x", "customer": self.profile()})
+        if path == "/sessions" and method == "DELETE":
+            return httpx.Response(204)
+        if path.startswith("/orders/") and path.endswith("/cancel"):
+            sale_id = path.split("/")[2]
+            self.cancelled.append(sale_id)
+            o = self.orders.get(sale_id)
+            if o and o["status"] == "pending":
+                o["status"] = "cancelled"
+                self.points += o["redeemed_points"]
+            return httpx.Response(200, json=o or {})
+        if not signed_in:
+            return httpx.Response(404, json={"detail": "Not signed in"})
+        if path == "/me" and method == "GET":
+            return httpx.Response(200, json=self.profile())
+        if path == "/me" and method == "PUT":
+            return httpx.Response(200, json={**self.profile(), "name": body["name"]})
+        if path == "/me" and method == "DELETE":
+            return httpx.Response(204)
+        if path == "/me/photo":
+            if method == "PUT":
+                self.photo = request.content
+                return httpx.Response(200, json=self.profile())
+            if method == "GET":
+                return httpx.Response(200, content=b"\xff\xd8jpeg") if self.photo else httpx.Response(404, json={"detail": "No photo"})
+        if path == "/me/orders":
+            return httpx.Response(200, json=[o for o in self.orders.values() if o["status"] != "cancelled"])
+        if path == "/orders" and method == "POST":
+            blocks = min(self.points // 100, (body["goods_kes"] - 1) // 50) if body["use_points"] else 0
+            self.points -= blocks * 100
+            self.orders[body["sale_id"]] = {"sale_id": body["sale_id"], "customer_id": "C1", "status": "pending",
+                                            "redeemed_points": blocks * 100, "discount_kes": blocks * 50,
+                                            "earned_points": 0, "created_at": NOW.isoformat()}
+            return httpx.Response(201, json=self.orders[body["sale_id"]])
+        return httpx.Response(404, json={"detail": "not found"})
+
+
+@pytest.fixture
+def customers():
+    return FakeCustomers()
+
+
+@pytest.fixture
+def member(inventory, payments, dispatch, customers, shelf_log, clock):
+    """A shop with accounts (the Customers Service), signed in as Jane."""
+    settings = Settings(store_id="001", store_name="Test Store", inventory_url="http://inv", payments_url="http://pay",
+                        shelf_events_path=str(shelf_log), products_cache_s=0, stock_cache_s=0)
+    c = TestClient(create_app(
+        settings,
+        inventory=httpx.Client(base_url="http://inv", transport=httpx.MockTransport(inventory.handler)),
+        payments=httpx.Client(base_url="http://pay", transport=httpx.MockTransport(payments.handler)),
+        clock=lambda: clock["now"],
+        dispatch=httpx.Client(base_url="http://dispatch", transport=httpx.MockTransport(dispatch.handler)),
+        customers=httpx.Client(base_url="http://cust", transport=httpx.MockTransport(customers.handler)),
+    ))
+    assert c.post("/api/account/verify", json={"email": "jane@example.com", "code": "123456"}).status_code == 200
+    return c
 
 
 @pytest.fixture
