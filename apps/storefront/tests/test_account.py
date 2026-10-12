@@ -99,3 +99,24 @@ def test_profile_photo_and_delete(member, customers):
 def test_shop_without_accounts(client):
     assert client.get("/api/account").json() == {"available": False, "signed_in": False}
     assert client.post("/api/account/code", json={"email": "a@b.co"}).status_code == 404
+
+
+def test_problem_reports(member, customers):
+    r = member.post("/api/reports", json={"kind": "app", "message": "The pay button did nothing",
+                                          "context": {"page": "checkout", "errors": "TypeError"}})
+    assert r.status_code == 201 and r.json()["status"] == "open"
+    sent = customers.reports[-1]
+    assert (sent["app"], sent["customer_id"], sent["context"]["page"]) == ("store", "C1", "checkout")
+    assert "user_agent" in sent["context"]  # the browser, for app problems
+    assert [x["report_id"] for x in member.get("/api/account/reports").json()] == [r.json()["report_id"]]
+    assert member.get(f"/api/reports/{r.json()['report_id']}").json()["status"] == "open"
+    assert member.get("/api/reports/R-123").status_code == 404
+    assert member.post("/api/reports", json={"kind": "rant", "message": "hello there"}).status_code == 422
+    member.post("/api/reports", json={"kind": "idea", "message": "More fruit please", "context": {"page": "x"}})
+    assert customers.reports[-1]["context"] == {}  # only app problems carry page and browser details
+    codes = [member.post("/api/reports", json={"kind": "idea", "message": "More fruit please"}).status_code for _ in range(8)]
+    assert 429 in codes  # a few an hour from one place
+
+
+def test_reports_without_an_account(client):
+    assert client.post("/api/reports", json={"kind": "idea", "message": "More fruit please"}).status_code == 404

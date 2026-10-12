@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from .db import Database, database_from_env
 from .mailer import mailer_from_env
 from .photos import BadImage
+from .reports import Reports
 from .service import Conflict, Customers, NotFound, Settings, TooMany, WrongCode
 
 log = logging.getLogger("customers")
@@ -86,6 +87,22 @@ class ProfileIn(BaseModel):
     gender: Optional[Literal["female", "male", "other", ""]] = None
 
 
+class ReportIn(BaseModel):
+    kind: Literal["order", "store", "app", "idea"]
+    message: str = Field(..., max_length=2000)
+    app: Literal["store", "scan_and_go"] = "store"
+    order_id: str = Field("", max_length=40)
+    contact: str = Field("", max_length=120, description="Phone or email to reach them, if they want a reply")
+    context: dict = Field(default_factory=dict, description="App problems: page, browser, recent errors")
+    photo_b64: Optional[str] = Field(None, max_length=8_000_000, description="A photo or screenshot, base64 (JPEG/PNG/WebP)")
+
+
+class ReportUpdateIn(BaseModel):
+    by: str = Field("", max_length=60)
+    status: Optional[Literal["open", "in_progress", "resolved"]] = None
+    reply: Optional[str] = Field(None, max_length=1000)
+
+
 class OrderIn(BaseModel):
     sale_id: str = Field(..., min_length=1, max_length=40)
     goods_kes: int = Field(..., ge=0, description="The order's goods total before points, for the discount cap")
@@ -100,6 +117,7 @@ def create_app(db: Optional[Database] = None, inventory=None, settings: Optional
     if inventory is None and os.getenv("INVENTORY_URL"):
         inventory = HttpInventory(os.environ["INVENTORY_URL"])
     customers = Customers(db, mailer, settings, inventory, clock)
+    reports = Reports(db)
     poll = float(os.getenv("CUSTOMERS_POLL_S", "15"))
 
     @asynccontextmanager
@@ -204,6 +222,50 @@ def create_app(db: Optional[Database] = None, inventory=None, settings: Optional
     @app.post("/orders/{sale_id}/cancel")
     def cancel_order(sale_id: str):
         return guard(customers.cancel_order, sale_id)
+
+    # problem reports
+    @app.post("/reports", status_code=201)
+    def report(b: ReportIn, x_session: Optional[str] = Header(None)):
+        cid = None
+        if x_session:
+            try:
+                cid = customers.customer_for(x_session)
+            except NotFound:
+                cid = None  # signed out meanwhile: the report still counts
+        photo = None
+        if b.photo_b64:
+            import base64
+            import binascii
+            try:
+                photo = base64.b64decode(b.photo_b64.split(",", 1)[-1], validate=True)
+            except (binascii.Error, ValueError):
+                raise HTTPException(422, "That picture couldn't be read")
+        return guard(reports.create, b.kind, b.message, b.app, b.order_id, b.contact, b.context, cid, photo)
+
+    @app.get("/reports")
+    def list_reports(status: Optional[str] = Query(None, description="Comma-separated; default open,in_progress"),
+                     limit: int = Query(100, ge=1, le=500)):
+        return {"reports": guard(reports.list, status.split(",") if status else None, limit), "counts": reports.counts()}
+
+    @app.get("/reports/{report_id}")
+    def get_report(report_id: str):
+        return guard(reports.get, report_id)
+
+    @app.get("/reports/{report_id}/public")
+    def public_report(report_id: str):
+        return guard(reports.public, report_id)
+
+    @app.get("/reports/{report_id}/photo")
+    def report_photo(report_id: str):
+        return Response(guard(reports.photo, report_id), media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+    @app.post("/reports/{report_id}")
+    def update_report(report_id: str, b: ReportUpdateIn):
+        return guard(reports.update, report_id, b.by, b.status, b.reply)
+
+    @app.get("/me/reports")
+    def my_reports(x_session: Optional[str] = Header(None)):
+        return reports.for_customer(me(x_session))
 
     # dashboard
     @app.get("/summary")

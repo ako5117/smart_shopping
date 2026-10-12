@@ -78,6 +78,11 @@ class RefundIn(BaseModel):
     ref: str = Field("", max_length=60)
 
 
+class ReportUpdateIn(BaseModel):
+    status: Optional[Literal["open", "in_progress", "resolved"]] = None
+    reply: Optional[str] = Field(None, max_length=1000)
+
+
 class RestockIn(BaseModel):
     ean13: str = Field(..., pattern=r"^\d{13}$")
     qty: int = Field(..., gt=0, le=10000)
@@ -277,6 +282,10 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
     @app.get("/exit")
     def exit_page():
         return FileResponse(STATIC / "exit.html")
+
+    @app.get("/reports")
+    def reports_page():
+        return FileResponse(STATIC / "reports.html")
 
     @app.get("/loyalty")
     def loyalty_page():
@@ -549,6 +558,38 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[Inventor
             raise HTTPException(502, f"Notification Service unavailable: {e}")
         log.info("Text %s resent by %s", message_id, staff.name or "a staff member")
         return {**m, "body": DELIVERY_CODE.sub(r"\1****", m["body"])}
+
+    @app.get("/api/reports")
+    def reports(status: str = ""):
+        """Problems and ideas from customers (online shop and Scan & Go). Any staff member can answer."""
+        if customers is None:
+            return {"on": False, "reports": [], "counts": {}}
+        try:
+            return {"on": True, **customers.reports(status)}
+        except httpx.HTTPError as e:
+            log.warning("Customers Service unavailable: %s", e)
+            return {"on": True, "reports": [], "counts": {}, "error": "Reports can't be shown right now: the Customers Service is unavailable."}
+
+    @app.post("/api/reports/{report_id}")
+    def update_report(report_id: str, body: ReportUpdateIn, staff: Staff = Depends(current_staff)):
+        if customers is None:
+            raise HTTPException(404, "Problem reports aren't set up for this store.")
+        try:
+            return _passthrough(customers.update_report(report_id, {**body.model_dump(), "by": staff.name or "staff"}))
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Customers Service unavailable: {e}")
+
+    @app.get("/api/reports/{report_id}/photo")
+    def report_photo(report_id: str):
+        if customers is None:
+            raise HTTPException(404, "No photo")
+        try:
+            r = customers.report_photo(report_id)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Customers Service unavailable: {e}")
+        if r.status_code != 200:
+            raise HTTPException(404, "No photo")
+        return Response(r.content, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
     @app.get("/api/loyalty")
     def loyalty(staff: Staff = Depends(current_staff)):

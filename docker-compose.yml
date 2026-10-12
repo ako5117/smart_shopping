@@ -215,8 +215,9 @@ services:
       STORE_NAME: ${STORE_NAME:-Smart Shopping}
       INVENTORY_URL: http://inventory:8010
       PAYMENTS_URL: http://payments:8000
+      CUSTOMERS_URL: http://customers:8090
       UVICORN_ROOT_PATH: /shop
-    depends_on: [inventory, payments]
+    depends_on: [inventory, payments, customers]
 
   # Online shop: order online, pay with M-Pesa, collect in store. Reads the shelf events (read-only) so it
   # doesn't promise items shoppers have just picked up.

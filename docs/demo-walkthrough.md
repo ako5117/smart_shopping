@@ -154,6 +154,16 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
   - Refuse another return with a reason ("Opened"). The customer sees the reason.
 - **Point out:** refunds are paid by hand for now, so nothing moves money without a person; every step records who did it.
 
+### 6d. Problem reports (Customer and Staff), 2 min
+
+- **Customer:** on an order page, tap **Problem with this order?** The order number is filled in. Choose **An order**, write "The sugar was missing", optionally add a photo, and send. The page gives a reference.
+- **Customer, again:** report **The app isn't working**. Point out the note that the page and browser details go along, so the customer doesn't have to explain their phone.
+- **Staff (dashboard, Reports):** both reports are under **To do**. The app one shows **Page and browser details**.
+  - Type a reply and press **I'm on it**, then **Resolved**.
+  - Resolving needs a reply to the customer.
+- **Customer:** the Account tab shows the report as **Resolved** with the store's reply.
+- **Scan & Go** has the same **Report a problem** at the bottom of its page.
+
 ### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.

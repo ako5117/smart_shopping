@@ -15,6 +15,7 @@ class FakeCustomers:
     def __init__(self):
         self.down = False
         self.provider = "outbox"
+        self.updates = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         if self.down:
@@ -27,6 +28,15 @@ class FakeCustomers:
                                               "created_at": "2026-10-11T08:00:00+00:00", "points": 150, "orders": 3}])
         if path == "/settings":
             return httpx.Response(200, json={"email_provider": self.provider})
+        if path == "/reports":
+            return httpx.Response(200, json={"reports": [{"report_id": "R-1", "status": request.url.params.get("status", "open")}],
+                                             "counts": {"open": 1}})
+        if path == "/reports/R-1" and request.method == "POST":
+            import json
+            self.updates.append(json.loads(request.content))
+            return httpx.Response(200, json={"report_id": "R-1", **json.loads(request.content)})
+        if path == "/reports/R-1/photo":
+            return httpx.Response(200, content=b"\xff\xd8jpeg")
         if path == "/emails":
             return httpx.Response(200, json=[{"email_id": 1, "to_email": "jane@example.com", "subject": "Your code",
                                               "body": "Your code is 123456.", "created_at": "2026-10-11T08:00:00+00:00"}])
@@ -65,3 +75,13 @@ def test_customers_service_down_or_not_set_up(loyalty_client, fake_customers, cl
     fake_customers.down = True
     assert "unavailable" in loyalty_client.get("/api/loyalty", headers=ADRIAN).json()["error"]
     assert client.get("/api/loyalty", headers=ADRIAN).json() == {"on": False}
+
+
+def test_reports_inbox_any_staff(loyalty_client, fake_customers, client):
+    assert "Reports" in loyalty_client.get("/reports").text
+    b = loyalty_client.get("/api/reports?status=resolved", headers=MARY).json()
+    assert b["on"] and b["reports"][0]["status"] == "resolved" and b["counts"]["open"] == 1
+    r = loyalty_client.post("/api/reports/R-1", json={"status": "resolved", "reply": "Sorted, sorry!"}, headers=MARY)
+    assert r.status_code == 200 and fake_customers.updates[-1] == {"status": "resolved", "reply": "Sorted, sorry!", "by": "mary"}
+    assert loyalty_client.get("/api/reports/R-1/photo", headers=MARY).content == b"\xff\xd8jpeg"
+    assert client.get("/api/reports", headers=MARY).json() == {"on": False, "reports": [], "counts": {}}

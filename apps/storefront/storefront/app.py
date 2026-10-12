@@ -36,7 +36,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from . import account
+from . import account, reports
 from .config import Settings, load_settings
 from .shelf import picked_up, read_recent_lines
 
@@ -629,6 +629,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 if sale["status"] == "paid" else "awaiting_payment", **priced_sale(sale, names)}
 
     account.install(app, accounts, RateLimiter(10, 900), sale_lines)
+    reports.install(app, accounts, "store")
     return app
 
 

@@ -8,6 +8,7 @@ class Settings:
     store_name: str
     inventory_url: str
     payments_url: str
+    customers_url: str = ""  # Customers Service: problem reports; empty turns "Report a problem" off
     stk_limit_per_phone: int = 3
     stk_limit_window_s: int = 600
     max_qty_per_item: int = 20
@@ -20,5 +21,6 @@ def load_settings() -> Settings:
         store_name=os.getenv("STORE_NAME", "Smart Shopping"),
         inventory_url=os.getenv("INVENTORY_URL", "http://localhost:8010"),
         payments_url=os.getenv("PAYMENTS_URL", "http://localhost:8000"),
+        customers_url=os.getenv("CUSTOMERS_URL", ""),
         stk_limit_per_phone=int(os.getenv("STK_LIMIT_PER_PHONE", "3")),
     )
