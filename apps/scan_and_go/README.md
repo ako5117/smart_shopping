@@ -9,6 +9,18 @@ The customer's phone becomes the till. They scan products as they shop, pay with
 
 If the customer cancels or the payment fails, they can try again for the same order, by M-Pesa or by card. Nothing leaves stock until a payment succeeds.
 
+## Loyalty points
+
+When the Customers Service is set (`CUSTOMERS_URL`) and points are on, Scan & Go purchases earn and spend the same points as the online shop. See [`services/customers`](../../services/customers) for the rules.
+
+- **Sign in:** the points card above the basket asks for the account's email and sends a 6-digit code. There's no password. Accounts are made in the online shop; the card links there.
+  - Scan & Go keeps its own sign-in, separate from the online shop's: signing in to one doesn't sign in to the other.
+  - Scan & Go is given only the customer's name and points, not their email, phone or birthday.
+- **Earn:** a signed-in customer's purchase is linked to their account and earns points once it's paid (1 per KES 100 by default).
+- **Spend:** at checkout, **Use N points: KES X off** takes whole blocks off (100 points = KES 50). The discount is worked out by the Customers Service and recorded on the sale, never taken from the phone, and it's what M-Pesa or the card is charged. The receipt shows it, and the points earned.
+- **If the payment can't start,** or the order is cancelled, the points come back.
+- **Customers Service down:** shopping and paying work as usual; the purchase just doesn't earn points.
+
 ## How it stays safe
 
 - **Prices come from the server.** The phone sends only products and quantities. The Inventory Service records each item's price on the sale, and that total is what M-Pesa charges, so changing the page can't lower the price.
@@ -77,9 +89,11 @@ Open http://localhost:8030 on the phone (via HTTPS, e.g. through the hosted Work
 |---|---|---|
 | `GET` | `/` | The app |
 | `GET` | `/api/store` | Store name, and `mode` / `airport` |
+| `GET` | `/api/account` | Whether points are on, and the signed-in customer's name and points |
+| `POST` | `/api/account/code`, `/api/account/verify`, `/api/account/signout` | `{email}`: email a sign-in code; `{email, code}`: sign in (sets the session cookie); sign out |
 | `POST` | `/api/traveller` | Airport mode: `{"boarding_pass": "M1..."}` or `{"name", "flight", "to"}`: check it before shopping |
 | `GET` | `/api/products/{ean13}` | Look up a scanned product and its price |
-| `POST` | `/api/checkout` | `{"phone": "...", "items": [{"product_id", "qty"}]}`: create the sale and send the M-Pesa prompt. Airport mode also needs `"traveller"` |
+| `POST` | `/api/checkout` | `{"phone": "...", "items": [{"product_id", "qty"}]}`: create the sale and send the M-Pesa prompt. Airport mode also needs `"traveller"`; `"use_points": true` spends a signed-in customer's points |
 | `GET` | `/api/orders/{order_id}/payments/{payment_id}` | Payment status, and the receipt once paid |
 | `GET` | `/api/orders/{order_id}/qr.svg` | QR code of the order number, for the exit check |
 | `POST` | `/api/orders/{order_id}/pay` | Send the M-Pesa prompt again after a cancel or failure |

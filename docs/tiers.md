@@ -17,7 +17,7 @@ Smart Shopping runs the same system in two tiers. A store starts on **Standard**
 - **Online shop:** live stock, substitutes for sold-out items, and click & collect or delivery.
 - **Returns:** unopened, non-perishable items within 14 days of payment, asked for online or at the counter, checked and approved by a manager, refunded by hand.
 - **Problem reports:** customers report problems and ideas from the online shop and Scan & Go, with a photo if they like; staff answer them on the dashboard.
-- **Customer accounts and loyalty points:** online customers sign up with their email, earn 1 point per KES 100 spent, and spend 100 points for KES 50 off. The store can switch points off.
+- **Customer accounts and loyalty points:** customers sign up with their email, earn 1 point per KES 100 spent online or with Scan & Go, and spend 100 points for KES 50 off. The store can switch points off.
 - **Delivery:** express or a scheduled time slot, priced by distance from the store (up to 20 km; customers further away are told before they shop). The store's own riders deliver, with a rider app and a 4-digit code from the customer as proof of delivery.
 - **SMS updates** to online customers: order paid, ready to collect, on its way.
 - **Store dashboard:**

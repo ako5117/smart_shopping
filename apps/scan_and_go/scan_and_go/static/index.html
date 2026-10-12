@@ -116,6 +116,14 @@
   .flyer button { background: transparent; color: var(--accent); padding: 6px 4px; }
   header .right { display: flex; align-items: center; gap: 8px; flex: none; }
   header .lang { background: rgba(255, 255, 255, .14); color: inherit; padding: 4px 10px; border-radius: 999px; font-size: 14px; font-weight: 700; }
+  .points { display: flex; gap: 12px; align-items: center; }
+  .points .star { width: 38px; height: 38px; border-radius: 12px; background: var(--ok-bg); color: var(--accent); display: grid;
+                  place-items: center; flex: none; font-size: 18px; }
+  .points .what { flex: 1; min-width: 0; }
+  .points .what small { display: block; color: var(--muted); font-size: 14px; }
+  .switchrow { display: flex; gap: 10px; align-items: center; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--ok-bg);
+               color: var(--accent); font-weight: 650; cursor: pointer; }
+  .switchrow input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); flex: none; }
   label.f { display: block; font-size: 14px; font-weight: 650; margin: 12px 0 6px; }
   [hidden] { display: none !important; }
 </style>
@@ -157,6 +165,24 @@
         <button class="secondary" data-t>Add</button>
       </form>
     </div>
+    <div class="card" id="points-card" hidden>
+      <div class="points"><span class="star" aria-hidden="true">★</span>
+        <div class="what"><b id="pts-title"></b><small id="pts-text"></small></div>
+        <button class="secondary" id="pts-signin" data-t>Sign in</button>
+        <button class="link" id="pts-signout" hidden data-t>Sign out</button></div>
+      <form id="signin-form" hidden style="margin-top:12px">
+        <label class="f" for="si-email" style="margin-top:0" data-t>Your account's email</label>
+        <input id="si-email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
+        <button style="width:100%;margin-top:10px" data-t>Email me a code</button>
+        <p class="muted" style="margin:10px 0 0;font-size:14px"><span data-t>No account yet?</span> <a href="../store/" id="pts-join" data-t>Create one in the online shop</a></p>
+      </form>
+      <form id="code-form" hidden style="margin-top:12px">
+        <label class="f" for="si-code" style="margin-top:0" id="si-code-label"></label>
+        <input id="si-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" required>
+        <button style="width:100%;margin-top:10px" data-t>Sign in</button>
+        <p class="muted" id="si-demo" hidden style="margin:10px 0 0;font-size:14px" data-t>Demo: emails aren't sent yet. The code is on the dashboard under Loyalty.</p>
+      </form>
+    </div>
     <div class="card">
       <h2 data-t>Your basket</h2>
       <div id="basket"></div>
@@ -171,6 +197,7 @@
         <label><input type="radio" name="paymethod" value="mpesa" checked> M-Pesa</label>
         <label><input type="radio" name="paymethod" value="card"> <span data-t>Card</span></label>
       </div>
+      <label class="switchrow" id="use-points-row" hidden><input type="checkbox" id="use-points"><span id="use-points-text"></span></label>
       <p class="muted" style="margin-top:0" id="pay-hint">We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.</p>
       <form id="phone-form">
         <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" data-t-aria-label required>
@@ -324,6 +351,18 @@ const SW = {
   "Paid {when}": "Imelipwa {when}", "Paid by card {card}": "Imelipwa kwa kadi {card}", "Order {id}": "Oda {id}",
   "Left the store at {time}. Thank you!": "Ulitoka dukani saa {time}. Asante!",
   "Choose what it's about and tell us what happened.": "Chagua linahusu nini na utueleze kilichotokea.",
+  "Sign out": "Toka", "Your account's email": "Barua pepe ya akaunti yako", "Email me a code": "Nitumie msimbo kwa barua pepe",
+  "No account yet?": "Bado huna akaunti?", "Create one in the online shop": "Ifungue kwenye duka la mtandaoni",
+  "Demo: emails aren't sent yet. The code is on the dashboard under Loyalty.":
+    "Onyesho: barua pepe bado hazitumwi. Msimbo uko kwenye dashibodi, chini ya Loyalty.",
+  "Sign in": "Ingia", "Points": "Pointi", "1 point earned": "Umepata pointi 1", "{n} points earned": "Umepata pointi {n}",
+  "1 point": "pointi 1", "{n} points": "pointi {n}", "1 point for every KES 100": "pointi 1 kwa kila KES 100",
+  "1 point per {amount}": "pointi 1 kwa kila {amount}", "{name} · {points}": "{name} · {points}",
+  "Worth {amount} off. You earn {rate} here.": "Thamani ya punguzo la {amount}. Hapa unapata {rate}.",
+  "You earn {rate} here.": "Hapa unapata {rate}.", "Collect points": "Kusanya pointi", "Sign in to earn {rate}.": "Ingia upate {rate}.",
+  "Use {points}: {amount} off": "Tumia {points}: punguzo la {amount}", "Pay {amount}": "Lipa {amount}",
+  "The 6-digit code we emailed to {email}": "Msimbo wa tarakimu 6 tuliotuma kwa {email}",
+  "Signed in. Your purchases here earn points.": "Umeingia. Ununuzi wako hapa unakupa pointi.",
   "Thanks, we've got it (reference {ref}). A member of staff can help you right away too.":
     "Asante, tumeipokea (kumbukumbu {ref}). Mhudumu anaweza pia kukusaidia sasa hivi.",
 };
@@ -406,6 +445,7 @@ function renderBasket() {
   $("count").textContent = items === 1 ? t("1 item") : t("{n} items", {n: items});
   $("total").textContent = kes(total);
   $("checkout").disabled = items === 0;
+  if (typeof renderPoints === "function" && acct) renderPoints();
   $("basket").innerHTML = basket.length ? basket.map((l, i) => `
     <div class="line">
       <div>${esc(l.name)}<div class="muted">${t("{price} each", {price: kes(l.price)})}${l.was_price ? ` <s>${kes(l.was_price)}</s> <b style="color:#d92d20">${t("offer")}</b>` : ""}</div></div>
@@ -585,6 +625,86 @@ $("flight-form").addEventListener("submit", (e) => {
 });
 $("flyer-change").addEventListener("click", () => { flyer = null; store.del("sg.flyer"); lastPass = ""; show("flyer"); });
 
+// ------------------------------------------------------------------ loyalty points (customers with an account)
+
+let acct = {available: false, signed_in: false};
+let signinEmail = "";
+
+async function loadAccount() {
+  try { acct = await api("api/account"); } catch { acct = {available: false, signed_in: false}; }
+  // A phone that hasn't chosen a language yet takes the account's.
+  const theirs = acct.signed_in && acct.customer?.language;
+  if (theirs && theirs !== lang && store.get("lang", null) === null) setLang(theirs);
+  renderPoints();
+}
+
+const goods = () => basket.reduce((n, l) => n + l.qty * l.price, 0);
+const ptsWord = (n) => n === 1 ? t("1 point") : t("{n} points", {n: Number(n).toLocaleString("en-KE")});
+function spendable() {  // whole blocks, never the whole basket (something is always paid)
+  const l = acct.settings, c = acct.customer;
+  if (!acct.signed_in || !l || !c) return 0;
+  return Math.max(0, Math.min(Math.floor(c.points / l.redeem_points), Math.floor(Math.max(0, goods() - 1) / l.redeem_kes)));
+}
+function pointsOff() { return $("use-points").checked ? spendable() * acct.settings.redeem_kes : 0; }
+
+function renderPoints() {
+  const l = acct.settings;
+  $("points-card").hidden = !acct.available;
+  if (!acct.available) { $("use-points-row").hidden = true; return; }
+  const rate = l.kes_per_point === 100 ? t("1 point for every KES 100") : t("1 point per {amount}", {amount: kes(l.kes_per_point)});
+  if (acct.signed_in) {
+    const c = acct.customer;
+    $("pts-title").textContent = t("{name} · {points}", {name: c.name.split(" ")[0], points: ptsWord(c.points)});
+    $("pts-text").textContent = c.worth_kes ? t("Worth {amount} off. You earn {rate} here.", {amount: kes(c.worth_kes), rate})
+      : t("You earn {rate} here.", {rate});
+    $("signin-form").hidden = $("code-form").hidden = true;
+  } else {
+    $("pts-title").textContent = t("Collect points");
+    $("pts-text").textContent = t("Sign in to earn {rate}.", {rate});
+  }
+  $("pts-signin").hidden = acct.signed_in || !$("signin-form").hidden || !$("code-form").hidden;
+  $("pts-signout").hidden = !acct.signed_in;
+  const can = spendable();
+  $("use-points-row").hidden = !can;
+  if (!can) $("use-points").checked = false;
+  $("use-points-text").textContent = can ? t("Use {points}: {amount} off", {points: ptsWord(can * l.redeem_points), amount: kes(can * l.redeem_kes)}) : "";
+  renderPayButton();
+}
+function renderPayButton() {
+  const off = pointsOff();
+  $("pay-button").textContent = off ? t("Pay {amount}", {amount: kes(goods() - off)}) : t("Pay");
+}
+$("use-points").addEventListener("change", renderPayButton);
+
+$("pts-signin").addEventListener("click", () => { $("signin-form").hidden = false; renderPoints(); $("si-email").focus(); });
+$("signin-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const r = await api("api/account/code", {method: "POST", body: JSON.stringify({email: $("si-email").value.trim()})});
+    signinEmail = r.email;
+    $("signin-form").hidden = true;
+    $("code-form").hidden = false;
+    $("si-code-label").textContent = t("The 6-digit code we emailed to {email}", {email: signinEmail});
+    $("si-demo").hidden = acct.settings?.email_provider !== "outbox";
+    $("si-code").value = "";
+    $("si-code").focus();
+    say("");
+  } catch (err) { say(err.message); }
+});
+$("code-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("api/account/verify", {method: "POST", body: JSON.stringify({email: signinEmail, code: $("si-code").value.trim()})});
+    $("code-form").hidden = true;
+    await loadAccount();
+    say(t("Signed in. Your purchases here earn points."), "ok");
+  } catch (err) { say(err.message); }
+});
+$("pts-signout").addEventListener("click", async () => {
+  await api("api/account/signout", {method: "POST"}).catch(() => {});
+  await loadAccount();
+});
+
 // ------------------------------------------------------------------ checkout and payment
 
 $("checkout").addEventListener("click", () => {
@@ -594,6 +714,7 @@ $("checkout").addEventListener("click", () => {
   $("email").value = store.get("sg.email", "");
   show("phone");
   renderPayMethod();
+  renderPoints();
   $("phone").focus();
 });
 $("back-to-basket").addEventListener("click", () => show("scan"));
@@ -606,7 +727,7 @@ $("phone-form").addEventListener("submit", async (e) => {
     const method = payMethod(), phone = $("phone").value.trim(), email = $("email").value.trim();
     const r = await api("api/checkout", {method: "POST", body: JSON.stringify({
       method, ...(method === "card" ? {email} : {phone}), items: basket.map((l) => ({product_id: l.product_id, qty: l.qty})),
-      ...(airport && flyer ? {traveller: flyer.input} : {})})});
+      use_points: pointsOff() > 0, ...(airport && flyer ? {traveller: flyer.input} : {})})});
     if (method === "card") store.set("sg.email", email); else store.set("sg.phone", phone);
     order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, email, method};
     store.set("sg.order", order);
@@ -694,7 +815,9 @@ $("retry-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain
 $("retry-card-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "card", email: $("retry-email").value.trim()}); });
 
 let receipt = null;  // the last receipt shown, to show again in another language
+let receiptPointsSeen = false;
 function showReceipt(s) {
+  if (receipt?.order_id !== s.order_id) receiptPointsSeen = false;
   receipt = s;
   clearTimeout(pollTimer);
   show("receipt");
@@ -706,7 +829,9 @@ function showReceipt(s) {
   if (!$("pass-qr").src.endsWith(qr)) $("pass-qr").src = qr;
   $("receipt-store").textContent = s.store_name;
   $("receipt-lines").innerHTML = s.lines.map((l) => `
-    <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("");
+    <div class="line"><div>${l.qty} × ${esc(l.name)}</div><div class="num">${kes(l.line_total)}</div></div>`).join("")
+    + (s.points_discount ? `<div class="line"><div>${t("Points")}</div><div class="num">− ${kes(s.points_discount)}</div></div>` : "");
+  if (s.points && s.points.earn && !receiptPointsSeen) { receiptPointsSeen = true; loadAccount(); }  // the new balance
   $("receipt-total").textContent = kes(s.amount ?? s.total);
   const paid = s.paid_at ? new Date(s.paid_at) : null;
   $("receipt-meta").textContent = [
@@ -714,6 +839,7 @@ function showReceipt(s) {
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
     s.card ? t("Paid by card {card}", {card: s.card}) : s.phone, t("Order {id}", {id: s.order_id}),
     s.traveller ? `${s.traveller.name}, ${s.traveller.flight} ${s.traveller.from}→${s.traveller.to}` : "",
+    s.points && s.points.earn ? (s.points.earn === 1 ? t("1 point earned") : t("{n} points earned", {n: s.points.earn})) : "",
   ].filter(Boolean).join(" · ");
   clearInterval(clockTimer);
   if (s.exited_at) {
@@ -786,6 +912,7 @@ function setLang(l) {
   renderFlyer();
   renderCameraButtons();
   $("step-label").textContent = t(STEPS[view]);
+  renderPoints();
   if (view === "phone") renderPayMethod();
   if (view === "wait" && order) renderWait();
   if (view === "receipt" && receipt) showReceipt(receipt);
@@ -810,6 +937,7 @@ translatePage();
 renderIntro();
 renderCameraButtons();
 renderBasket();
+loadAccount();
 // Coming back from the card page: the address has ?order=...; the order itself is remembered on this phone.
 if (new URLSearchParams(location.search).get("order")) history.replaceState(null, "", location.pathname);
 if (order) waitForPayment(); else show("scan");

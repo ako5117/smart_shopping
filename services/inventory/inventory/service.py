@@ -298,8 +298,8 @@ class Inventory:
             raise ValueError("Only online orders can be delivered")
         if delivery_fee_kes < 0 or (delivery_fee_kes and fulfilment != "delivery"):
             raise ValueError("A delivery fee only applies to deliveries")
-        if loyalty_discount_kes < 0 or (loyalty_discount_kes and channel != "online"):
-            raise ValueError("A loyalty discount only applies to online orders")
+        if loyalty_discount_kes < 0:
+            raise ValueError("A loyalty discount can't be negative")
         if traveller is not None:
             unknown = set(traveller) - TRAVELLER_FIELDS
             if unknown or not traveller.get("flight") or not traveller.get("name"):

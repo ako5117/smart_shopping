@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from .airport import Airport, FlightBoard, NotAllowed
-from . import i18n
+from . import account, i18n
 from .config import Settings, load_settings
 
 log = logging.getLogger("scan_and_go")
@@ -75,6 +75,7 @@ class CheckoutIn(BaseModel):
     email: Optional[str] = Field(None, max_length=120, description="Card: the receipt goes here")
     items: List[Line] = Field(..., min_length=1)
     traveller: Optional[TravellerIn] = Field(None, description="Airport mode: who's flying where (required there)")
+    use_points: bool = Field(False, description="A signed-in customer spends points (whole blocks) on this purchase")
 
 
 class PayIn(BaseModel):
@@ -151,6 +152,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     if customers is None and settings.customers_url:
         customers = httpx.Client(base_url=settings.customers_url, timeout=10.0)
     report_limiter = RateLimiter(6, 3600)
+    accounts = account.Accounts(customers)
     if settings.store_mode not in ("shop", "airport"):
         raise ValueError("STORE_MODE should be shop or airport")
     airport = Airport(settings.airport_code, FlightBoard(settings.flights_file), settings.store_tz) \
@@ -240,7 +242,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             price = it.get("unit_price_kes") or p["price"]  # the price saved on the sale wins
             lines.append({"product_id": it["product_id"], "name": p["name"], "qty": it["qty"], "price": price,
                           "line_total": (price or 0) * it["qty"]})
-        return {"lines": lines, "total": sum(l["line_total"] for l in lines)}
+        points_off = sale.get("loyalty_discount_kes") or 0
+        return {"lines": lines, "points_discount": points_off, "total": sum(l["line_total"] for l in lines) - points_off}
 
     @app.get("/health")
     def health():
@@ -271,6 +274,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             raise HTTPException(422 if r.status_code == 422 else 502, "Please check what you wrote and try again.")
         out = r.json()
         return {k: out[k] for k in ("report_id", "kind_label", "status")}
+
+    account.install(app, accounts, RateLimiter(10, 900))
 
     @app.get("/api/store")
     def store():
@@ -314,26 +319,43 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             lines.append((p, qty))
         flyer = traveller_from(body.traveller)
         sale_id = "SG-" + secrets.token_hex(8).upper()
-        r = upstream("Inventory", lambda: inventory.post("/sales", json={
-            "sale_id": sale_id, "store_id": settings.store_id, **({"traveller": flyer} if flyer else {}),
-            **({"customer_name": flyer["name"]} if flyer else {}),
-            "items": [{"product_id": p["product_id"], "qty": qty} for p, qty in lines]}))
+        # A signed-in customer: link the sale to their account (it earns points once paid), spending points if asked.
+        linked = accounts.start_order(request, sale_id, sum(p["price"] * qty for p, qty in lines), body.use_points)
+        points_off = (linked or {}).get("discount_kes", 0)
+
+        def give_back():
+            if linked:
+                accounts.cancel_order(sale_id)
+
+        try:
+            r = upstream("Inventory", lambda: inventory.post("/sales", json={
+                "sale_id": sale_id, "store_id": settings.store_id, **({"traveller": flyer} if flyer else {}),
+                **({"customer_name": flyer["name"]} if flyer else {}),
+                "loyalty_discount_kes": points_off, "customer_id": (linked or {}).get("customer_id", ""),
+                "items": [{"product_id": p["product_id"], "qty": qty} for p, qty in lines]}))
+        except HTTPException:
+            give_back()
+            raise
         if r.status_code >= 400:
+            give_back()
             log.error("Inventory refused sale %s: %s %s", sale_id, r.status_code, r.text[:200])
             raise HTTPException(502, "The store system couldn't start your order. Please pay at a till.")
         # Charge the prices the Inventory Service saved on the sale, not this app's cached copy.
         sale = r.json()
-        if any(not it.get("unit_price_kes") for it in sale.get("items", [])):
+        goods = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale.get("items", []))
+        if any(not it.get("unit_price_kes") for it in sale.get("items", [])) or points_off >= goods:
             upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+            give_back()
             raise HTTPException(409, "Something in your basket can't be bought with Scan & Go. Please remove it.")
-        total = sum(it["unit_price_kes"] * it["qty"] for it in sale["items"])
+        total = goods - points_off
 
         try:
             payment = pay(sale_id, body.method, body.phone, body.email, total, request)
         except HTTPException:
             upstream("Inventory", lambda: inventory.post(f"/sales/{sale_id}/cancel"))
+            give_back()
             raise
-        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total,
+        return {"order_id": sale_id, "payment_id": payment["payment_id"], "total": total, "points_discount": points_off,
                 "checkout_url": payment.get("checkout_url")}
 
     @app.get("/api/orders/{order_id}/qr.svg")
@@ -392,6 +414,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "paid_at": payment.get("updated_at") if payment["status"] == "paid" else None,
             "exited_at": sale.get("exited_at"),
             "traveller": sale.get("traveller") or None,
+            "points": accounts.points_for(sale),
             "result": payment.get("result_desc"),
             **priced_sale(sale),
         }
