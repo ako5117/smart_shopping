@@ -45,7 +45,7 @@ Full logic: [`sensor-logic.md`](sensor-logic.md).
 
 ## Later — Warehouse / logistics
 
-The same sensing core tracks stock in warehouses and go-downs (including retailers' own supply warehouses). A phone app for stock controllers replaces manual shelf counts.
+The same sensing core tracks stock in warehouses and go-downs (including retailers' own supply warehouses). A phone app for stock controllers replaces manual shelf counts. **Started:** [`services/warehouse`](../services/warehouse) — goods in, bin counts and moves, and transfers to stores on the stock controller's phone. Warehouse shelf sensors come later.
 
 ## Target markets
 

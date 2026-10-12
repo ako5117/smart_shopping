@@ -16,6 +16,7 @@
 | `/shop/` | Scan & Go | Public (customers' phones) |
 | `/store/` | Online shop: order online, collect in store or have it delivered | Public |
 | `/rider/` | Rider app: deliveries on the rider's phone | Riders (and managers) |
+| `/warehouse/` | Warehouse app: goods in, bin counts, moves and transfers to stores, on the stock controller's phone | Stock controllers (and managers) |
 | `/dashboard/` | Store dashboard: Overview, Products, Exit check | Any staff login |
 | `/inventory/...` | Inventory Service API (`/inventory/docs` for the API docs page) | Managers |
 | `/dispatch/...` | Dispatch Service API (`/dispatch/docs`) | Managers |
@@ -32,21 +33,23 @@ Everyone has their own login. Logins are managed with `scripts/staff.sh` and kep
 ./scripts/staff.sh add adrian --manager   # asks for a password (at least 8 characters)
 ./scripts/staff.sh add mary               # ordinary staff
 ./scripts/staff.sh add otieno --rider     # a rider: the rider app only
+./scripts/staff.sh add wanjiru --stock    # a warehouse stock controller: the warehouse app only
 ./scripts/staff.sh list
 ./scripts/staff.sh password mary          # new password
-./scripts/staff.sh role mary manager      # or: role mary staff / rider
+./scripts/staff.sh role mary manager      # or: role mary staff / rider / stock
 ./scripts/staff.sh remove mary
 ```
 
 Changes take effect immediately, with no restart. **Add at least one manager before the first start**: the proxy won't start with no logins.
 
-| | Rider | Staff | Manager |
-|---|---|---|---|
-| Rider app (`/rider/`): accept and deliver orders | ✓ | | ✓ |
-| Dashboard: overview, restock, exit check, pack and dispatch online orders | | ✓ | ✓ |
-| Add products, change prices | | | ✓ |
-| Record a stock count (correct a difference) | | | ✓ |
-| Raw Inventory, Dispatch and Payments APIs (`/inventory/`, `/dispatch/`, `/pay/`) | | | ✓ |
+| | Rider | Stock | Staff | Manager |
+|---|---|---|---|---|
+| Rider app (`/rider/`): accept and deliver orders | ✓ | | | ✓ |
+| Warehouse app (`/warehouse/`): goods in, counts, moves, send to stores | | ✓ | | ✓ |
+| Dashboard: overview, restock, exit check, pack and dispatch online orders | | | ✓ | ✓ |
+| Add products, change prices | | | | ✓ |
+| Record a stock count (correct a difference) | | | | ✓ |
+| Raw Inventory, Dispatch and Payments APIs (`/inventory/`, `/dispatch/`, `/pay/`) | | | | ✓ |
 
 The dashboard records who did what:
 - each restock and stock correction

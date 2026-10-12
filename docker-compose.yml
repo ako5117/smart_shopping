@@ -20,7 +20,7 @@ services:
       # Staff logins and roles: create them with scripts/staff.sh add <name> --manager
       - ./deploy/staff:/etc/caddy/staff:ro
       - caddy-data:/data
-    depends_on: [inventory, payments, dispatch, notify, customers, dashboard, scan_and_go, storefront, rider]
+    depends_on: [inventory, payments, dispatch, notify, customers, dashboard, scan_and_go, storefront, rider, warehouse]
 
   # The shared database. Each service keeps its tables in its own schema.
   db:
@@ -266,6 +266,29 @@ services:
       INVENTORY_URL: http://inventory:8010
       UVICORN_ROOT_PATH: /rider
     depends_on: [dispatch, inventory]
+
+  # Warehouse (go-down) stock by bin, and goods sent to the stores. Stock controllers use its phone page at /warehouse/.
+  warehouse:
+    build: services/warehouse
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      DATABASE_URL: postgresql://smartshopping:${DB_PASSWORD}@db:5432/smartshopping
+      DATABASE_SCHEMA: warehouse
+      WAREHOUSE_ID: ${WAREHOUSE_ID:-WH1}
+      WAREHOUSE_NAME: ${WAREHOUSE_NAME:-Warehouse}
+      WAREHOUSE_STORES: ${WAREHOUSE_STORES:-${STORE_ID:-001}}
+      INVENTORY_URL: http://inventory:8010
+      UVICORN_ROOT_PATH: /warehouse
+    depends_on:
+      db: {condition: service_healthy}
+      inventory: {condition: service_started}
 
   # Stand-in for Safaricom Daraja (tools/mpesa_simulator). Only runs with the "demo" profile.
   mpesa_sim:

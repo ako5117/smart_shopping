@@ -46,7 +46,8 @@ smart_shopping/
 │   ├── dispatch/            # Rider deliveries of online orders: assignment, handover, proof of delivery
 │   ├── notify/              # Texts to online customers (Africa's Talking SMS): paid, ready, on the way
 │   ├── customers/           # Customer accounts and loyalty points for the online shop
-│   └── inventory/           # Stock ledger, sales, retailer sync and reconciliation
+│   ├── inventory/           # Stock ledger, sales, retailer sync and reconciliation
+│   └── warehouse/           # Go-down stock by bin, and transfers to stores; stock controllers' phone app
 ├── docker-compose.yml       # All services behind one HTTPS proxy (local demo or DigitalOcean)
 ├── deploy/                  # Caddy proxy config and the DigitalOcean guide
 ├── scripts/                 # demo.sh, server-setup.sh, configure.sh, preflight.sh, deploy.sh, backup.sh, staff.sh

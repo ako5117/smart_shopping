@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a4d">
+<title>Warehouse</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
+    --accent: #1f7a4d; --accent-text: #ffffff; --bad: #b42318; --bad-bg: #fdecea; --ok-bg: #e7f5ee; --chip: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
+      --accent: #4cc38a; --accent-text: #0d1f16; --bad: #f2786d; --bad-bg: #3d1d1b; --ok-bg: #173327; --chip: #262b33;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line);
+           padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  header b { font-size: 17px; }
+  nav { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  nav button { background: var(--chip); color: var(--text); font-weight: 600; white-space: nowrap; }
+  nav button.on { background: var(--accent); color: var(--accent-text); }
+  main { max-width: 560px; margin: 0 auto; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 11px 14px; cursor: pointer;
+           background: var(--accent); color: var(--accent-text); }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px;
+          background: var(--bg); color: var(--text); }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+  .wide { width: 100%; margin-top: 14px; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
+  .msg.bad { background: var(--bad-bg); color: var(--bad); }
+  .msg.ok { background: var(--ok-bg); color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td, th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); }
+  .pill.go { background: var(--ok-bg); color: var(--accent); }
+  #scanner { position: fixed; inset: 0; background: #000; z-index: 5; display: flex; flex-direction: column; }
+  #scanner video { flex: 1; width: 100%; object-fit: cover; }
+  #scanner .bar { padding: 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><b id="title">Warehouse</b><span class="muted small" id="who"></span></header>
+<nav id="tabs">
+  <button data-tab="receive" class="on">Receive</button>
+  <button data-tab="count">Count</button>
+  <button data-tab="move">Move</button>
+  <button data-tab="send">Send to store</button>
+  <button data-tab="stock">Stock</button>
+</nav>
+<main>
+  <div id="msg" class="msg" hidden></div>
+
+  <!-- Goods in from a supplier -->
+  <form class="card" data-pane="receive">
+    <b>Goods in</b>
+    <div class="muted small">Scan each product as it's put away.</div>
+    <label>Barcode</label>
+    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
+    <div class="muted small" data-name="ean13"></div>
+    <label>Bin</label>
+    <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
+    <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
+    <label>Supplier delivery note (optional)</label><input name="ref" maxlength="60">
+    <button class="wide">Save</button>
+  </form>
+
+  <!-- Counting a bin -->
+  <form class="card" data-pane="count" hidden>
+    <b>Count a bin</b>
+    <div class="muted small">Scan the bin, then each product in it, and type how many you see.</div>
+    <label>Bin</label>
+    <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
+    <label>Barcode</label>
+    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
+    <div class="muted small" data-name="ean13"></div>
+    <label>Counted</label><input name="counted_qty" type="number" min="0" inputmode="numeric" required>
+    <button class="wide">Save count</button>
+  </form>
+
+  <!-- Moving between bins -->
+  <form class="card" data-pane="move" hidden>
+    <b>Move between bins</b>
+    <label>Barcode</label>
+    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
+    <div class="muted small" data-name="ean13"></div>
+    <label>From bin</label>
+    <div class="row"><input class="grow" name="from_bin" autocapitalize="characters" required><button type="button" data-scan="from_bin">Scan</button></div>
+    <label>To bin</label>
+    <div class="row"><input class="grow" name="to_bin" autocapitalize="characters" required><button type="button" data-scan="to_bin">Scan</button></div>
+    <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
+    <button class="wide">Move</button>
+  </form>
+
+  <!-- Sending goods to a store -->
+  <div data-pane="send" hidden>
+    <form class="card" id="line-form">
+      <b>Send to a store</b>
+      <label>Store</label><select id="store"></select>
+      <label>Barcode</label>
+      <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
+      <div class="muted small" data-name="ean13"></div>
+      <label>From bin</label>
+      <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
+      <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
+      <button class="wide secondary">Add to the list</button>
+    </form>
+    <div class="card" id="pick" hidden>
+      <table><thead><tr><th>Product</th><th>Bin</th><th class="n">Qty</th><th></th></tr></thead><tbody></tbody></table>
+      <button class="wide" id="dispatch">Send these to the store</button>
+    </div>
+    <div class="card"><b>On the way</b><div id="transfers" class="small"></div></div>
+  </div>
+
+  <!-- What's where -->
+  <div data-pane="stock" hidden>
+    <div class="card">
+      <div class="row"><input class="grow" id="stock-bin" placeholder="Bin (empty: all)" autocapitalize="characters">
+        <button type="button" id="stock-go">Show</button></div>
+    </div>
+    <div class="card"><table><thead><tr><th>Bin</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody id="stock"></tbody></table></div>
+  </div>
+</main>
+
+<div id="scanner" hidden>
+  <video playsinline muted></video>
+  <div class="bar"><span id="scan-hint">Point the camera at the barcode</span><button type="button" id="scan-stop">Close</button></div>
+</div>
+
+<script>
+const $ = (s, root = document) => root.querySelector(s);
+const ZXING_URL = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
+let me = null, picks = [];
+
+function say(text, ok = false) {
+  const m = $("#msg");
+  m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); m.hidden = !text;
+  if (text) window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function newId() {
+  return (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+}
+
+async function api(path, options = {}) {
+  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const body = r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text();
+  if (!r.ok) {
+    const d = body.detail ?? body;
+    throw new Error(typeof d === "string" ? d : d.message ?? (Array.isArray(d) ? d.map((e) => e.msg).join("; ") : JSON.stringify(d)));
+  }
+  return body;
+}
+
+function cell(text, cls = "") {
+  const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td;
+}
+
+// The product's name under its barcode once 13 digits are in.
+async function showName(form) {
+  const input = form.elements.ean13, out = $("[data-name=ean13]", form);
+  if (!/^\d{13}$/.test(input.value)) { out.textContent = ""; return; }
+  try {
+    const p = await api("api/products/" + input.value);
+    const where = p.bins.map((b) => `${b.bin}: ${b.qty}`).join(", ");
+    out.textContent = p.name + (where ? ` — ${where}` : " — none in the warehouse");
+  } catch (e) { out.textContent = e.message; }
+}
+
+// Tabs
+for (const b of document.querySelectorAll("#tabs button")) {
+  b.onclick = () => {
+    for (const x of document.querySelectorAll("#tabs button")) x.classList.toggle("on", x === b);
+    for (const p of document.querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== b.dataset.tab;
+    say("");
+    if (b.dataset.tab === "stock") loadStock();
+    if (b.dataset.tab === "send") loadTransfers();
+  };
+}
+
+for (const form of document.querySelectorAll("form")) {
+  if (form.elements.ean13) form.elements.ean13.addEventListener("input", () => showName(form));
+}
+
+function values(form) {
+  const v = Object.fromEntries(new FormData(form));
+  for (const k of ["qty", "counted_qty"]) if (k in v) v[k] = Number(v[k]);
+  return v;
+}
+
+function done(form, keep, text) {
+  for (const el of form.elements) if (el.name && !keep.includes(el.name)) el.value = "";
+  const n = $("[data-name=ean13]", form); if (n) n.textContent = "";
+  say(text, true);
+}
+
+$("[data-pane=receive]").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const r = await api("api/receipts", {method: "POST", body: JSON.stringify({...values(f), scan_id: newId()})});
+    done(f, ["bin", "ref"], `${r.product.name}: ${r.bin} now holds ${r.bin_qty}.`);
+  } catch (err) { say(err.message); }
+};
+
+$("[data-pane=count]").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const r = await api("api/counts", {method: "POST", body: JSON.stringify({...values(f), count_id: newId()})});
+    const diff = r.difference === 0 ? "matches the records" : `${r.difference > 0 ? "+" : ""}${r.difference} against the records`;
+    done(f, ["bin"], `${r.product.name} in ${r.bin}: ${r.counted} counted, ${diff}.`);
+  } catch (err) { say(err.message); }
+};
+
+$("[data-pane=move]").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const r = await api("api/moves", {method: "POST", body: JSON.stringify({...values(f), move_id: newId()})});
+    done(f, [], `Moved ${r.moved} ${r.product.name}: ${r.from_bin} has ${r.from_qty}, ${r.to_bin} has ${r.to_qty}.`);
+  } catch (err) { say(err.message); }
+};
+
+// Send to store: build a pick list, then send it in one go.
+$("#line-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const f = e.target, v = values(f);
+  try {
+    const p = await api("api/products/" + v.ean13);
+    picks.push({...v, bin: v.bin.trim().toUpperCase(), name: p.name});
+    done(f, [], "");
+    renderPicks();
+  } catch (err) { say(err.message); }
+};
+
+function renderPicks() {
+  const body = $("#pick tbody"); body.innerHTML = "";
+  picks.forEach((l, i) => {
+    const tr = document.createElement("tr");
+    tr.append(cell(l.name), cell(l.bin), cell(l.qty, "n"));
+    const x = document.createElement("button"); x.type = "button"; x.className = "secondary"; x.textContent = "✕";
+    x.onclick = () => { picks.splice(i, 1); renderPicks(); };
+    const td = document.createElement("td"); td.append(x); tr.append(td);
+    body.append(tr);
+  });
+  $("#pick").hidden = picks.length === 0;
+}
+
+let pendingTransfer = null;  // kept until it succeeds, so a retry after a dropped connection isn't sent twice
+$("#dispatch").onclick = async () => {
+  pendingTransfer ??= newId();
+  const store_id = $("#store").value;
+  try {
+    await api("api/transfers", {method: "POST", body: JSON.stringify({
+      transfer_id: pendingTransfer, store_id, lines: picks.map(({ean13, bin, qty}) => ({ean13, bin, qty}))})});
+    picks = []; pendingTransfer = null; renderPicks();
+    say(`Sent to store ${store_id}. Mark it received when it arrives.`, true);
+    loadTransfers();
+  } catch (err) { say(err.message); }
+};
+
+async function loadTransfers() {
+  const box = $("#transfers"); box.textContent = "";
+  try {
+    const list = await api("api/transfers?limit=20");
+    if (!list.length) { box.textContent = "Nothing sent yet."; return; }
+    for (const t of list) {
+      const div = document.createElement("div"); div.className = "row"; div.style.padding = "8px 0";
+      const items = t.lines.reduce((n, l) => n + l.qty, 0);
+      const info = document.createElement("div"); info.className = "grow";
+      info.textContent = `Store ${t.store_id} · ${items} items · ${t.created_at.slice(0, 16).replace("T", " ")}`;
+      div.append(info);
+      if (t.status === "dispatched") {
+        const b = document.createElement("button"); b.className = "secondary"; b.textContent = "Received";
+        b.onclick = async () => {
+          b.disabled = true;
+          try { await api(`api/transfers/${encodeURIComponent(t.transfer_id)}/received`, {method: "POST"});
+                say(`Added to store ${t.store_id}'s stock.`, true); loadTransfers(); }
+          catch (err) { say(err.message); b.disabled = false; }
+        };
+        div.append(b);
+      } else {
+        const s = document.createElement("span"); s.className = "pill go"; s.textContent = "Received"; div.append(s);
+      }
+      box.append(div);
+    }
+  } catch (err) { box.textContent = err.message; }
+}
+
+async function loadStock() {
+  const bin = $("#stock-bin").value.trim();
+  const body = $("#stock"); body.innerHTML = "";
+  try {
+    const rows = await api("api/stock" + (bin ? "?bin=" + encodeURIComponent(bin) : ""));
+    for (const r of rows) { const tr = document.createElement("tr"); tr.append(cell(r.bin), cell(r.name), cell(r.qty, "n")); body.append(tr); }
+    if (!rows.length) { const tr = document.createElement("tr"); tr.append(cell("Nothing here.")); body.append(tr); }
+  } catch (err) { say(err.message); }
+}
+$("#stock-go").onclick = loadStock;
+
+// Camera scanning: product barcodes (EAN-13) and bin labels (Code 128 or QR).
+let stream = null, scanning = false, reader = null;
+for (const b of document.querySelectorAll("[data-scan]")) {
+  b.onclick = () => scan(b.closest("form").elements[b.dataset.scan]);
+}
+
+async function scan(input) {
+  if (!navigator.mediaDevices?.getUserMedia) return say("This phone's browser can't use the camera here. Type the code instead.");
+  const isProduct = input.name === "ean13";
+  const native = isProduct ? ["ean_13"] : ["code_128", "qr_code"];
+  const found = (code) => {
+    if (isProduct && !/^\d{13}$/.test(code)) return;
+    input.value = code; stopScan();
+    input.dispatchEvent(new Event("input"));
+  };
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false});
+  } catch { return say("The camera is blocked. Allow it for this site, or type the code."); }
+  const video = $("#scanner video");
+  $("#scanner").hidden = false; video.srcObject = stream; await video.play(); scanning = true;
+  const supported = "BarcodeDetector" in window ? await BarcodeDetector.getSupportedFormats() : [];
+  if (native.every((f) => supported.includes(f))) {
+    const detector = new BarcodeDetector({formats: native});
+    const tick = async () => {
+      if (!scanning) return;
+      try { const [hit] = await detector.detect(video); if (hit) found(hit.rawValue); } catch {}
+      setTimeout(tick, 250);
+    };
+    tick();
+  } else {
+    try {
+      if (!window.ZXing) await new Promise((ok, fail) => {
+        const s = document.createElement("script"); s.src = ZXING_URL; s.onload = ok; s.onerror = fail; document.head.appendChild(s);
+      });
+      const F = ZXing.BarcodeFormat;
+      const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, isProduct ? [F.EAN_13] : [F.CODE_128, F.QR_CODE]]]);
+      reader = new ZXing.BrowserMultiFormatReader(hints, 250);
+      reader.decodeFromStream(stream, video, (r) => { if (r && scanning) found(r.getText()); });
+    } catch { stopScan(); say("The scanner couldn't load. Type the code instead."); }
+  }
+}
+
+function stopScan() {
+  scanning = false;
+  if (reader) { try { reader.reset(); } catch {} reader = null; }
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  $("#scanner").hidden = true;
+}
+$("#scan-stop").onclick = stopScan;
+
+(async () => {
+  try {
+    me = await api("api/me");
+    $("#title").textContent = me.warehouse_name;
+    $("#who").textContent = me.name;
+    for (const s of me.stores) { const o = document.createElement("option"); o.value = o.textContent = s; $("#store").append(o); }
+  } catch (err) { say(err.message); }
+})();
+</script>
+</body>
+</html>

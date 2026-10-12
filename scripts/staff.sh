@@ -4,12 +4,13 @@
 #   ./scripts/staff.sh add mary              add staff; prompts for a password (or --password 'x')
 #   ./scripts/staff.sh add adrian --manager  add a manager: can change prices, correct stock, use the APIs
 #   ./scripts/staff.sh add otieno --rider    add a rider: uses the rider app (/rider/) only
+#   ./scripts/staff.sh add wanjiru --stock   add a stock controller: uses the warehouse app (/warehouse/) only
 #   ./scripts/staff.sh password mary         set a new password
-#   ./scripts/staff.sh role mary manager     make someone a manager (or: role mary staff / rider)
+#   ./scripts/staff.sh role mary manager     make someone a manager (or: role mary staff / rider / stock)
 #   ./scripts/staff.sh remove mary
 #   ./scripts/staff.sh list
 #
-# Logins live in deploy/staff/users ("name bcrypt-hash"), roles in deploy/staff/roles ("name manager" / "name rider").
+# Logins live in deploy/staff/users ("name bcrypt-hash"), roles in deploy/staff/roles ("name manager" / "name rider" / "name stock").
 # Both are git-ignored. Changes take effect at once if the stack is running.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -67,7 +68,7 @@ case "$cmd" in
     h="$(hash_password "$pw")"   # exits here on a bad password, before anything is written
     echo "$name $h" >> "$USERS"
     role=staff
-    if [[ " $* " == *" --manager "* ]]; then role=manager; elif [[ " $* " == *" --rider "* ]]; then role=rider; fi
+    if [[ " $* " == *" --manager "* ]]; then role=manager; elif [[ " $* " == *" --rider "* ]]; then role=rider; elif [[ " $* " == *" --stock "* ]]; then role=stock; fi
     [ "$role" = staff ] || echo "$name $role" >> "$ROLES"
     echo "Added $name ($role)."
     reload ;;
@@ -84,9 +85,9 @@ case "$cmd" in
     exists "$name" || die "No login called $name."
     without "$name" "$ROLES"
     case "$role" in
-      manager|rider) echo "$name $role" >> "$ROLES" ;;
+      manager|rider|stock) echo "$name $role" >> "$ROLES" ;;
       staff) ;;
-      *) die "Role must be manager, staff or rider." ;;
+      *) die "Role must be manager, staff, rider or stock." ;;
     esac
     echo "$name is now $role."
     reload ;;
