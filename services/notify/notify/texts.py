@@ -1,5 +1,7 @@
 """What the customer is texted, and the phone numbers it goes to.
 
+Texts go in the customer's language (the order records it): English, or Kiswahili (sw).
+
 Each text fits one SMS: at most 160 characters, using only characters in the GSM 03.38 alphabet (a
 single curly quote or emoji would turn it into a 70-character Unicode SMS, costing two or three).
 """
@@ -34,7 +36,13 @@ def _short(name: str, n: int) -> str:
     return name if len(name) <= n else name[:n - 1].rstrip() + "."
 
 
-def paid(store: str, code: str, total: int, pin: Optional[str] = None) -> str:
+def paid(store: str, code: str, total: int, pin: Optional[str] = None, lang: str = "en") -> str:
+    if lang == "sw":
+        if pin:
+            return fit(f"{_short(store, 24)}: oda {code} imelipwa, KES {total:,}. Nambari yako ya kupokea ni {pin}. "
+                       f"Mpe msafirishaji oda yako ikifika.")
+        return fit(f"{_short(store, 24)}: oda {code} imelipwa, KES {total:,}. "
+                   f"Tutakutumia ujumbe ikiwa tayari kuchukuliwa.")
     if pin:
         return fit(f"{_short(store, 24)}: order {code} is paid, KES {total:,}. Your delivery code is {pin}. "
                    f"Give it to the rider when your order arrives.")
@@ -42,13 +50,18 @@ def paid(store: str, code: str, total: int, pin: Optional[str] = None) -> str:
                f"We'll text you when it's ready to collect.")
 
 
-def ready(store: str, code: str) -> str:
+def ready(store: str, code: str, lang: str = "en") -> str:
+    if lang == "sw":
+        return fit(f"{_short(store, 24)}: oda {code} iko tayari. Ichukue kwenye kaunta na uonyeshe pasi iliyo kwenye "
+                   f"ukurasa wa oda yako.")
     return fit(f"{_short(store, 24)}: order {code} is ready. Collect it at the counter and show the pass on "
                f"your order page.")
 
 
-def on_the_way(store: str, code: str, rider: str, rider_phone: str, pin: str) -> str:
+def on_the_way(store: str, code: str, rider: str, rider_phone: str, pin: str, lang: str = "en") -> str:
     who = _short(rider, 20) + (f" ({rider_phone})" if rider_phone else "")
+    if lang == "sw":
+        return fit(f"{_short(store, 24)}: oda {code} iko njiani na {who}. Nambari ya kupokea {pin}.")
     return fit(f"{_short(store, 24)}: order {code} is on the way with {who}. Delivery code {pin}.")
 
 

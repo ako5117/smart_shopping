@@ -116,3 +116,21 @@ def test_delete_account_erases_the_person(customers, db, inventory):
         customers.customer_for(s["token"])
     assert customers.balance(cid) == 5  # the points history stays, unnamed
     signed_up(customers, db)  # the email and number are free again
+
+
+def test_language_for_the_shop_and_the_emails(customers, db):
+    customers.signup(**{**JANE, "language": "sw"})
+    [mail] = customers.emails()
+    assert "Thibitisha barua pepe yako" in mail["subject"] and "Msimbo wako ni" in mail["body"]
+    assert "{" not in mail["body"]  # the code and the store name are filled in
+    c = customers.verify("jane@example.com", last_code(db))["customer"]
+    assert c["language"] == "sw"
+    customers.request_code("jane@example.com")  # the account's language
+    assert "Msimbo wako wa kuingia" in customers.emails()[0]["subject"]
+    customers.request_code("jane@example.com", "en")  # the language the shop is showing now
+    assert "Your sign-in code" in customers.emails()[0]["subject"]
+    assert customers.set_language(c["customer_id"], "en")["language"] == "en"
+    with pytest.raises(ValueError):
+        customers.set_language(c["customer_id"], "fr")
+    assert customers.signup(**{**JANE, "email": "amos@example.com", "phone": "0722000111", "language": "xx"})["sent"]
+    assert "Confirm your email" in customers.emails()[0]["subject"]  # an unknown language: English

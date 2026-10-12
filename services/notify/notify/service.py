@@ -132,8 +132,10 @@ class Notifier:
         r = self.inventory.get("/sales", params={"store_id": self.settings.store_id, "channel": "online",
                                                  "status": "paid", "limit": 200})
         r.raise_for_status()
+        langs = {}  # sale_id -> the customer's language, for the texts about deliveries below
         for sale in r.json():
             phone, code = sale.get("customer_phone") or "", sale["sale_id"][-8:]
+            lang = langs[sale["sale_id"]] = sale.get("language") or "en"
             if not phone:
                 continue
             total = sum((it.get("unit_price_kes") or 0) * it["qty"] for it in sale.get("items", [])) \
@@ -148,10 +150,10 @@ class Notifier:
                     if not d:
                         continue  # try again next time
                     pin = d.get("pin")
-                queued += self.queue("paid", sale["sale_id"], phone, texts.paid(store, code, total, pin))
+                queued += self.queue("paid", sale["sale_id"], phone, texts.paid(store, code, total, pin, lang))
             if not is_delivery and sale.get("ready_at") and not sale.get("exited_at") \
                     and self._recent(sale["ready_at"]) and not self._seen("ready", sale["sale_id"]):
-                queued += self.queue("ready", sale["sale_id"], phone, texts.ready(store, code))
+                queued += self.queue("ready", sale["sale_id"], phone, texts.ready(store, code, lang))
 
         if self.dispatch is not None:
             r = self.dispatch.get("/deliveries", params={"store_id": self.settings.store_id, "status": "picked_up"})
@@ -162,8 +164,9 @@ class Notifier:
                 full = self._delivery(d["sale_id"])
                 if not full or not full.get("pin"):
                     continue
-                body = texts.on_the_way(store, d["sale_id"][-8:], d.get("rider_id") or "your rider",
-                                        self._rider_phone(d["rider_id"]) if d.get("rider_id") else "", full["pin"])
+                lang = langs.get(d["sale_id"], "en")
+                body = texts.on_the_way(store, d["sale_id"][-8:], d.get("rider_id") or ("msafirishaji" if lang == "sw" else "your rider"),
+                                        self._rider_phone(d["rider_id"]) if d.get("rider_id") else "", full["pin"], lang)
                 queued += self.queue("on_the_way", d["sale_id"], d["customer_phone"], body)
         return queued
 

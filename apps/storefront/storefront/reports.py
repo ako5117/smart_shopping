@@ -9,6 +9,7 @@ from typing import Dict, Literal, Optional
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from . import i18n
 from .account import COOKIE, Accounts, _detail
 
 REPORT_ID = re.compile(r"^R-[0-9A-F]{10}$")
@@ -55,17 +56,19 @@ def install(app: FastAPI, accounts: Accounts, app_name: str = "store") -> None:
         if r.status_code != 201:
             raise HTTPException(r.status_code if r.status_code < 500 else 502, _detail(r))
         out = r.json()
+        out["kind_label"] = i18n.translate(out.get("kind_label", ""), i18n.language(request))
         return {k: out[k] for k in ("report_id", "kind", "kind_label", "status", "created_at")}
 
     @app.get("/api/reports/{report_id}")
-    def follow(report_id: str):
+    def follow(report_id: str, request: Request):
         """A report's status and the store's reply, for whoever has its reference."""
         if not REPORT_ID.match(report_id):
             raise HTTPException(404, "No such report")
         r = accounts.call("GET", f"/reports/{report_id}/public")
         if r.status_code != 200:
             raise HTTPException(404, "No such report")
-        return r.json()
+        out = r.json()
+        return {**out, "kind_label": i18n.translate(out.get("kind_label", ""), i18n.language(request))}
 
     @app.get("/api/account/reports")
     def mine(request: Request):
@@ -75,4 +78,5 @@ def install(app: FastAPI, accounts: Accounts, app_name: str = "store") -> None:
         r = accounts.call("GET", "/me/reports", t)
         if r.status_code != 200:
             raise HTTPException(401, "Please sign in again.")
-        return r.json()
+        lang = i18n.language(request)
+        return [{**x, "kind_label": i18n.translate(x.get("kind_label", ""), lang)} for x in r.json()]

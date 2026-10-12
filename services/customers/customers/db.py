@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS customers (
     email_verified_at TEXT,           -- NULL until they enter the emailed code
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    deleted_at TEXT                   -- account deleted: personal details erased, points history kept
+    deleted_at TEXT,                  -- account deleted: personal details erased, points history kept
+    language TEXT NOT NULL DEFAULT 'en'  -- en | sw: the shop and the emails in this language
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
 
@@ -113,13 +114,14 @@ CREATE TABLE IF NOT EXISTS emails (
 """
 
 DEFAULT_SQLITE_PATH = "customers.db"
+ADDED_COLUMNS = {"customers": [("language", "TEXT NOT NULL DEFAULT 'en'")]}  # for databases made before these columns
 
 
 class Database(_Database):
     """The Customers Service's database: a SQLite path, or a postgresql:// URL (tables in schema "customers")."""
 
     def __init__(self, url: str, schema: str = "customers"):
-        super().__init__(url, SCHEMA, schema=schema)
+        super().__init__(url, SCHEMA, schema=schema, added_columns=ADDED_COLUMNS)
 
 
 def database_from_env() -> Database:

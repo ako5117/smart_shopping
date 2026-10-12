@@ -175,6 +175,14 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **Staff (Exit check):** scan the exit pass. **PAID** shows the traveller's name, flight and seat, to compare with their boarding pass.
 - **Point out:** the booking reference on the pass is never stored. `./scripts/demo.sh --mode shop` switches back.
 
+### 6f. Kiswahili (Customer), 2 min
+
+- **The point:** customers shop in the language they're comfortable in. Everything a customer sees can be in Kiswahili, including the texts about their order.
+- **Show it:** in the online shop, tap **SW** at the top right. The shop switches to Kiswahili, and so do the server's messages: try paying with **0812 345 678**.
+  - Place an order. The order page is in Kiswahili, and so is the text the customer gets (dashboard, **Online orders**, the texts at the bottom).
+  - Open Scan & Go on the same phone: it's in Kiswahili too.
+- **Point out:** a signed-in customer's language is kept on their account and follows them to another phone. Product names stay as the store enters them.
+
 ### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.

@@ -75,6 +75,34 @@ class Settings:
                 "min_age": self.min_age, "privacy_version": PRIVACY_VERSION}
 
 
+LANGUAGES = ("en", "sw")
+
+
+def _language(lang: Optional[str]) -> str:
+    return lang if lang in LANGUAGES else "en"
+
+
+# The emails customers get, in each language: (subject, body). {code} is filled in when the code is made.
+EMAILS = {
+    "en": {
+        "welcome": ("Confirm your email",
+                    "Welcome to {store}, {first}.\n\nYour code is {code}. Enter it in the shop to confirm your email. "
+                    "It works for {minutes} minutes.\n\nIf you didn't sign up, ignore this email."),
+        "sign_in": ("Your sign-in code",
+                    "Your {store} sign-in code is {code}. It works for {minutes} minutes.\n\n"
+                    "If you didn't ask for it, ignore this email."),
+    },
+    "sw": {
+        "welcome": ("Thibitisha barua pepe yako",
+                    "Karibu {store}, {first}.\n\nMsimbo wako ni {code}. Uweke kwenye duka la mtandaoni ili kuthibitisha "
+                    "barua pepe yako. Unafanya kazi kwa dakika {minutes}.\n\nKama hukujisajili, puuza barua pepe hii."),
+        "sign_in": ("Msimbo wako wa kuingia",
+                    "Msimbo wako wa kuingia {store} ni {code}. Unafanya kazi kwa dakika {minutes}.\n\n"
+                    "Kama hukuuomba, puuza barua pepe hii."),
+    },
+}
+
+
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -138,8 +166,10 @@ class Customers:
             raise ValueError("Choose female, male, other, or leave it blank.")
         return name, phone, born.isoformat(), gender
 
-    def signup(self, name: str, phone: str, email: str, dob: str, gender: Optional[str], consent: bool) -> dict:
+    def signup(self, name: str, phone: str, email: str, dob: str, gender: Optional[str], consent: bool,
+               language: str = "en") -> dict:
         """New account (or one never confirmed, with new details). Sends the code that confirms the email."""
+        language = _language(language)
         if not consent:
             raise ValueError("Please read and accept the privacy notice to join.")
         email = normalise_email(email)
@@ -156,26 +186,27 @@ class Customers:
                 c.execute("UPDATE customers SET phone = NULL WHERE customer_id = ?", (other["customer_id"],))
             if mine:
                 c.execute("UPDATE customers SET name = ?, phone = ?, dob = ?, gender = ?, consent_at = ?, consent_version = ?, "
-                          "updated_at = ?, deleted_at = NULL WHERE customer_id = ?",
-                          (name, phone, dob, gender, ts, PRIVACY_VERSION, ts, mine["customer_id"]))
+                          "updated_at = ?, deleted_at = NULL, language = ? WHERE customer_id = ?",
+                          (name, phone, dob, gender, ts, PRIVACY_VERSION, ts, language, mine["customer_id"]))
             else:
                 c.execute("INSERT INTO customers (customer_id, name, phone, email, dob, gender, consent_at, consent_version, "
-                          "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                          ("C" + secrets.token_hex(8).upper(), name, phone, email, dob, gender, ts, PRIVACY_VERSION, ts, ts))
-        self._send_code(email, "Confirm your email",
-                        f"Welcome to {self.settings.store_name}, {name.split()[0]}.\n\nYour code is {{code}}. "
-                        f"Enter it in the shop to confirm your email. It works for {self.settings.code_minutes} minutes.\n\n"
-                        "If you didn't sign up, ignore this email.")
+                          "created_at, updated_at, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                          ("C" + secrets.token_hex(8).upper(), name, phone, email, dob, gender, ts, PRIVACY_VERSION, ts, ts,
+                           language))
+        subject, body = EMAILS[language]["welcome"]
+        self._send_code(email, subject, body.format(store=self.settings.store_name, first=name.split()[0],
+                                                    minutes=self.settings.code_minutes, code="{code}"))
         return {"email": email, "sent": True}
 
-    def request_code(self, email: str) -> dict:
-        """Sign in: a code to the email, if it has an account. The answer is the same either way."""
+    def request_code(self, email: str, language: Optional[str] = None) -> dict:
+        """Sign in: a code to the email, if it has an account. The answer is the same either way. The email is in the
+        language the shop is showing (or else the account's)."""
         email = normalise_email(email)
-        c = self.db.one("SELECT name FROM customers WHERE email = ? AND deleted_at IS NULL", (email,))
+        c = self.db.one("SELECT name, language FROM customers WHERE email = ? AND deleted_at IS NULL", (email,))
         if c:
-            self._send_code(email, "Your sign-in code",
-                            f"Your {self.settings.store_name} sign-in code is {{code}}. It works for "
-                            f"{self.settings.code_minutes} minutes.\n\nIf you didn't ask for it, ignore this email.")
+            subject, body = EMAILS[_language(language or c["language"])]["sign_in"]
+            self._send_code(email, subject, body.format(store=self.settings.store_name, minutes=self.settings.code_minutes,
+                                                        code="{code}"))
         return {"email": email, "sent": True}
 
     def _send_code(self, email: str, subject: str, body: str) -> None:
@@ -269,7 +300,16 @@ class Customers:
                 "dob": r["dob"], "gender": r["gender"], "member_since": r["created_at"],
                 "email_verified": bool(r["email_verified_at"]),
                 "photo_version": _hash(photo["updated_at"])[:12] if photo else None,
+                "language": _language(r.get("language")),
                 "loyalty": self.loyalty(customer_id)}
+
+    def set_language(self, customer_id: str, language: str) -> dict:
+        if language not in LANGUAGES:
+            raise ValueError("Choose English (en) or Kiswahili (sw).")
+        self._row(customer_id)
+        with self.db.tx() as c:
+            c.execute("UPDATE customers SET language = ?, updated_at = ? WHERE customer_id = ?", (language, self._now(), customer_id))
+        return self.profile(customer_id)
 
     def update(self, customer_id: str, name: str, phone: str, dob: str, gender: Optional[str]) -> dict:
         name, phone, dob, gender = self._check_details(name, phone, dob, gender)

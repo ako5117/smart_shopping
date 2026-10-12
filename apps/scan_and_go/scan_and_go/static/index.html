@@ -114,13 +114,15 @@
   .flyer span { flex: 1; min-width: 0; }
   .flyer small { display: block; font-weight: 500; opacity: .85; }
   .flyer button { background: transparent; color: var(--accent); padding: 6px 4px; }
+  header .right { display: flex; align-items: center; gap: 8px; flex: none; }
+  header .lang { background: rgba(255, 255, 255, .14); color: inherit; padding: 4px 10px; border-radius: 999px; font-size: 14px; font-weight: 700; }
   label.f { display: block; font-size: 14px; font-weight: 650; margin: 12px 0 6px; }
   [hidden] { display: none !important; }
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230e6b47%27/%3E%3Cpath d=%27M9 12h14l-1 11a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2zM13 13v-2a3 3 0 0 1 6 0v2%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
 </head>
 <body>
-<header><span class="brand"><span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><b id="store-name">Scan &amp; Go</b></span><span class="muted" id="step-label">Scan</span></header>
+<header><span class="brand"><span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><b id="store-name">Scan &amp; Go</b></span><span class="right"><button class="lang" id="lang" type="button" aria-label="Kiswahili">SW</button><span class="muted" id="step-label">Scan</span></span></header>
 
 <main>
   <div id="msg" class="msg" hidden></div>
@@ -128,35 +130,35 @@
   <!-- 0. Airport mode: the boarding pass before shopping -->
   <section id="flyer-view" hidden>
     <div class="card">
-      <h2 style="margin-top:0">Scan your boarding pass</h2>
+      <h2 style="margin-top:0" data-t>Scan your boarding pass</h2>
       <p class="muted" style="margin-top:0" id="flyer-intro">Shopping here is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.</p>
-      <div id="pass-viewer" class="viewer idle"><button id="start-pass-camera">Scan boarding pass</button></div>
-      <button class="link" id="type-flight">Type my flight details instead</button>
+      <div id="pass-viewer" class="viewer idle"></div>
+      <button class="link" id="type-flight" data-t>Type my flight details instead</button>
       <form id="flight-form" hidden>
-        <label class="f" for="f-name">Name, as on your boarding pass</label>
+        <label class="f" for="f-name" data-t>Name, as on your boarding pass</label>
         <input id="f-name" maxlength="60" autocomplete="name" required>
-        <label class="f" for="f-flight">Flight number</label>
-        <input id="f-flight" maxlength="12" placeholder="e.g. KQ 100" autocapitalize="characters" required>
-        <label class="f" for="f-to">Flying to <span class="muted" style="font-weight:500">(airport code, optional)</span></label>
-        <input id="f-to" maxlength="3" placeholder="e.g. LHR" autocapitalize="characters">
-        <button style="width:100%;margin-top:12px">Continue</button>
+        <label class="f" for="f-flight" data-t>Flight number</label>
+        <input id="f-flight" maxlength="12" placeholder="e.g. KQ 100" data-t-placeholder autocapitalize="characters" required>
+        <label class="f" for="f-to"><span data-t>Flying to</span> <span class="muted" style="font-weight:500" data-t>(airport code, optional)</span></label>
+        <input id="f-to" maxlength="3" placeholder="e.g. LHR" data-t-placeholder autocapitalize="characters">
+        <button style="width:100%;margin-top:12px" data-t>Continue</button>
       </form>
     </div>
   </section>
 
   <!-- 1. Scanning -->
   <section id="scan-view">
-    <div class="flyer" id="flyer-bar" hidden><span id="flyer-text"></span><button id="flyer-change">Change</button></div>
+    <div class="flyer" id="flyer-bar" hidden><span id="flyer-text"></span><button id="flyer-change" data-t>Change</button></div>
     <div class="card">
-      <div id="viewer" class="viewer idle"><button id="start-camera">Start scanning</button></div>
+      <div id="viewer" class="viewer idle"></div>
       <form id="manual" class="row" style="margin-top:10px">
         <input class="grow" id="manual-code" inputmode="numeric" pattern="\d{13}" maxlength="13"
-               placeholder="Or type the barcode number" aria-label="Barcode number" autocomplete="off">
-        <button class="secondary">Add</button>
+               placeholder="Or type the barcode number" aria-label="Barcode number" data-t-placeholder data-t-aria-label autocomplete="off">
+        <button class="secondary" data-t>Add</button>
       </form>
     </div>
     <div class="card">
-      <h2>Your basket</h2>
+      <h2 data-t>Your basket</h2>
       <div id="basket"></div>
     </div>
   </section>
@@ -167,15 +169,15 @@
       <h2 id="pay-title">Pay with M-Pesa</h2>
       <div class="choice" id="pay-method" hidden>
         <label><input type="radio" name="paymethod" value="mpesa" checked> M-Pesa</label>
-        <label><input type="radio" name="paymethod" value="card"> Card</label>
+        <label><input type="radio" name="paymethod" value="card"> <span data-t>Card</span></label>
       </div>
       <p class="muted" style="margin-top:0" id="pay-hint">We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.</p>
       <form id="phone-form">
-        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
-        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email for the card receipt" hidden>
-        <button style="width:100%;margin-top:12px" id="pay-button">Pay</button>
+        <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" data-t-aria-label required>
+        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email for the card receipt" data-t-aria-label hidden>
+        <button style="width:100%;margin-top:12px" id="pay-button" data-t>Pay</button>
       </form>
-      <button class="link" id="back-to-basket">← Back to basket</button>
+      <button class="link" id="back-to-basket" data-t>← Back to basket</button>
     </div>
   </section>
 
@@ -189,14 +191,14 @@
     <div class="card warnbox" id="retry-box" hidden>
       <p id="retry-text" style="margin-top:0"></p>
       <form id="retry-form">
-        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
-        <button style="width:100%;margin-top:10px">Pay with M-Pesa</button>
+        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" data-t-aria-label required>
+        <button style="width:100%;margin-top:10px" data-t>Pay with M-Pesa</button>
       </form>
       <form id="retry-card-form" hidden style="margin-top:14px">
-        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" required>
-        <button style="width:100%;margin-top:10px">Pay by card</button>
+        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" data-t-aria-label required>
+        <button style="width:100%;margin-top:10px" data-t>Pay by card</button>
       </form>
-      <button class="link" id="abandon">Start a new basket</button>
+      <button class="link" id="abandon" data-t>Start a new basket</button>
     </div>
   </section>
 
@@ -205,30 +207,30 @@
     <div class="pass" id="pass">
       <div class="big" id="pass-title">PAID</div>
       <div class="code" id="pass-code"></div>
-      <div class="qr"><img id="pass-qr" alt="Order QR code for the exit check" width="180" height="180"></div>
+      <div class="qr"><img id="pass-qr" alt="Order QR code for the exit check" data-t-alt width="180" height="180"></div>
       <div class="clock" id="pass-live"><span class="pulse"></span><span id="pass-clock"></span></div>
       <div style="margin-top:6px;opacity:.9" id="pass-hint">Show this screen at the exit</div>
     </div>
     <div class="card">
       <h2 id="receipt-store"></h2>
       <div id="receipt-lines"></div>
-      <div class="line"><b>Total</b><b class="num" id="receipt-total"></b></div>
+      <div class="line"><b data-t>Total</b><b class="num" id="receipt-total"></b></div>
       <p class="muted" id="receipt-meta" style="margin-bottom:0"></p>
     </div>
-    <button class="secondary" style="width:100%" id="new-basket">Start a new basket</button>
+    <button class="secondary" style="width:100%" id="new-basket" data-t>Start a new basket</button>
   </section>
 
   <details class="card report" id="report" hidden>
-    <summary>Something not right? Report a problem</summary>
+    <summary data-t>Something not right? Report a problem</summary>
     <form id="report-form" novalidate>
-      <label for="r-kind">What is it about?</label>
-      <select id="r-kind"><option value="">Choose</option><option value="app">The app isn't working</option>
-        <option value="store">Something in the store</option><option value="order">My purchase</option><option value="idea">An idea</option></select>
-      <label for="r-message">What happened?</label>
-      <textarea id="r-message" maxlength="2000" placeholder="Tell us in your own words"></textarea>
-      <label for="r-contact">How can we reach you? <span class="muted" style="font-weight:500">(optional)</span></label>
-      <input id="r-contact" maxlength="120" placeholder="Phone or email">
-      <button style="width:100%;margin-top:12px" id="r-send">Send</button>
+      <label for="r-kind" data-t>What is it about?</label>
+      <select id="r-kind"><option value="" data-t>Choose</option><option value="app" data-t>The app isn't working</option>
+        <option value="store" data-t>Something in the store</option><option value="order" data-t>My purchase</option><option value="idea" data-t>An idea</option></select>
+      <label for="r-message" data-t>What happened?</label>
+      <textarea id="r-message" maxlength="2000" placeholder="Tell us in your own words" data-t-placeholder></textarea>
+      <label for="r-contact"><span data-t>How can we reach you?</span> <span class="muted" style="font-weight:500" data-t>(optional)</span></label>
+      <input id="r-contact" maxlength="120" placeholder="Phone or email" data-t-placeholder>
+      <button style="width:100%;margin-top:12px" id="r-send" data-t>Send</button>
       <p class="muted" id="r-done" hidden style="margin-bottom:0"></p>
     </form>
   </details>
@@ -237,7 +239,7 @@
 <div class="bar" id="checkout-bar">
   <div class="inner">
     <div class="total"><span class="muted" id="count">0 items</span><b id="total">KES 0</b></div>
-    <button id="checkout" disabled>Checkout</button>
+    <button id="checkout" disabled data-t>Checkout</button>
   </div>
 </div>
 
@@ -256,6 +258,102 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
+// ------------------------------------------------------------------ language
+// English is written in the page; SW has the Kiswahili for each English text. Anything missing shows in English.
+// tests/test_i18n_pages.py checks every text marked for translation has its Kiswahili.
+const SW = {
+  "Scan & Go": "Scan & Go", "Change language": "Badilisha lugha",
+  "Scan your boarding pass": "Changanua pasi yako ya kupanda ndege",
+  "Shopping here is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.":
+    "Ununuzi hapa ni kwa wasafiri. Changanua msimbopau ulio kwenye pasi yako ya kupanda ndege (ya karatasi au kwenye simu yako) ili kuanza. Huhitaji akaunti.",
+  "Shopping here at {airport} is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.":
+    "Ununuzi hapa {airport} ni kwa wasafiri. Changanua msimbopau ulio kwenye pasi yako ya kupanda ndege (ya karatasi au kwenye simu yako) ili kuanza. Huhitaji akaunti.",
+  "Scan boarding pass": "Changanua pasi ya kupanda ndege",
+  "Type my flight details instead": "Andika maelezo ya safari yangu badala yake",
+  "Name, as on your boarding pass": "Jina, kama lilivyo kwenye pasi yako ya kupanda ndege",
+  "Flight number": "Nambari ya safari", "Flying to": "Unakoenda", "(airport code, optional)": "(msimbo wa uwanja wa ndege, si lazima)",
+  "e.g. KQ 100": "mfano KQ 100", "e.g. LHR": "mfano LHR", "Continue": "Endelea", "Change": "Badilisha",
+  "Start scanning": "Anza kuchanganua", "Or type the barcode number": "Au andika nambari ya msimbopau",
+  "Barcode number": "Nambari ya msimbopau", "Add": "Ongeza", "Your basket": "Kikapu chako",
+  "Pay with M-Pesa": "Lipa kwa M-Pesa", "Pay by card": "Lipa kwa kadi", "Card": "Kadi", "Pay": "Lipa",
+  "We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.":
+    "Tutatuma ombi la malipo kwa simu hii. Weka PIN yako ya M-Pesa hapo ili kulipa.",
+  "You'll go to a secure card payment page, then come back here for your receipt.":
+    "Utaenda kwenye ukurasa salama wa malipo ya kadi, kisha urudi hapa kupata risiti yako.",
+  "M-Pesa phone number": "Nambari ya simu ya M-Pesa", "Email for the card receipt": "Barua pepe ya risiti ya kadi",
+  "← Back to basket": "← Rudi kwenye kikapu", "Check your phone": "Angalia simu yako",
+  "Enter your M-Pesa PIN to pay.": "Weka PIN yako ya M-Pesa ili kulipa.", "Start a new basket": "Anza kikapu kipya",
+  "PAID": "IMELIPWA", "CHECKED OUT": "UMETOKA", "Order QR code for the exit check": "Msimbo wa QR wa oda kwa ukaguzi wa kutoka",
+  "Show this screen at the exit": "Onyesha skrini hii unapotoka", "Total": "Jumla", "Checkout": "Lipa",
+  "Something not right? Report a problem": "Kuna tatizo? Liripoti", "What is it about?": "Linahusu nini?", "Choose": "Chagua",
+  "The app isn't working": "Programu haifanyi kazi", "Something in the store": "Kitu fulani dukani",
+  "My purchase": "Ununuzi wangu", "An idea": "Wazo", "What happened?": "Nini kilitokea?",
+  "Tell us in your own words": "Tueleze kwa maneno yako mwenyewe", "How can we reach you?": "Tunawezaje kukufikia?",
+  "(optional)": "(si lazima)", "Phone or email": "Simu au barua pepe", "Send": "Tuma",
+  "Please check what you entered.": "Tafadhali kagua ulichoweka.",
+  "Something went wrong. Please try again.": "Kuna hitilafu. Tafadhali jaribu tena.",
+  "Boarding pass": "Pasi ya ndege", "Scan": "Changanua", "Paying": "Inalipwa", "Receipt": "Risiti",
+  "1 item": "Bidhaa 1", "{n} items": "Bidhaa {n}", "{price} each": "{price} kila moja", "offer": "ofa",
+  "One less": "Punguza moja", "One more": "Ongeza moja",
+  "Scan a product's barcode to add it.": "Changanua msimbopau wa bidhaa ili kuiongeza.",
+  "Added {name}": "{name} imeongezwa", "A barcode has 13 digits.": "Msimbopau una tarakimu 13.",
+  "Point at a barcode": "Elekeza kwenye msimbopau", "Point at the boarding pass barcode": "Elekeza kwenye msimbopau wa pasi ya kupanda ndege",
+  "This browser can't use the camera. Please type the barcode number instead.":
+    "Kivinjari hiki hakiwezi kutumia kamera. Tafadhali andika nambari ya msimbopau badala yake.",
+  "Camera access was blocked. Allow it in your browser settings, or type the barcode number.":
+    "Kamera imezuiwa. Iruhusu kwenye mipangilio ya kivinjari chako, au andika nambari ya msimbopau.",
+  "The barcode scanner couldn't load. Please type the barcode number instead.":
+    "Kichanganuzi cha msimbopau hakikuweza kufunguka. Tafadhali andika nambari ya msimbopau badala yake.",
+  "This browser can't use the camera. Please type your flight details instead.":
+    "Kivinjari hiki hakiwezi kutumia kamera. Tafadhali andika maelezo ya safari yako badala yake.",
+  "Camera access was blocked. Allow it in your browser settings, or type your flight details.":
+    "Kamera imezuiwa. Iruhusu kwenye mipangilio ya kivinjari chako, au andika maelezo ya safari yako.",
+  "The barcode scanner couldn't load. Please type your flight details instead.":
+    "Kichanganuzi cha msimbopau hakikuweza kufunguka. Tafadhali andika maelezo ya safari yako badala yake.",
+  "{flight} to {to}": "{flight} kwenda {to}", "departs {time}": "inaondoka {time}", "gate {gate}": "lango {gate}",
+  "seat {seat}": "kiti {seat}",
+  "Opening the card payment page…": "Inafungua ukurasa wa malipo ya kadi…",
+  "Confirming your card payment": "Tunathibitisha malipo yako ya kadi",
+  "Checking your payment of {amount}…": "Tunakagua malipo yako ya {amount}…",
+  "Enter your M-Pesa PIN on your phone to pay {amount}.": "Weka PIN yako ya M-Pesa kwenye simu yako ili kulipa {amount}.",
+  "The card payment didn't go through{why}. Nothing was charged.": "Malipo ya kadi hayakufaulu{why}. Hakuna pesa iliyotozwa.",
+  "The payment was cancelled on your phone. Nothing was charged.": "Malipo yalighairiwa kwenye simu yako. Hakuna pesa iliyotozwa.",
+  "The payment didn't go through{why}. Nothing was charged.": "Malipo hayakufaulu{why}. Hakuna pesa iliyotozwa.",
+  "The card payment wasn't completed. Nothing was charged. Try again, or pay another way.":
+    "Malipo ya kadi hayakukamilika. Hakuna pesa iliyotozwa. Jaribu tena, au lipa kwa njia nyingine.",
+  "Paid {when}": "Imelipwa {when}", "Paid by card {card}": "Imelipwa kwa kadi {card}", "Order {id}": "Oda {id}",
+  "Left the store at {time}. Thank you!": "Ulitoka dukani saa {time}. Asante!",
+  "Choose what it's about and tell us what happened.": "Chagua linahusu nini na utueleze kilichotokea.",
+  "Thanks, we've got it (reference {ref}). A member of staff can help you right away too.":
+    "Asante, tumeipokea (kumbukumbu {ref}). Mhudumu anaweza pia kukusaidia sasa hivi.",
+};
+const LANGS = {en: "English", sw: "Kiswahili"};
+let lang = store.get("lang", null) || ((navigator.language || "").toLowerCase().startsWith("sw") ? "sw" : "en");
+if (!LANGS[lang]) lang = "en";
+const locale = () => lang === "sw" ? "sw-KE" : "en-KE";
+function t(text, vars = {}) {
+  const s = (lang === "sw" && SW[text]) || text;
+  return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+function translatePage() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach((el) => {
+    if (el.dataset.en === undefined) el.dataset.en = el.textContent;
+    el.textContent = t(el.dataset.en);
+  });
+  for (const attr of ["placeholder", "aria-label", "alt"]) {
+    document.querySelectorAll(`[data-t-${attr}]`).forEach((el) => {
+      const key = "en" + attr.replace(/-(\w)/g, (_, c) => c.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
+      if (el.dataset[key] === undefined) el.dataset[key] = el.getAttribute(attr);
+      el.setAttribute(attr, t(el.dataset[key]));
+    });
+  }
+  const other = lang === "sw" ? "en" : "sw";
+  $("lang").textContent = other.toUpperCase();
+  $("lang").setAttribute("aria-label", LANGS[other]);
+  $("lang").title = t("Change language");
+}
+
 let basket = store.get("sg.basket", []);  // [{product_id, ean13, name, price, qty}]
 let order = store.get("sg.order", null);  // {order_id, payment_id, total, phone}
 let pollTimer = null, clockTimer = null, cardOn = false, cardPolls = 0;
@@ -263,9 +361,9 @@ const payMethod = () => cardOn ? document.querySelector('input[name="paymethod"]
 
 function renderPayMethod() {
   const card = payMethod() === "card";
-  $("pay-title").textContent = card ? "Pay by card" : "Pay with M-Pesa";
-  $("pay-hint").textContent = card ? "You'll go to a secure card payment page, then come back here for your receipt."
-    : "We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.";
+  $("pay-title").textContent = t(card ? "Pay by card" : "Pay with M-Pesa");
+  $("pay-hint").textContent = t(card ? "You'll go to a secure card payment page, then come back here for your receipt."
+    : "We'll send a payment request to this phone. Enter your M-Pesa PIN there to pay.");
   $("phone").hidden = card; $("phone").required = !card;
   $("email").hidden = !card; $("email").required = card;
 }
@@ -280,19 +378,22 @@ function say(text, kind = "bad") {
 }
 
 async function api(path, options = {}) {
-  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const r = await fetch(path, {headers: {"Content-Type": "application/json", "X-Language": lang}, ...options});
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const detail = Array.isArray(body.detail) ? "Please check what you entered." : body.detail;
-    throw Object.assign(new Error(detail || "Something went wrong. Please try again."), {status: r.status});
+    const detail = Array.isArray(body.detail) ? t("Please check what you entered.") : body.detail;
+    throw Object.assign(new Error(detail || t("Something went wrong. Please try again.")), {status: r.status});
   }
   return body;
 }
 
-function show(view) {
-  for (const v of ["flyer", "scan", "phone", "wait", "receipt"]) $(v + "-view").hidden = v !== view;
+let view = "scan";
+const STEPS = {flyer: "Boarding pass", scan: "Scan", phone: "Pay", wait: "Paying", receipt: "Receipt"};
+function show(v) {
+  view = v;
+  for (const x of Object.keys(STEPS)) $(x + "-view").hidden = x !== view;
   $("checkout-bar").hidden = view !== "scan";
-  $("step-label").textContent = {flyer: "Boarding pass", scan: "Scan", phone: "Pay", wait: "Paying", receipt: "Receipt"}[view];
+  $("step-label").textContent = t(STEPS[view]);
   if (view !== "scan") stopCamera();
 }
 
@@ -302,16 +403,16 @@ function renderBasket() {
   store.set("sg.basket", basket);
   const items = basket.reduce((n, l) => n + l.qty, 0);
   const total = basket.reduce((n, l) => n + l.qty * l.price, 0);
-  $("count").textContent = items === 1 ? "1 item" : items + " items";
+  $("count").textContent = items === 1 ? t("1 item") : t("{n} items", {n: items});
   $("total").textContent = kes(total);
   $("checkout").disabled = items === 0;
   $("basket").innerHTML = basket.length ? basket.map((l, i) => `
     <div class="line">
-      <div>${esc(l.name)}<div class="muted">${kes(l.price)} each${l.was_price ? ` <s>${kes(l.was_price)}</s> <b style="color:#d92d20">offer</b>` : ""}</div></div>
+      <div>${esc(l.name)}<div class="muted">${t("{price} each", {price: kes(l.price)})}${l.was_price ? ` <s>${kes(l.was_price)}</s> <b style="color:#d92d20">${t("offer")}</b>` : ""}</div></div>
       <div class="num"><b>${kes(l.qty * l.price)}</b></div>
-      <div class="qty"><button aria-label="One less" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span>
-        <button aria-label="One more" data-i="${i}" data-d="1">+</button></div>
-    </div>`).join("") : `<p class="muted" style="margin:0">Scan a product's barcode to add it.</p>`;
+      <div class="qty"><button aria-label="${t("One less")}" data-i="${i}" data-d="-1">−</button><span>${l.qty}</span>
+        <button aria-label="${t("One more")}" data-i="${i}" data-d="1">+</button></div>
+    </div>`).join("") : `<p class="muted" style="margin:0">${t("Scan a product's barcode to add it.")}</p>`;
 }
 
 $("basket").addEventListener("click", (e) => {
@@ -333,8 +434,9 @@ async function addByBarcode(code) {
     const line = basket.find((l) => l.product_id === p.product_id);
     if (line) line.qty += 1; else basket.push({...p, qty: 1});
     renderBasket();
-    say(`Added ${p.name}`, "ok");
-    setTimeout(() => { if ($("msg").textContent === `Added ${p.name}`) say(""); }, 1800);
+    const added = t("Added {name}", {name: p.name});
+    say(added, "ok");
+    setTimeout(() => { if ($("msg").textContent === added) say(""); }, 1800);
     if (navigator.vibrate) navigator.vibrate(60);
   } catch (err) {
     say(err.message);
@@ -344,7 +446,7 @@ async function addByBarcode(code) {
 $("manual").addEventListener("submit", (e) => {
   e.preventDefault();
   const code = $("manual-code").value.replace(/\D/g, "");
-  if (code.length !== 13) return say("A barcode has 13 digits.");
+  if (code.length !== 13) return say(t("A barcode has 13 digits."));
   lastCode = "";
   $("manual-code").value = "";
   addByBarcode(code);
@@ -355,27 +457,33 @@ $("manual").addEventListener("submit", (e) => {
 let stream = null, scanning = false, zxingReader = null, camViewer = null;
 // Products carry EAN-13 barcodes; boarding passes PDF417, Aztec or QR codes.
 const CAMERAS = {
-  product: {viewer: "viewer", button: `<button id="start-camera">Start scanning</button>`, hint: "Point at a barcode",
-            native: ["ean_13"], zxing: () => [ZXing.BarcodeFormat.EAN_13], onCode: (c) => addByBarcode(c), fallback: "type the barcode number"},
-  pass: {viewer: "pass-viewer", button: `<button id="start-pass-camera">Scan boarding pass</button>`, hint: "Point at the boarding pass barcode",
+  product: {viewer: "viewer", button: () => `<button id="start-camera">${t("Start scanning")}</button>`, hint: "Point at a barcode",
+            native: ["ean_13"], zxing: () => [ZXing.BarcodeFormat.EAN_13], onCode: (c) => addByBarcode(c),
+            noCamera: "This browser can't use the camera. Please type the barcode number instead.",
+            blocked: "Camera access was blocked. Allow it in your browser settings, or type the barcode number.",
+            noScanner: "The barcode scanner couldn't load. Please type the barcode number instead."},
+  pass: {viewer: "pass-viewer", button: () => `<button id="start-pass-camera">${t("Scan boarding pass")}</button>`, hint: "Point at the boarding pass barcode",
          native: ["pdf417", "aztec", "qr_code"], zxing: () => [ZXing.BarcodeFormat.PDF_417, ZXing.BarcodeFormat.AZTEC, ZXing.BarcodeFormat.QR_CODE],
-         onCode: (c) => checkBoardingPass(c), fallback: "type your flight details"},
+         onCode: (c) => checkBoardingPass(c),
+         noCamera: "This browser can't use the camera. Please type your flight details instead.",
+         blocked: "Camera access was blocked. Allow it in your browser settings, or type your flight details.",
+         noScanner: "The barcode scanner couldn't load. Please type your flight details instead."},
 };
 
 async function startCamera(kind = "product") {
   say("");
   const cam = CAMERAS[kind];
-  if (!navigator.mediaDevices?.getUserMedia) return say(`This browser can't use the camera. Please ${cam.fallback} instead.`);
+  if (!navigator.mediaDevices?.getUserMedia) return say(t(cam.noCamera));
   stopCamera();
   try {
     stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false});
   } catch {
-    return say(`Camera access was blocked. Allow it in your browser settings, or ${cam.fallback}.`);
+    return say(t(cam.blocked));
   }
   camViewer = kind;
   const viewer = $(cam.viewer);
   viewer.className = "viewer";
-  viewer.innerHTML = `<video playsinline muted></video><div class="frame"></div><div class="hint">${cam.hint}</div>`;
+  viewer.innerHTML = `<video playsinline muted></video><div class="frame"></div><div class="hint">${t(cam.hint)}</div>`;
   const video = viewer.querySelector("video");
   video.srcObject = stream;
   await video.play();
@@ -404,8 +512,16 @@ async function startCamera(kind = "product") {
       zxingReader = new ZXing.BrowserMultiFormatReader(hints, 250);
       zxingReader.decodeFromStream(stream, video, (result) => { if (result && scanning) cam.onCode(result.getText()); });
     } catch {
-      say(`The barcode scanner couldn't load. Please ${cam.fallback} instead.`);
+      say(t(cam.noScanner));
     }
+  }
+}
+
+// The camera buttons and hints, in the page's language (a running camera keeps running).
+function renderCameraButtons() {
+  for (const [kind, cam] of Object.entries(CAMERAS)) {
+    if (camViewer === kind) $(cam.viewer).querySelector(".hint").textContent = t(cam.hint);
+    else $(cam.viewer).innerHTML = cam.button();
   }
 }
 
@@ -415,7 +531,7 @@ function stopCamera() {
   if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
   for (const cam of Object.values(CAMERAS)) {
     $(cam.viewer).className = "viewer idle";
-    $(cam.viewer).innerHTML = cam.button;
+    $(cam.viewer).innerHTML = cam.button();
   }
   camViewer = null;
 }
@@ -453,9 +569,9 @@ function checkBoardingPass(code) {
 function renderFlyer() {
   $("flyer-bar").hidden = !(airport && flyer);
   if (!flyer) return;
-  const t = flyer.info;
-  $("flyer-text").innerHTML = `✈ ${esc(t.flight)} to ${esc(t.to || "?")}${t.departs ? ` · departs ${esc(t.departs)}` : ""}${t.gate ? ` · gate ${esc(t.gate)}` : ""}
-    <small>${esc(t.name)}${t.seat ? ` · seat ${esc(t.seat)}` : ""}</small>`;
+  const f = flyer.info;
+  $("flyer-text").innerHTML = `✈ ${esc(t("{flight} to {to}", {flight: f.flight, to: f.to || "?"}))}${f.departs ? ` · ${esc(t("departs {time}", {time: f.departs}))}` : ""}${f.gate ? ` · ${esc(t("gate {gate}", {gate: f.gate}))}` : ""}
+    <small>${esc(f.name)}${f.seat ? ` · ${esc(t("seat {seat}", {seat: f.seat}))}` : ""}</small>`;
 }
 function needFlyer() {
   // A boarding pass is for one day's flight: ask again tomorrow.
@@ -506,7 +622,7 @@ $("phone-form").addEventListener("submit", async (e) => {
 // The card provider's page takes the card details; the phone comes back here (?order=...) afterwards.
 function goToCardPage(url) {
   show("wait");
-  $("wait-title").textContent = "Opening the card payment page…";
+  $("wait-title").textContent = t("Opening the card payment page…");
   $("wait-text").textContent = "";
   location.href = url;
 }
@@ -514,18 +630,26 @@ function goToCardPage(url) {
 function waitForPayment() {
   show("wait");
   $("retry-box").hidden = true;
+  retryText = null;
   cardPolls = 0;
-  const card = order.method === "card";
-  $("wait-title").textContent = card ? "Confirming your card payment" : "Check your phone";
-  $("wait-text").textContent = card ? `Checking your payment of ${kes(order.total)}…`
-    : `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  renderWait();
   clearTimeout(pollTimer);
   poll();
 }
 
+function renderWait() {
+  const card = order.method === "card";
+  $("wait-title").textContent = t(card ? "Confirming your card payment" : "Check your phone");
+  $("wait-text").textContent = card ? t("Checking your payment of {amount}…", {amount: kes(order.total)})
+    : t("Enter your M-Pesa PIN on your phone to pay {amount}.", {amount: kes(order.total)});
+  if (retryText) $("retry-text").textContent = retryText();
+}
+
+let retryText = null;  // what went wrong with the payment, in the page's language
 function offerRetry(text) {
+  retryText = text;
   $("retry-box").hidden = false;
-  $("retry-text").textContent = text;
+  $("retry-text").textContent = text();
   $("retry-phone").value = order.phone || store.get("sg.phone", "");
   $("retry-card-form").hidden = !cardOn;
   $("retry-email").value = order.email || store.get("sg.email", "");
@@ -537,15 +661,16 @@ async function poll() {
     const s = await api(`api/orders/${order.order_id}/payments/${order.payment_id}`);
     if (s.payment_status === "paid") return showReceipt(s);
     if (s.payment_status === "failed" || s.payment_status === "cancelled") {
-      return offerRetry(s.payment_method === "card"
-        ? `The card payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`
+      const why = s.result ? ` (${s.result})` : "";
+      return offerRetry(() => s.payment_method === "card"
+        ? t("The card payment didn't go through{why}. Nothing was charged.", {why})
         : s.payment_status === "cancelled"
-        ? "The payment was cancelled on your phone. Nothing was charged."
-        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`);
+        ? t("The payment was cancelled on your phone. Nothing was charged.")
+        : t("The payment didn't go through{why}. Nothing was charged.", {why}));
     }
     // Back from the card page without paying: after a few checks, offer to try again.
     if (s.payment_method === "card" && s.payment_status === "pending" && ++cardPolls === 4) {
-      offerRetry("The card payment wasn't completed. Nothing was charged. Try again, or pay another way.");
+      offerRetry(() => t("The card payment wasn't completed. Nothing was charged. Try again, or pay another way."));
     }
   } catch (err) {
     if (err.status === 404) return reset();
@@ -568,7 +693,9 @@ async function payAgain(body) {
 $("retry-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "mpesa", phone: $("retry-phone").value.trim()}); });
 $("retry-card-form").addEventListener("submit", (e) => { e.preventDefault(); payAgain({method: "card", email: $("retry-email").value.trim()}); });
 
+let receipt = null;  // the last receipt shown, to show again in another language
 function showReceipt(s) {
+  receipt = s;
   clearTimeout(pollTimer);
   show("receipt");
   basket = [];
@@ -583,9 +710,9 @@ function showReceipt(s) {
   $("receipt-total").textContent = kes(s.amount ?? s.total);
   const paid = s.paid_at ? new Date(s.paid_at) : null;
   $("receipt-meta").textContent = [
-    paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
+    paid && !isNaN(paid) ? t("Paid {when}", {when: paid.toLocaleString(locale(), {dateStyle: "medium", timeStyle: "short"})}) : "",
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
-    s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
+    s.card ? t("Paid by card {card}", {card: s.card}) : s.phone, t("Order {id}", {id: s.order_id}),
     s.traveller ? `${s.traveller.name}, ${s.traveller.flight} ${s.traveller.from}→${s.traveller.to}` : "",
   ].filter(Boolean).join(" · ");
   clearInterval(clockTimer);
@@ -593,17 +720,17 @@ function showReceipt(s) {
     // Checked at the exit: the pass can't be used again.
     const left = new Date(s.exited_at);
     $("pass").classList.add("done");
-    $("pass-title").textContent = "CHECKED OUT";
+    $("pass-title").textContent = t("CHECKED OUT");
     $("pass-live").hidden = true;
-    $("pass-hint").textContent = "Left the store at " + (isNaN(left) ? "" : left.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})) + ". Thank you!";
+    $("pass-hint").textContent = t("Left the store at {time}. Thank you!", {time: isNaN(left) ? "" : left.toLocaleTimeString(locale(), {hour: "2-digit", minute: "2-digit"})});
     return;
   }
   $("pass").classList.remove("done");
-  $("pass-title").textContent = "PAID";
+  $("pass-title").textContent = t("PAID");
   $("pass-live").hidden = false;
-  $("pass-hint").textContent = "Show this screen at the exit";
+  $("pass-hint").textContent = t("Show this screen at the exit");
   // A live clock on the pass makes an old screenshot easy to spot at the exit.
-  const tickClock = () => { $("pass-clock").textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"}); };
+  const tickClock = () => { $("pass-clock").textContent = new Date().toLocaleTimeString(locale(), {hour: "2-digit", minute: "2-digit", second: "2-digit"}); };
   tickClock();
   clockTimer = setInterval(tickClock, 1000);
   // Keep checking, so the pass turns grey as soon as staff check it at the exit.
@@ -630,7 +757,7 @@ window.addEventListener("error", (e) => { recentErrors.push(String(e.message).sl
 $("report-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const kind = $("r-kind").value, message = $("r-message").value.trim();
-  if (!kind || message.length < 5) { $("r-done").hidden = false; $("r-done").textContent = "Choose what it's about and tell us what happened."; return; }
+  if (!kind || message.length < 5) { $("r-done").hidden = false; $("r-done").textContent = t("Choose what it's about and tell us what happened."); return; }
   $("r-send").disabled = true;
   try {
     const visible = ["scan", "phone", "wait", "receipt"].find((v) => !$(v + "-view").hidden) || "";
@@ -638,10 +765,32 @@ $("report-form").addEventListener("submit", async (e) => {
       order_id: order?.order_id || "", context: kind === "app" ? {page: visible, screen: `${innerWidth}x${innerHeight}`, errors: recentErrors.join(" | ")} : {}})});
     $("report-form").reset();
     $("r-done").hidden = false;
-    $("r-done").textContent = `Thanks, we've got it (reference ${r.report_id}). A member of staff can help you right away too.`;
+    $("r-done").textContent = t("Thanks, we've got it (reference {ref}). A member of staff can help you right away too.", {ref: r.report_id});
   } catch (err) { $("r-done").hidden = false; $("r-done").textContent = err.message; }
   $("r-send").disabled = false;
 });
+
+function renderIntro() {
+  $("flyer-intro").textContent = airport
+    ? t("Shopping here at {airport} is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.", {airport})
+    : t("Shopping here is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.");
+}
+
+// Switching language redraws what's on screen; nothing else changes (the basket, the order, the timers).
+function setLang(l) {
+  lang = l;
+  store.set("lang", lang);
+  translatePage();
+  renderIntro();
+  renderBasket();
+  renderFlyer();
+  renderCameraButtons();
+  $("step-label").textContent = t(STEPS[view]);
+  if (view === "phone") renderPayMethod();
+  if (view === "wait" && order) renderWait();
+  if (view === "receipt" && receipt) showReceipt(receipt);
+}
+$("lang").addEventListener("click", () => setLang(lang === "sw" ? "en" : "sw"));
 
 api("api/store").then((s) => {
   $("report").hidden = !s.reports;
@@ -652,11 +801,14 @@ api("api/store").then((s) => {
   airport = s.mode === "airport" ? s.airport : null;
   if (s.tz) airportTz = s.tz;
   if (airport) {
-    $("flyer-intro").textContent = `Shopping here at ${airport} is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.`;
+    renderIntro();
     renderFlyer();
     if (needFlyer() && !order) show("flyer");
   }
 }).catch(() => {});
+translatePage();
+renderIntro();
+renderCameraButtons();
 renderBasket();
 // Coming back from the card page: the address has ?order=...; the order itself is remembered on this phone.
 if (new URLSearchParams(location.search).get("order")) history.replaceState(null, "", location.pathname);

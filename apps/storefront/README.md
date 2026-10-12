@@ -53,6 +53,10 @@ When the Customers Service is set (`CUSTOMERS_URL`), the shop has an **Account**
 - **Orders tab:** shows the account's orders from any device, with **Buy again**. Signed out, it shows orders on this phone, as before.
 - **Customers Service down:** shopping, checkout and collection all still work. Points can't be spent until it's back, and the order says so.
 
+## Language
+
+English or Kiswahili: the button at the top right switches. The phone remembers the choice, and so does a signed-in customer's account. Orders record the language, so their texts come in it too. See [`docs/languages.md`](../../docs/languages.md).
+
 Riders, assignment and the handover are covered in [`services/dispatch`](../../services/dispatch) and [`apps/rider`](../rider).
 
 ## What "available" means
@@ -115,6 +119,8 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 
 ## Endpoints
 
+Requests with `X-Language: sw` get their messages in Kiswahili (delivery times, offers and reasons too).
+
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/` | The shop |
@@ -122,6 +128,7 @@ In `docker-compose.yml` it runs at `/store/`, public, and reads the shelf events
 | `GET` / `PUT` / `DELETE` | `/api/account` | The signed-in customer (or `signed_in: false`); change details; delete the account |
 | `POST` | `/api/account/signup`, `/api/account/code`, `/api/account/verify`, `/api/account/signout` | Create an account, send a sign-in code, check a code (sets the session cookie), sign out |
 | `PUT` / `GET` / `DELETE` | `/api/account/photo` | Profile photo |
+| `PUT` | `/api/account/language` | `{"language": "en" or "sw"}`: keep the shop's language on the account |
 | `GET` | `/api/account/orders` | The account's orders with their items |
 | `GET` / `POST` | `/api/orders/{order_id}/payments/{payment_id}/returns` | What can be returned and the order's returns; ask for a return: `{lines: [{product_id, qty}], reason, unopened: true}` |
 | `POST` | `/api/reports` | Report a problem: `{kind, message, order_id?, contact?, context?, photo_b64?}` |

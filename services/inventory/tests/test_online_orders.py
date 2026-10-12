@@ -145,3 +145,11 @@ def test_airport_sales_record_the_traveller(inv):
         inv.create_sale("SG-3", STORE, [Item(MILK, 1)], traveller={**flyer, "pnr": "ABC123"})  # no booking references
     with pytest.raises(ValueError):
         inv.create_sale("SG-4", STORE, [Item(MILK, 1)], traveller={"name": "Jane"})
+
+
+def test_online_orders_keep_the_customers_language(inv):
+    inv.restock(STORE, EAN[MILK], 5, "s1")
+    assert inv.create_sale("WEB-1", STORE, [Item(MILK, 1)], channel="online", language="sw")["language"] == "sw"
+    assert inv.create_sale("WEB-2", STORE, [Item(MILK, 1)], channel="online")["language"] == "en"
+    with pytest.raises(ValueError):
+        inv.create_sale("WEB-3", STORE, [Item(MILK, 1)], channel="online", language="fr")

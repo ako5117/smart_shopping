@@ -7,12 +7,14 @@ Service stores only its hash. Sign-up and code requests are rate limited per add
 
 import logging
 import time
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
+
+from . import i18n
 
 log = logging.getLogger("storefront.account")
 COOKIE = "ss_session"
@@ -34,6 +36,10 @@ class EmailIn(BaseModel):
 
 class VerifyIn(EmailIn):
     code: str = Field(..., max_length=12)
+
+
+class LanguageIn(BaseModel):
+    language: Literal["en", "sw"]
 
 
 class ProfileIn(BaseModel):
@@ -168,12 +174,12 @@ def install(app: FastAPI, accounts: Accounts, limiter, sale_lines: Callable[[str
     @app.post("/api/account/signup", status_code=202)
     def signup(b: SignupIn, request: Request):
         limit(request, b.email)
-        return _pass(accounts.call("POST", "/signup", json=b.model_dump()))
+        return _pass(accounts.call("POST", "/signup", json={**b.model_dump(), "language": i18n.language(request)}))
 
     @app.post("/api/account/code", status_code=202)
     def send_code(b: EmailIn, request: Request):
         limit(request, b.email)
-        return _pass(accounts.call("POST", "/codes", json=b.model_dump()))
+        return _pass(accounts.call("POST", "/codes", json={**b.model_dump(), "language": i18n.language(request)}))
 
     @app.post("/api/account/verify")
     def verify(b: VerifyIn, request: Request):
@@ -202,6 +208,11 @@ def install(app: FastAPI, accounts: Accounts, limiter, sale_lines: Callable[[str
     @app.put("/api/account")
     def update(b: ProfileIn, request: Request):
         return _pass(accounts.call("PUT", "/me", token(request), json=b.model_dump()))
+
+    @app.put("/api/account/language")
+    def set_language(b: LanguageIn, request: Request):
+        """Remember the shop's language on the account, so it follows the customer to other phones."""
+        return _pass(accounts.call("PUT", "/me/language", token(request), json=b.model_dump()))
 
     @app.delete("/api/account")
     def delete(request: Request):
