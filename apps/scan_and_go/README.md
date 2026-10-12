@@ -25,6 +25,25 @@ Staff set prices on the dashboard's **Products** page; they're stored in the Inv
 
 Android Chrome uses the browser's built-in `BarcodeDetector`. Other browsers (including iPhones) load the ZXing library from jsDelivr the first time the camera starts. The camera only works over HTTPS (or on `localhost`). Typing the number always works.
 
+## Airport mode
+
+For a shop airside, where shoppers are travellers rather than regular customers (`STORE_MODE=airport`).
+
+- **No sign-in.** Before paying, the traveller scans the barcode on their boarding pass: paper or phone, in PDF417, Aztec or QR. If it won't scan, they type their name, flight number and destination instead.
+- **Checked twice.** The pass is checked when it's scanned, and again on the server at checkout.
+  - It has to be for a flight leaving this airport (`AIRPORT_CODE`), today or just after midnight.
+  - If there's a flight list, the flight has to be on it, going to the same place, and not yet departed.
+  - On connecting passes, the leg leaving this airport is used.
+- **What the sale records:** name, flight, from and to, date, seat, cabin, departure time and gate.
+  - The **exit check** shows the flight, so staff can compare it with the boarding pass.
+  - The **booking reference (PNR) is never kept**: with the surname, it lets anyone change the booking.
+- **The flight list.** The airport's flight information plugs in through `FlightBoard` in `scan_and_go/airport.py`.
+  - Until that feed is connected, `FLIGHTS_FILE` points at a JSON list: `[{"flight": "KQ 100", "to": "LHR", "departs": "23:55", "gate": "14"}]`.
+  - With no file, any flight from this airport today is accepted.
+  - `scan_and_go/demo_flights.json` is the demo board.
+
+Boarding pass barcodes follow the IATA BCBP standard; only its mandatory fields are read.
+
 ## Run
 
 ```bash
@@ -42,6 +61,10 @@ Open http://localhost:8030 on the phone (via HTTPS, e.g. through the hosted Work
 | `STORE_NAME` | `Smart Shopping` | Shown in the header and on the receipt |
 | `INVENTORY_URL` | `http://localhost:8010` | Inventory Service |
 | `PAYMENTS_URL` | `http://localhost:8000` | Payments Service (its `INVENTORY_URL` must be set so paid sales leave stock) |
+| `STORE_MODE` | `shop` | `airport`: travellers scan their boarding pass before paying (see Airport mode) |
+| `AIRPORT_CODE` | | Airport mode: this airport's 3-letter IATA code, e.g. `NBO` |
+| `FLIGHTS_FILE` | | Airport mode: today's departures (JSON). Empty accepts any flight from this airport today |
+| `STORE_TZ` | `Africa/Nairobi` | Airport mode: what "today" means for flights |
 | `STK_LIMIT_PER_PHONE` | `3` | M-Pesa prompts per phone number per 10 minutes |
 
 ## Endpoints
@@ -49,9 +72,10 @@ Open http://localhost:8030 on the phone (via HTTPS, e.g. through the hosted Work
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/` | The app |
-| `GET` | `/api/store` | Store name |
+| `GET` | `/api/store` | Store name, and `mode` / `airport` |
+| `POST` | `/api/traveller` | Airport mode: `{"boarding_pass": "M1..."}` or `{"name", "flight", "to"}`: check it before shopping |
 | `GET` | `/api/products/{ean13}` | Look up a scanned product and its price |
-| `POST` | `/api/checkout` | `{"phone": "...", "items": [{"product_id", "qty"}]}`: create the sale and send the M-Pesa prompt |
+| `POST` | `/api/checkout` | `{"phone": "...", "items": [{"product_id", "qty"}]}`: create the sale and send the M-Pesa prompt. Airport mode also needs `"traveller"` |
 | `GET` | `/api/orders/{order_id}/payments/{payment_id}` | Payment status, and the receipt once paid |
 | `GET` | `/api/orders/{order_id}/qr.svg` | QR code of the order number, for the exit check |
 | `POST` | `/api/orders/{order_id}/pay` | Send the M-Pesa prompt again after a cancel or failure |

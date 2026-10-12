@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from .airport import Airport, FlightBoard, NotAllowed
 from .config import Settings, load_settings
 
 log = logging.getLogger("scan_and_go")
@@ -58,11 +59,21 @@ class Line(BaseModel):
     qty: int = Field(..., ge=1)
 
 
+class TravellerIn(BaseModel):
+    """Airport mode: the boarding pass barcode as scanned, or the flight details typed in."""
+    boarding_pass: Optional[str] = Field(None, max_length=800)
+    name: str = Field("", max_length=60)
+    flight: str = Field("", max_length=12)
+    to: str = Field("", max_length=3)
+    date: Optional[str] = Field(None, max_length=10)
+
+
 class CheckoutIn(BaseModel):
     method: Literal["mpesa", "card"] = "mpesa"
     phone: Optional[str] = Field(None, min_length=9, max_length=16, description="M-Pesa")
     email: Optional[str] = Field(None, max_length=120, description="Card: the receipt goes here")
     items: List[Line] = Field(..., min_length=1)
+    traveller: Optional[TravellerIn] = Field(None, description="Airport mode: who's flying where (required there)")
 
 
 class PayIn(BaseModel):
@@ -139,6 +150,26 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     if customers is None and settings.customers_url:
         customers = httpx.Client(base_url=settings.customers_url, timeout=10.0)
     report_limiter = RateLimiter(6, 3600)
+    if settings.store_mode not in ("shop", "airport"):
+        raise ValueError("STORE_MODE should be shop or airport")
+    airport = Airport(settings.airport_code, FlightBoard(settings.flights_file), settings.store_tz) \
+        if settings.store_mode == "airport" else None
+
+    def traveller_from(t: Optional[TravellerIn]) -> Optional[dict]:
+        """Airport mode: check the boarding pass or typed flight again (never trust what the phone kept)."""
+        if airport is None:
+            return None
+        if t is None:
+            raise HTTPException(422, "Scan your boarding pass first.")
+        try:
+            return airport.from_boarding_pass(t.boarding_pass) if t.boarding_pass else airport.from_typed(t.name, t.flight, t.to, t.date)
+        except NotAllowed as e:
+            raise HTTPException(409, str(e))
+        except ValueError as e:
+            raise HTTPException(422, str(e))
+        except (OSError, KeyError) as e:  # the flight list couldn't be read
+            log.error("Flight information unavailable: %s", e)
+            raise HTTPException(503, "Flight details can't be checked right now. Please pay at a till.")
     inventory = inventory or httpx.Client(base_url=settings.inventory_url, timeout=10.0)
     payments = payments or httpx.Client(base_url=settings.payments_url, timeout=40.0)
     catalogue = Catalogue(inventory)
@@ -242,7 +273,16 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     @app.get("/api/store")
     def store():
         return {"store_id": settings.store_id, "name": settings.store_name, "currency": "KES", "card": card_available(),
-                "reports": customers is not None}
+                "reports": customers is not None, "mode": settings.store_mode,
+                "airport": settings.airport_code if airport else None,
+                **({"tz": settings.store_tz} if airport else {})}
+
+    @app.post("/api/traveller")
+    def traveller(body: TravellerIn):
+        """Airport mode: check a boarding pass (or typed flight) before shopping. Nothing is kept until checkout."""
+        if airport is None:
+            raise HTTPException(404, "This store isn't in an airport")
+        return traveller_from(body)
 
     @app.get("/api/products/{ean13}")
     def product(ean13: str):
@@ -270,9 +310,11 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             if not p or p["price"] is None:
                 raise HTTPException(409, "Something in your basket can't be bought with Scan & Go. Please remove it.")
             lines.append((p, qty))
+        flyer = traveller_from(body.traveller)
         sale_id = "SG-" + secrets.token_hex(8).upper()
         r = upstream("Inventory", lambda: inventory.post("/sales", json={
-            "sale_id": sale_id, "store_id": settings.store_id,
+            "sale_id": sale_id, "store_id": settings.store_id, **({"traveller": flyer} if flyer else {}),
+            **({"customer_name": flyer["name"]} if flyer else {}),
             "items": [{"product_id": p["product_id"], "qty": qty} for p, qty in lines]}))
         if r.status_code >= 400:
             log.error("Inventory refused sale %s: %s %s", sale_id, r.status_code, r.text[:200])
@@ -347,6 +389,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
             "amount": payment.get("amount"),
             "paid_at": payment.get("updated_at") if payment["status"] == "paid" else None,
             "exited_at": sale.get("exited_at"),
+            "traveller": sale.get("traveller") or None,
             "result": payment.get("result_desc"),
             **priced_sale(sale),
         }

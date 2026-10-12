@@ -5,6 +5,8 @@
 #   ./scripts/demo.sh                   start (first run sets up .env and prints the staff password)
 #   ./scripts/demo.sh --tier standard   switch to the standard tier: no shelf sensors (docs/tiers.md), then start
 #   ./scripts/demo.sh --tier smart      switch back to smart shelves (simulated sensors), then start
+#   ./scripts/demo.sh --mode airport    an airport shop: Scan & Go asks for a boarding pass (docs/demo-walkthrough.md)
+#   ./scripts/demo.sh --mode shop       back to an ordinary shop
 #   ./scripts/demo.sh --reset           wipe all demo data and start fresh
 #   ./scripts/demo.sh --stop            stop the demo (data is kept)
 set -euo pipefail
@@ -15,8 +17,8 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 command -v docker >/dev/null || { echo "Docker is not installed. Get Docker Desktop: https://docs.docker.com/get-docker/"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker is installed but not running. Start Docker Desktop and try again."; exit 1; }
 
-usage() { echo "Usage: $0 [--tier standard|smart | --reset | --stop]"; exit 1; }
-tier=""
+usage() { echo "Usage: $0 [--tier standard|smart | --mode shop|airport | --reset | --stop]"; exit 1; }
+tier=""; mode=""
 case "${1:-}" in
   --stop)  docker compose --profile demo --profile shelf-sim stop; exit 0 ;;
   --reset)
@@ -25,6 +27,9 @@ case "${1:-}" in
   --tier)
     tier="${2:-}"
     [ "$tier" = standard ] || [ "$tier" = smart ] || usage ;;
+  --mode)
+    mode="${2:-}"
+    [ "$mode" = shop ] || [ "$mode" = airport ] || usage ;;
   "") ;;
   *) usage ;;
 esac
@@ -84,11 +89,17 @@ if grep -q '^COMPOSE_PROFILES=demo' .env; then
     else set_env COMPOSE_PROFILES demo; docker compose --profile shelf-sim stop shelf_sim >/dev/null 2>&1 || true
     fi
   fi
+  if [ "$mode" = airport ]; then  # Jomo Kenyatta International, with a demo departures board
+    set_env STORE_MODE airport; set_env AIRPORT_CODE NBO; set_env FLIGHTS_FILE scan_and_go/demo_flights.json
+  elif [ "$mode" = shop ]; then
+    set_env STORE_MODE shop
+  fi
 else
   echo "Note: .env is not in demo mode (COMPOSE_PROFILES=demo); the simulators won't start."
-  [ -z "$tier" ] || { echo "Change the tier of a real store with ./scripts/configure.sh"; exit 1; }
+  [ -z "$tier$mode" ] || { echo "Change the tier or store type of a real store with ./scripts/configure.sh"; exit 1; }
 fi
 tier="$(grep '^STORE_TIER=' .env | tail -n 1 | cut -d= -f2)"
+mode="$(grep '^STORE_MODE=' .env | tail -n 1 | cut -d= -f2)"
 
 say "Building and starting the services (the first build takes a few minutes)..."
 docker compose up -d --build
@@ -125,6 +136,10 @@ $(if [ "$tier" = standard ]; then
   echo "  Tier: standard (no shelf sensors). Stock comes from barcodes and counts.  Smart shelves: ./scripts/demo.sh --tier smart"
 else
   echo "  Tier: smart shelves. Sensors are simulated: new shelf activity every few seconds.  Without: ./scripts/demo.sh --tier standard"
+fi)
+$(if [ "$mode" = airport ]; then
+  echo "  Airport mode (NBO): Scan & Go asks for a boarding pass. Type a flight instead: KQ 100 to LHR, ET 309 to ADD."
+  echo "                      The exit check shows each traveller's flight.  Ordinary shop: ./scripts/demo.sh --mode shop"
 fi)
   Barcodes to type in Scan & Go: 6161000000040 (milk), 6161000000026 (sugar), 6161000000064 (bread)
 

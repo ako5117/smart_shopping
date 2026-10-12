@@ -2,6 +2,7 @@
 (docs/data-model.md, STOCK_LEDGER). Current stock is always the sum of ledger entries,
 never a separately edited number."""
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -282,7 +283,7 @@ class Inventory:
     def create_sale(self, sale_id: str, store_id: str, items: List[Item], channel: str = "in_store",
                     customer_name: str = "", check_stock: bool = False, fulfilment: str = "collect",
                     delivery_fee_kes: int = 0, customer_phone: str = "", loyalty_discount_kes: int = 0,
-                    customer_id: str = "") -> dict:
+                    customer_id: str = "", traveller: Optional[dict] = None) -> dict:
         """Called at checkout, before payment. Stock is not touched until the sale is paid.
 
         With check_stock (online orders, where the customer isn't holding the items), the sale is refused with
@@ -299,6 +300,11 @@ class Inventory:
             raise ValueError("A delivery fee only applies to deliveries")
         if loyalty_discount_kes < 0 or (loyalty_discount_kes and channel != "online"):
             raise ValueError("A loyalty discount only applies to online orders")
+        if traveller is not None:
+            unknown = set(traveller) - TRAVELLER_FIELDS
+            if unknown or not traveller.get("flight") or not traveller.get("name"):
+                raise ValueError(f"A traveller has a name and flight, and only {', '.join(sorted(TRAVELLER_FIELDS))}")
+            traveller = {k: str(v)[:60] for k, v in traveller.items()}
         if not items:
             raise ValueError("A sale needs at least one item")
         merged: Dict[str, int] = {}
@@ -325,10 +331,11 @@ class Inventory:
                 if short:
                     raise NotEnoughStock(short)
             c.execute("INSERT INTO sales (sale_id, store_id, status, created_at, updated_at, channel, customer_name, "
-                      "fulfilment, delivery_fee_kes, customer_phone, loyalty_discount_kes, customer_id) "
-                      "VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      "fulfilment, delivery_fee_kes, customer_phone, loyalty_discount_kes, customer_id, traveller) "
+                      "VALUES (?, ?, 'pending_payment', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                       (sale_id, store_id, ts, ts, channel, customer_name.strip(), fulfilment, delivery_fee_kes,
-                       customer_phone.strip(), loyalty_discount_kes, customer_id.strip()))
+                       customer_phone.strip(), loyalty_discount_kes, customer_id.strip(),
+                       json.dumps(traveller, ensure_ascii=False) if traveller else ""))
             goods = 0
             for pid, qty in merged.items():
                 product = c.execute("SELECT price_kes FROM products WHERE product_id = ?", (pid,)).fetchone()
@@ -404,7 +411,7 @@ class Inventory:
             raise NotFound(f"No sale {sale_id}")
         sale["items"] = self.db.all("SELECT product_id, qty, unit_price_kes, list_price_kes FROM sale_items WHERE sale_id = ? "
                                     "ORDER BY product_id", (sale_id,))
-        return sale
+        return _traveller(sale)
 
     def find_sale_by_code(self, store_id: str, code: str) -> dict:
         """Find a sale from the short code on a Scan & Go pass (the end of its sale_id), or its full id."""
@@ -464,11 +471,24 @@ class Inventory:
         for s in sales:
             s["items"] = self.db.all("SELECT product_id, qty, unit_price_kes, list_price_kes FROM sale_items WHERE sale_id = ? "
                                      "ORDER BY product_id", (s["sale_id"],))
+            _traveller(s)
         return sales
 
     def _items(self, sale_id: str) -> Dict[str, int]:
         return {r["product_id"]: r["qty"] for r in
                 self.db.all("SELECT product_id, qty FROM sale_items WHERE sale_id = ? ORDER BY product_id", (sale_id,))}
+
+
+TRAVELLER_FIELDS = {"name", "flight", "from", "to", "date", "seat", "cabin", "departs", "gate", "source"}
+
+
+def _traveller(sale: dict) -> dict:
+    """The traveller as a dict (airport shops), or None."""
+    try:
+        sale["traveller"] = json.loads(sale["traveller"]) if sale.get("traveller") else None
+    except ValueError:
+        sale["traveller"] = None
+    return sale
 
 
 def discounted(price: int, kind: str, value: int) -> int:
