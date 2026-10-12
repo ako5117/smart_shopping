@@ -44,6 +44,10 @@ For a shop airside, where shoppers are travellers rather than regular customers 
 
 Boarding pass barcodes follow the IATA BCBP standard; only its mandatory fields are read.
 
+## Language
+
+English or Kiswahili: the button at the top right switches, and the phone remembers it (the online shop on the same phone uses the same choice). Messages from the server come in the page's language too (`X-Language`). See [`docs/languages.md`](../../docs/languages.md).
+
 ## Run
 
 ```bash

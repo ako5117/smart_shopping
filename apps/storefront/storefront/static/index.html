@@ -45,6 +45,8 @@
   header { position: sticky; top: 0; z-index: 5; background: var(--head-bg); color: var(--head-text);
            padding: calc(10px + env(safe-area-inset-top)) 16px 12px; box-shadow: 0 2px 12px rgba(14, 107, 71, .25); }
   header .inner { max-width: 760px; margin: 0 auto; }
+  header .lang { background: rgba(255, 255, 255, .16); color: inherit; border: 0; min-width: 36px; height: 36px; border-radius: 12px;
+                 font: inherit; font-size: 14px; font-weight: 700; padding: 0 8px; cursor: pointer; flex: none; }
   header .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   header .back { background: rgba(255, 255, 255, .16); color: inherit; border: 0; width: 36px; height: 36px; border-radius: 12px;
                  display: grid; place-items: center; padding: 0; cursor: pointer; }
@@ -370,16 +372,16 @@
 <header>
   <div class="inner">
     <div class="top">
-      <button class="back" id="header-back" aria-label="Back to the shop" hidden><svg width="20" height="20"><use href="#i-back"/></svg></button>
+      <button class="back" id="header-back" aria-label="Back to the shop" data-t-aria-label hidden><svg width="20" height="20"><use href="#i-back"/></svg></button>
       <div class="brandline">
         <span class="logo" aria-hidden="true"><svg width="20" height="20"><use href="#i-bag"/></svg></span>
         <div><b id="store-name">Online shop</b><small id="step-label">Order online, collect in store</small></div>
       </div>
-      <span style="width:36px"></span>
+      <button class="lang" id="lang" type="button" aria-label="Kiswahili">SW</button>
     </div>
     <div class="search" id="search-wrap">
       <svg width="20" height="20"><use href="#i-search"/></svg>
-      <input id="search" type="search" placeholder="Search milk, bread, rice…" aria-label="Search products" autocomplete="off">
+      <input id="search" type="search" placeholder="Search milk, bread, rice…" aria-label="Search products" data-t-placeholder data-t-aria-label autocomplete="off">
     </div>
   </div>
 </header>
@@ -392,7 +394,7 @@
     <div class="order-banner" id="order-banner" hidden>
       <span class="ico"><svg width="22" height="22"><use href="#i-receipt"/></svg></span>
       <div><b id="order-banner-title">Your order</b><span class="small" id="order-banner-text"></span></div>
-      <button class="small" id="view-order">Track</button>
+      <button class="small" id="view-order" data-t>Track</button>
     </div>
     <button type="button" class="where" id="where-bar" hidden>
       <span class="ico"><svg width="20" height="20"><use href="#i-pin"/></svg></span>
@@ -407,7 +409,7 @@
 
   <!-- 2. Orders (this phone's recent orders) -->
   <section id="orders-view" hidden>
-    <div class="section-title"><h2>Your orders</h2><span class="muted small" id="orders-where">On this phone</span></div>
+    <div class="section-title"><h2 data-t>Your orders</h2><span class="muted small" id="orders-where">On this phone</span></div>
     <div class="past" id="past"></div>
   </section>
 
@@ -418,98 +420,98 @@
         <div class="kicker" id="reward-kicker">Rewards</div>
         <div class="pts" style="font-size:28px" id="reward-pitch-title">Shop, earn, save</div>
         <p id="reward-pitch">Create a free account to see your orders on any phone.</p>
-        <div class="acts"><button id="join-open">Create account</button><button class="secondary" id="signin-open">Sign in</button></div>
+        <div class="acts"><button id="join-open" data-t>Create account</button><button class="secondary" id="signin-open" data-t>Sign in</button></div>
       </div>
       <ul class="perks">
         <li id="perk-points"><span class="ico"><svg width="20" height="20"><use href="#i-star"/></svg></span><span id="perk-points-text"></span></li>
-        <li><span class="ico"><svg width="20" height="20"><use href="#i-repeat"/></svg></span><span>Your orders on any phone, and Buy again in one tap</span></li>
-        <li><span class="ico"><svg width="20" height="20"><use href="#i-bag"/></svg></span><span>Faster checkout: your name and number filled in</span></li>
+        <li><span class="ico"><svg width="20" height="20"><use href="#i-repeat"/></svg></span><span data-t>Your orders on any phone, and Buy again in one tap</span></li>
+        <li><span class="ico"><svg width="20" height="20"><use href="#i-bag"/></svg></span><span data-t>Faster checkout: your name and number filled in</span></li>
       </ul>
     </div>
 
     <form class="card" id="join-form" hidden novalidate>
-      <h2>Create your account</h2>
-      <label for="j-name" style="margin-top:0">Full name</label>
+      <h2 data-t>Create your account</h2>
+      <label for="j-name" style="margin-top:0" data-t>Full name</label>
       <input id="j-name" autocomplete="name" maxlength="60" required>
-      <label for="j-phone">Phone number</label>
+      <label for="j-phone" data-t>Phone number</label>
       <input id="j-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required>
-      <label for="j-email">Email</label>
+      <label for="j-email" data-t>Email</label>
       <input id="j-email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
       <div class="row2">
-        <div><label for="j-dob">Date of birth</label><input id="j-dob" type="date" required></div>
-        <div><label for="j-gender">Gender <span class="muted" style="font-weight:500">(optional)</span></label>
-          <select id="j-gender"><option value="">Prefer not to say</option><option value="female">Female</option>
-            <option value="male">Male</option><option value="other">Other</option></select></div>
+        <div><label for="j-dob" data-t>Date of birth</label><input id="j-dob" type="date" required></div>
+        <div><label for="j-gender"><span data-t>Gender</span> <span class="muted" style="font-weight:500" data-t>(optional)</span></label>
+          <select id="j-gender"><option value="" data-t>Prefer not to say</option><option value="female" data-t>Female</option>
+            <option value="male" data-t>Male</option><option value="other" data-t>Other</option></select></div>
       </div>
       <label class="check" style="margin-top:16px"><input type="checkbox" id="j-consent">
-        <span>I've read the privacy notice below and agree to <span class="store-name"></span> keeping these details for my account.</span></label>
-      <details class="notice"><summary>Privacy notice</summary>
+        <span data-t>I've read the privacy notice below and agree to {store} keeping these details for my account.</span></label>
+      <details class="notice"><summary data-t>Privacy notice</summary>
         <ul>
-          <li><b>What we keep:</b> your name, phone number, email and date of birth, your gender and photo if you give them, and your orders and points.</li>
-          <li><b>Why:</b> to run your account and points, show your orders, and contact you about them. Your date of birth confirms you're 18 or over and may be used for a birthday treat.</li>
-          <li><b>Who sees it:</b> only you and the store's staff who need it. Staff see your name and points, not your date of birth or gender. We don't sell it.</li>
-          <li><b>Your choice:</b> change your details or delete your account any time on this page. Deleting erases your details; the store keeps a record of past sales, without your name, for its accounts.</li>
+          <li data-t-html><b>What we keep:</b> your name, phone number, email and date of birth, your gender and photo if you give them, and your orders and points.</li>
+          <li data-t-html><b>Why:</b> to run your account and points, show your orders, and contact you about them. Your date of birth confirms you're 18 or over and may be used for a birthday treat.</li>
+          <li data-t-html><b>Who sees it:</b> only you and the store's staff who need it. Staff see your name and points, not your date of birth or gender. We don't sell it.</li>
+          <li data-t-html><b>Your choice:</b> change your details or delete your account any time on this page. Deleting erases your details; the store keeps a record of past sales, without your name, for its accounts.</li>
         </ul>
       </details>
-      <button class="block" style="margin-top:16px" id="join-send">Email me a code</button>
-      <button type="button" class="ghost block" data-acct-back>Back</button>
+      <button class="block" style="margin-top:16px" id="join-send" data-t>Email me a code</button>
+      <button type="button" class="ghost block" data-acct-back data-t>Back</button>
     </form>
 
     <form class="card" id="signin-form" hidden>
-      <h2>Sign in</h2>
-      <p class="muted" style="margin-top:0">We'll email you a 6-digit code. No password needed.</p>
-      <label for="s-email" style="margin-top:0">Email</label>
+      <h2 data-t>Sign in</h2>
+      <p class="muted" style="margin-top:0" data-t>We'll email you a 6-digit code. No password needed.</p>
+      <label for="s-email" style="margin-top:0" data-t>Email</label>
       <input id="s-email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
-      <button class="block" style="margin-top:16px">Email me a code</button>
-      <button type="button" class="ghost block" data-acct-back>Back</button>
+      <button class="block" style="margin-top:16px" data-t>Email me a code</button>
+      <button type="button" class="ghost block" data-acct-back data-t>Back</button>
     </form>
 
     <form class="card" id="code-form" hidden>
-      <h2>Check your email</h2>
+      <h2 data-t>Check your email</h2>
       <p class="muted" style="margin-top:0" id="code-sent">We sent a code.</p>
-      <label for="c-code" style="margin-top:0">6-digit code</label>
+      <label for="c-code" style="margin-top:0" data-t>6-digit code</label>
       <input id="c-code" class="codebox" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" required>
-      <button class="block" style="margin-top:16px">Confirm</button>
+      <button class="block" style="margin-top:16px" data-t>Confirm</button>
       <div style="display:flex;justify-content:space-between;margin-top:6px">
-        <button type="button" class="ghost" id="code-resend">Send a new code</button>
-        <button type="button" class="ghost" data-acct-back>Back</button>
+        <button type="button" class="ghost" id="code-resend" data-t>Send a new code</button>
+        <button type="button" class="ghost" data-acct-back data-t>Back</button>
       </div>
-      <p class="muted small" id="code-demo" hidden style="margin-bottom:0">Demo: emails aren't sent yet. The code is on the dashboard under <b>Loyalty</b>.</p>
+      <p class="muted small" id="code-demo" hidden style="margin-bottom:0" data-t-html>Demo: emails aren't sent yet. The code is on the dashboard under <b>Loyalty</b>.</p>
     </form>
 
     <div id="acct-in" hidden>
       <div class="card profile">
-        <label class="avatar" id="avatar" title="Change photo"><span id="avatar-initials"></span>
-          <input type="file" accept="image/*" id="photo-input" aria-label="Add or change your photo"></label>
+        <label class="avatar" id="avatar" title="Change photo" data-t-title><span id="avatar-initials"></span>
+          <input type="file" accept="image/*" id="photo-input" aria-label="Add or change your photo" data-t-aria-label></label>
         <div class="who"><b id="p-name"></b><span class="muted small" id="p-email"></span><br><span class="muted small" id="p-since"></span></div>
       </div>
       <div class="reward" id="points-card">
-        <div class="kicker">Your points</div>
-        <div class="pts"><span id="p-points">0</span> <small>points</small></div>
+        <div class="kicker" data-t>Your points</div>
+        <div class="pts"><span id="p-points">0</span> <small data-t>points</small></div>
         <div class="bar"><i id="p-bar" style="width:0"></i></div>
         <p id="p-worth"></p>
         <p class="small" id="p-pending" hidden></p>
       </div>
       <form class="card" id="profile-form">
-        <h2>Your details</h2>
-        <label for="e-name" style="margin-top:0">Full name</label>
+        <h2 data-t>Your details</h2>
+        <label for="e-name" style="margin-top:0" data-t>Full name</label>
         <input id="e-name" autocomplete="name" maxlength="60" required>
-        <label for="e-phone">Phone number</label>
+        <label for="e-phone" data-t>Phone number</label>
         <input id="e-phone" type="tel" inputmode="tel" autocomplete="tel" required>
         <div class="row2">
-          <div><label for="e-dob">Date of birth</label><input id="e-dob" type="date" required></div>
-          <div><label for="e-gender">Gender</label>
-            <select id="e-gender"><option value="">Prefer not to say</option><option value="female">Female</option>
-              <option value="male">Male</option><option value="other">Other</option></select></div>
+          <div><label for="e-dob" data-t>Date of birth</label><input id="e-dob" type="date" required></div>
+          <div><label for="e-gender" data-t>Gender</label>
+            <select id="e-gender"><option value="" data-t>Prefer not to say</option><option value="female" data-t>Female</option>
+              <option value="male" data-t>Male</option><option value="other" data-t>Other</option></select></div>
         </div>
-        <div class="row2" style="margin-top:14px"><button>Save</button><button type="button" class="secondary" id="photo-remove">Remove photo</button></div>
+        <div class="row2" style="margin-top:14px"><button data-t>Save</button><button type="button" class="secondary" id="photo-remove" data-t>Remove photo</button></div>
       </form>
-      <div class="row2"><button class="secondary" id="sign-out">Sign out</button><button class="danger" id="delete-account">Delete account</button></div>
+      <div class="row2"><button class="secondary" id="sign-out" data-t>Sign out</button><button class="danger" id="delete-account" data-t>Delete account</button></div>
     </div>
     <div class="card" id="help-card" hidden style="margin-top:14px">
       <div class="help"><span class="ico"><svg width="20" height="20"><use href="#i-flag"/></svg></span>
-        <div><b>Something not right?</b><div class="muted small">Tell us about an order, the store or the app, or share an idea.</div></div>
-        <button class="small secondary" id="report-open">Report</button></div>
+        <div><b data-t>Something not right?</b><div class="muted small" data-t>Tell us about an order, the store or the app, or share an idea.</div></div>
+        <button class="small secondary" id="report-open" data-t>Report</button></div>
       <div id="my-reports"></div>
     </div>
   </section>
@@ -517,77 +519,77 @@
   <!-- 3. Checkout -->
   <section id="checkout-view" hidden>
     <div class="card">
-      <h2>How would you like it?</h2>
+      <h2 data-t>How would you like it?</h2>
       <div class="choice">
         <label><span class="ico"><svg width="20" height="20"><use href="#i-store"/></svg></span>
-          <span>Collect from <span id="collect-store"></span></span><span class="fee">Free</span>
+          <span><span data-t>Collect from</span> <span id="collect-store"></span></span><span class="fee" data-t>Free</span>
           <input type="radio" name="fulfil" value="collect" checked></label>
         <label id="deliver-option" hidden><span class="ico"><svg width="20" height="20"><use href="#i-bike"/></svg></span>
-          <span>Deliver to me</span><span class="fee" id="deliver-from"></span>
+          <span data-t>Deliver to me</span><span class="fee" id="deliver-from"></span>
           <input type="radio" name="fulfil" value="delivery"></label>
       </div>
       <p class="muted small" id="fulfil-hint" style="margin:10px 2px 0"></p>
     </div>
     <form id="order-form">
       <div class="card" id="delivery-fields" hidden>
-        <h2>Delivery</h2>
+        <h2 data-t>Delivery</h2>
         <button type="button" class="where" id="checkout-where">
           <span class="ico"><svg width="20" height="20"><use href="#i-pin"/></svg></span>
           <span class="txt"><b id="cw-title">Where should we deliver?</b><small id="cw-text">Set your location to see the fees</small></span>
-          <span class="go">Change</span>
+          <span class="go" data-t>Change</span>
         </button>
         <div class="choice" id="tier-choice">
           <label id="tier-express"><span class="ico"><svg width="20" height="20"><use href="#i-bolt"/></svg></span>
-            <span>Express<small id="express-eta">About 1 hour</small></span><span class="fee" id="express-fee"></span>
+            <span><span data-t>Express</span><small id="express-eta"></small></span><span class="fee" id="express-fee"></span>
             <input type="radio" name="tier" value="express"></label>
           <label id="tier-scheduled"><span class="ico"><svg width="20" height="20"><use href="#i-clock"/></svg></span>
-            <span>Choose a time<small>A 2-hour slot, today or later</small></span><span class="fee" id="scheduled-fee"></span>
+            <span><span data-t>Choose a time</span><small data-t>A 2-hour slot, today or later</small></span><span class="fee" id="scheduled-fee"></span>
             <input type="radio" name="tier" value="scheduled"></label>
         </div>
         <div id="slot-field" hidden>
-          <label for="slot">Delivery time</label>
+          <label for="slot" data-t>Delivery time</label>
           <select id="slot"></select>
         </div>
-        <label for="address">Address</label>
-        <input id="address" maxlength="200" autocomplete="street-address" placeholder="Building, house or flat number, street">
-        <label for="notes">Directions for the rider <span class="muted" style="font-weight:500">(optional)</span></label>
-        <input id="notes" maxlength="300" placeholder="e.g. Blue gate opposite the school">
+        <label for="address" data-t>Address</label>
+        <input id="address" maxlength="200" autocomplete="street-address" placeholder="Building, house or flat number, street" data-t-placeholder>
+        <label for="notes"><span data-t>Directions for the rider</span> <span class="muted" style="font-weight:500" data-t>(optional)</span></label>
+        <input id="notes" maxlength="300" placeholder="e.g. Blue gate opposite the school" data-t-placeholder>
       </div>
       <div class="card">
-        <h2>Your details</h2>
-        <label for="name" style="margin-top:0">Your name</label>
+        <h2 data-t>Your details</h2>
+        <label for="name" style="margin-top:0" data-t>Your name</label>
         <input id="name" autocomplete="name" maxlength="60" required>
         <label for="phone" id="phone-label">M-Pesa number</label>
         <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="0712 345 678" required>
       </div>
       <div class="card" id="pay-method" hidden>
-        <h2>Pay with</h2>
+        <h2 data-t>Pay with</h2>
         <div class="choice">
           <label><span class="ico"><svg width="20" height="20"><use href="#i-phone"/></svg></span><span>M-Pesa</span>
             <input type="radio" name="paymethod" value="mpesa" checked></label>
-          <label><span class="ico"><svg width="20" height="20"><use href="#i-card"/></svg></span><span>Card</span><span class="fee">Visa, Mastercard</span>
+          <label><span class="ico"><svg width="20" height="20"><use href="#i-card"/></svg></span><span data-t>Card</span><span class="fee">Visa, Mastercard</span>
             <input type="radio" name="paymethod" value="card"></label>
         </div>
         <div id="email-field" hidden>
-          <label for="email">Email for the card receipt</label>
+          <label for="email" data-t>Email for the card receipt</label>
           <input id="email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com">
         </div>
       </div>
       <div class="card" id="points-box" hidden>
         <div class="pointsrow"><span class="ico"><svg width="20" height="20"><use href="#i-gift"/></svg></span>
           <div><b id="pb-title"></b><div class="muted small" id="pb-text"></div></div>
-          <label class="switch" id="pb-switch"><input type="checkbox" id="use-points" aria-label="Use my points"><span></span></label>
-          <button type="button" class="small secondary" id="pb-signin" hidden>Sign in</button></div>
+          <label class="switch" id="pb-switch"><input type="checkbox" id="use-points" aria-label="Use my points" data-t-aria-label><span></span></label>
+          <button type="button" class="small secondary" id="pb-signin" hidden data-t>Sign in</button></div>
       </div>
       <div class="card">
-        <div class="section-title" style="margin:0 0 4px"><h2 style="margin:0">Order summary</h2>
-          <button type="button" class="ghost small" id="edit-cart">Edit</button></div>
+        <div class="section-title" style="margin:0 0 4px"><h2 style="margin:0" data-t>Order summary</h2>
+          <button type="button" class="ghost small" id="edit-cart" data-t>Edit</button></div>
         <div id="lines"></div>
-        <div class="rline" id="fee-line" hidden><span>Delivery</span><span class="num" id="fee-amount"></span></div>
-        <div class="rline" id="points-line" hidden><span>Points</span><span class="num earn" id="points-amount"></span></div>
-        <div class="rline total"><span>Total</span><span class="num" id="checkout-total"></span></div>
+        <div class="rline" id="fee-line" hidden><span data-t>Delivery</span><span class="num" id="fee-amount"></span></div>
+        <div class="rline" id="points-line" hidden><span data-t>Points</span><span class="num earn" id="points-amount"></span></div>
+        <div class="rline total"><span data-t>Total</span><span class="num" id="checkout-total"></span></div>
       </div>
-      <button type="button" class="ghost" id="back-to-shop" style="display:block;margin:0 auto">← Keep shopping</button>
+      <button type="button" class="ghost" id="back-to-shop" style="display:block;margin:0 auto" data-t>← Keep shopping</button>
       <div class="paybar"><div class="inner"><button id="pay-button">Pay with M-Pesa</button></div></div>
     </form>
   </section>
@@ -602,14 +604,14 @@
     <div class="card warnbox" id="retry-box" hidden>
       <p id="retry-text" style="margin-top:0;font-weight:600"></p>
       <form id="retry-form">
-        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" required>
-        <button class="block" style="margin-top:10px">Pay with M-Pesa</button>
+        <input id="retry-phone" type="tel" inputmode="tel" placeholder="0712 345 678" aria-label="M-Pesa phone number" data-t-aria-label required>
+        <button class="block" style="margin-top:10px" data-t>Pay with M-Pesa</button>
       </form>
       <form id="retry-card-form" hidden style="margin-top:14px">
-        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" required>
-        <button class="block" style="margin-top:10px">Pay by card</button>
+        <input id="retry-email" type="email" placeholder="you@example.com" aria-label="Email for the card receipt" data-t-aria-label required>
+        <button class="block" style="margin-top:10px" data-t>Pay by card</button>
       </form>
-      <button class="ghost" id="abandon" style="margin-top:6px">Cancel and go back to the shop</button>
+      <button class="ghost" id="abandon" style="margin-top:6px" data-t>Cancel and go back to the shop</button>
     </div>
   </section>
 
@@ -619,71 +621,71 @@
     <div class="pass" id="pass">
       <div class="big" id="pass-title"></div>
       <div class="code" id="pass-code"></div>
-      <div class="qr"><img id="pass-qr" alt="Order QR code, scanned when you collect" width="180" height="180"></div>
+      <div class="qr"><img id="pass-qr" alt="Order QR code, scanned when you collect" data-t-alt width="180" height="180"></div>
       <div class="pin" id="pass-pin" hidden></div>
       <div id="pass-hint"></div>
     </div>
     <div class="card rider" id="rider-card" hidden>
-      <span class="ico"><svg width="22" height="22"><use href="#i-bike"/></svg></span><span id="rider-text"></span><a id="rider-call" href="#">Call</a>
+      <span class="ico"><svg width="22" height="22"><use href="#i-bike"/></svg></span><span id="rider-text"></span><a id="rider-call" href="#" data-t>Call</a>
     </div>
     <div class="card">
       <h2 id="receipt-store"></h2>
       <div id="receipt-lines"></div>
-      <div class="rline" id="receipt-fee-line" hidden><span>Delivery</span><span class="num" id="receipt-fee"></span></div>
-      <div class="rline" id="receipt-points-line" hidden><span>Points</span><span class="num earn" id="receipt-points"></span></div>
-      <div class="rline total"><span>Total</span><span class="num" id="receipt-total"></span></div>
+      <div class="rline" id="receipt-fee-line" hidden><span data-t>Delivery</span><span class="num" id="receipt-fee"></span></div>
+      <div class="rline" id="receipt-points-line" hidden><span data-t>Points</span><span class="num earn" id="receipt-points"></span></div>
+      <div class="rline total"><span data-t>Total</span><span class="num" id="receipt-total"></span></div>
       <p class="muted small" id="receipt-meta" style="margin-bottom:0"></p>
     </div>
     <div class="card" id="returns-card" hidden>
-      <div class="section-title" style="margin:0 0 6px"><h2 style="margin:0">Returns</h2>
-        <button type="button" class="small secondary" id="return-open" hidden>Return items</button></div>
+      <div class="section-title" style="margin:0 0 6px"><h2 style="margin:0" data-t>Returns</h2>
+        <button type="button" class="small secondary" id="return-open" hidden data-t>Return items</button></div>
       <p class="muted small" id="returns-rule" style="margin:0"></p>
       <div id="returns-list"></div>
     </div>
-    <button type="button" class="ghost block" id="report-order" hidden>Problem with this order? Tell us</button>
-    <button class="secondary block" id="back-from-order">Back to the shop</button>
+    <button type="button" class="ghost block" id="report-order" hidden data-t>Problem with this order? Tell us</button>
+    <button class="secondary block" id="back-from-order" data-t>Back to the shop</button>
   </section>
 </main>
 
 <!-- Cart bar: tap the left side to see the cart without leaving the shop -->
 <div class="cartbar empty-cart" id="basket-bar">
-  <button class="open" id="open-cart" aria-label="View cart">
+  <button class="open" id="open-cart" aria-label="View cart" data-t-aria-label>
     <span class="bag"><svg width="22" height="22"><use href="#i-bag"/></svg><i id="bag-count">0</i></span>
     <span><b id="total">KES 0</b><small id="count">0 items · View cart</small></span>
   </button>
-  <button id="checkout" disabled>Checkout</button>
+  <button id="checkout" disabled data-t>Checkout</button>
 </div>
 
 <nav class="tabs" id="tabs">
   <div class="inner">
-    <button class="on" data-tab="shop"><svg width="24" height="24"><use href="#i-store"/></svg>Shop</button>
-    <button data-tab="orders"><svg width="24" height="24"><use href="#i-receipt"/></svg>Orders<i id="orders-badge" hidden>1</i></button>
-    <button data-tab="account" id="account-tab" hidden><svg width="24" height="24"><use href="#i-user"/></svg>Account</button>
-    <button data-tab="cart"><svg width="24" height="24"><use href="#i-bag"/></svg>Cart<i id="cart-badge" hidden>0</i></button>
+    <button class="on" data-tab="shop"><svg width="24" height="24"><use href="#i-store"/></svg><span data-t>Shop</span></button>
+    <button data-tab="orders"><svg width="24" height="24"><use href="#i-receipt"/></svg><span data-t>Orders</span><i id="orders-badge" hidden>1</i></button>
+    <button data-tab="account" id="account-tab" hidden><svg width="24" height="24"><use href="#i-user"/></svg><span data-t>Account</span></button>
+    <button data-tab="cart"><svg width="24" height="24"><use href="#i-bag"/></svg><span data-t>Cart</span><i id="cart-badge" hidden>0</i></button>
   </div>
 </nav>
 
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="cart-sheet" role="dialog" aria-modal="true" aria-labelledby="cart-title" aria-hidden="true">
   <div class="grab"></div>
-  <div class="head"><h2 id="cart-title">Your cart</h2>
-    <button class="iconbtn" id="close-cart" aria-label="Close the cart"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <div class="head"><h2 id="cart-title" data-t>Your cart</h2>
+    <button class="iconbtn" id="close-cart" aria-label="Close the cart" data-t-aria-label><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
   <div class="scroll" id="cart-lines"></div>
   <div class="foot">
-    <div class="sum"><span>Subtotal</span><span class="num" id="cart-total">KES 0</span></div>
-    <div class="row"><button class="secondary" id="keep-shopping">Keep shopping</button><button id="cart-checkout">Checkout</button></div>
+    <div class="sum"><span data-t>Subtotal</span><span class="num" id="cart-total">KES 0</span></div>
+    <div class="row"><button class="secondary" id="keep-shopping" data-t>Keep shopping</button><button id="cart-checkout" data-t>Checkout</button></div>
   </div>
 </div>
 
 <div class="sheet" id="where-sheet" role="dialog" aria-modal="true" aria-labelledby="where-heading" aria-hidden="true">
   <div class="grab"></div>
-  <div class="head"><h2 id="where-heading">Where should we deliver?</h2>
-    <button class="iconbtn" id="close-where" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <div class="head"><h2 id="where-heading" data-t>Where should we deliver?</h2>
+    <button class="iconbtn" id="close-where" aria-label="Close" data-t-aria-label><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
   <div class="scroll">
     <p class="muted" style="margin-top:0" id="where-intro">Check before you shop: we'll show the delivery fees, or tell you if it's too far.</p>
     <div class="where-actions">
-      <button class="block" id="where-locate"><svg width="18" height="18" style="vertical-align:-3px;margin-right:6px"><use href="#i-pin"/></svg>Use my location</button>
-      <button class="secondary block" id="where-map-open">Pick on the map</button>
+      <button class="block" id="where-locate"><svg width="18" height="18" style="vertical-align:-3px;margin-right:6px"><use href="#i-pin"/></svg><span data-t>Use my location</span></button>
+      <button class="secondary block" id="where-map-open" data-t>Pick on the map</button>
     </div>
     <div id="where-map" hidden></div>
     <p class="muted small" id="where-status" style="margin-bottom:0"></p>
@@ -694,47 +696,48 @@
 
 <div class="sheet" id="return-sheet" role="dialog" aria-modal="true" aria-labelledby="return-heading" aria-hidden="true">
   <div class="grab"></div>
-  <div class="head"><h2 id="return-heading">Return items</h2>
-    <button class="iconbtn" id="close-return" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <div class="head"><h2 id="return-heading" data-t>Return items</h2>
+    <button class="iconbtn" id="close-return" aria-label="Close" data-t-aria-label><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
   <div class="scroll">
     <p class="muted" style="margin-top:0" id="return-intro"></p>
     <div id="return-lines"></div>
-    <label for="return-reason">Why are they coming back?</label>
-    <select id="return-reason">
-      <option value="">Choose a reason</option><option>Changed my mind</option><option>Bought too many</option>
-      <option>Wrong item delivered</option><option>Not what I expected</option><option>Other</option>
+    <label for="return-reason" data-t>Why are they coming back?</label>
+    <select id="return-reason"><!-- the values stay in English: staff read them on the dashboard -->
+      <option value="" data-t>Choose a reason</option><option value="Changed my mind" data-t>Changed my mind</option>
+      <option value="Bought too many" data-t>Bought too many</option><option value="Wrong item delivered" data-t>Wrong item delivered</option>
+      <option value="Not what I expected" data-t>Not what I expected</option><option value="Other" data-t>Other</option>
     </select>
     <label class="check" style="margin:14px 0 4px"><input type="checkbox" id="return-unopened">
-      <span>The items are unopened and in the same state as when I got them.</span></label>
-    <p class="muted small" style="margin:6px 0 12px">Bring them to the store with this order page. Staff check them, and once approved the store refunds you.</p>
+      <span data-t>The items are unopened and in the same state as when I got them.</span></label>
+    <p class="muted small" style="margin:6px 0 12px" data-t>Bring them to the store with this order page. Staff check them, and once approved the store refunds you.</p>
   </div>
   <div class="foot"><button id="return-send" disabled>Ask to return</button></div>
 </div>
 
 <div class="sheet" id="report-sheet" role="dialog" aria-modal="true" aria-labelledby="report-heading" aria-hidden="true">
   <div class="grab"></div>
-  <div class="head"><h2 id="report-heading">Report a problem</h2>
-    <button class="iconbtn" id="close-report" aria-label="Close"><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
+  <div class="head"><h2 id="report-heading" data-t>Report a problem</h2>
+    <button class="iconbtn" id="close-report" aria-label="Close" data-t-aria-label><svg width="18" height="18"><use href="#i-x"/></svg></button></div>
   <form class="scroll" id="report-form" novalidate>
-    <div class="kinds" role="radiogroup" aria-label="What is it about?">
-      <label><input type="radio" name="rkind" value="order">An order</label>
-      <label><input type="radio" name="rkind" value="store">The store</label>
-      <label><input type="radio" name="rkind" value="app">The app isn't working</label>
-      <label><input type="radio" name="rkind" value="idea">An idea</label>
+    <div class="kinds" role="radiogroup" aria-label="What is it about?" data-t-aria-label>
+      <label><input type="radio" name="rkind" value="order"><span data-t>An order</span></label>
+      <label><input type="radio" name="rkind" value="store"><span data-t>The store</span></label>
+      <label><input type="radio" name="rkind" value="app"><span data-t>The app isn't working</span></label>
+      <label><input type="radio" name="rkind" value="idea"><span data-t>An idea</span></label>
     </div>
     <p class="muted small" id="report-about" hidden style="margin:10px 2px 0"></p>
-    <label for="report-message">What happened?</label>
-    <textarea id="report-message" maxlength="2000" placeholder="Tell us in your own words"></textarea>
-    <label for="report-contact">How can we reach you? <span class="muted" style="font-weight:500">(optional)</span></label>
-    <input id="report-contact" maxlength="120" placeholder="Phone or email" autocomplete="email">
-    <label for="report-photo">Photo or screenshot <span class="muted" style="font-weight:500">(optional)</span></label>
+    <label for="report-message" data-t>What happened?</label>
+    <textarea id="report-message" maxlength="2000" placeholder="Tell us in your own words" data-t-placeholder></textarea>
+    <label for="report-contact"><span data-t>How can we reach you?</span> <span class="muted" style="font-weight:500" data-t>(optional)</span></label>
+    <input id="report-contact" maxlength="120" placeholder="Phone or email" data-t-placeholder autocomplete="email">
+    <label for="report-photo"><span data-t>Photo or screenshot</span> <span class="muted" style="font-weight:500" data-t>(optional)</span></label>
     <input id="report-photo" type="file" accept="image/*">
-    <p class="muted small" id="report-app-note" hidden style="margin:8px 2px">We'll attach the page you were on and your browser type, to help us fix it.</p>
+    <p class="muted small" id="report-app-note" hidden style="margin:8px 2px" data-t>We'll attach the page you were on and your browser type, to help us fix it.</p>
   </form>
-  <div class="foot"><button id="report-send" disabled>Send</button></div>
+  <div class="foot"><button id="report-send" disabled data-t>Send</button></div>
 </div>
 
-<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-undo" data-t>Undo</button></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -749,6 +752,206 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
+// ------------------------------------------------------------------ language
+// English is written in the page; SW has the Kiswahili for each English text. Anything missing shows in English.
+// tests/test_i18n_pages.py checks every text marked for translation has its Kiswahili.
+const SW = {
+  // the page as written (data-t)
+  "Back to the shop": "Rudi dukani", "Search milk, bread, rice…": "Tafuta maziwa, mkate, mchele…", "Search products": "Tafuta bidhaa",
+  "Track": "Fuatilia", "Your orders": "Oda zako", "Create account": "Fungua akaunti", "Sign in": "Ingia",
+  "Your orders on any phone, and Buy again in one tap": "Oda zako kwenye simu yoyote, na Nunua tena kwa mguso mmoja",
+  "Faster checkout: your name and number filled in": "Kulipa haraka: jina na nambari yako vimejazwa",
+  "Create your account": "Fungua akaunti yako", "Full name": "Jina kamili", "Phone number": "Nambari ya simu", "Email": "Barua pepe",
+  "Date of birth": "Tarehe ya kuzaliwa", "Gender": "Jinsia", "(optional)": "(si lazima)", "Prefer not to say": "Sipendi kusema",
+  "Female": "Mwanamke", "Male": "Mwanamume", "Other": "Nyingine",
+  "I've read the privacy notice below and agree to {store} keeping these details for my account.":
+    "Nimesoma ilani ya faragha hapa chini na nakubali {store} kuhifadhi maelezo haya kwa akaunti yangu.",
+  "Privacy notice": "Ilani ya faragha",
+  "<b>What we keep:</b> your name, phone number, email and date of birth, your gender and photo if you give them, and your orders and points.":
+    "<b>Tunachohifadhi:</b> jina lako, nambari ya simu, barua pepe na tarehe ya kuzaliwa, jinsia na picha yako ukizitoa, pamoja na oda na pointi zako.",
+  "<b>Why:</b> to run your account and points, show your orders, and contact you about them. Your date of birth confirms you're 18 or over and may be used for a birthday treat.":
+    "<b>Kwa nini:</b> kuendesha akaunti na pointi zako, kuonyesha oda zako, na kuwasiliana nawe kuzihusu. Tarehe yako ya kuzaliwa inathibitisha kuwa una miaka 18 au zaidi, na inaweza kutumika kukupa zawadi ya siku ya kuzaliwa.",
+  "<b>Who sees it:</b> only you and the store's staff who need it. Staff see your name and points, not your date of birth or gender. We don't sell it.":
+    "<b>Nani anayaona:</b> wewe tu na wahudumu wa duka wanaoyahitaji. Wahudumu wanaona jina na pointi zako, si tarehe yako ya kuzaliwa wala jinsia. Hatuyauzi.",
+  "<b>Your choice:</b> change your details or delete your account any time on this page. Deleting erases your details; the store keeps a record of past sales, without your name, for its accounts.":
+    "<b>Uamuzi ni wako:</b> badilisha maelezo yako au futa akaunti yako wakati wowote kwenye ukurasa huu. Kufuta kunaondoa maelezo yako; duka linahifadhi rekodi ya mauzo ya awali, bila jina lako, kwa hesabu zake.",
+  "Email me a code": "Nitumie msimbo kwa barua pepe", "Back": "Rudi",
+  "We'll email you a 6-digit code. No password needed.": "Tutakutumia msimbo wa tarakimu 6 kwa barua pepe. Huhitaji nenosiri.",
+  "Check your email": "Angalia barua pepe yako", "6-digit code": "Msimbo wa tarakimu 6", "Confirm": "Thibitisha",
+  "Send a new code": "Tuma msimbo mpya",
+  "Demo: emails aren't sent yet. The code is on the dashboard under <b>Loyalty</b>.":
+    "Onyesho: barua pepe bado hazitumwi. Msimbo uko kwenye dashibodi, chini ya <b>Loyalty</b>.",
+  "Change photo": "Badilisha picha", "Add or change your photo": "Ongeza au badilisha picha yako", "Your points": "Pointi zako",
+  "points": "pointi", "Your details": "Maelezo yako", "Save": "Hifadhi", "Remove photo": "Ondoa picha", "Sign out": "Toka",
+  "Delete account": "Futa akaunti", "Something not right?": "Kuna tatizo?",
+  "Tell us about an order, the store or the app, or share an idea.": "Tueleze kuhusu oda, duka au programu, au shiriki wazo.",
+  "Report": "Ripoti", "How would you like it?": "Ungependa kuipata vipi?", "Collect from": "Chukua kutoka", "Free": "Bure",
+  "Deliver to me": "Niletee", "Delivery": "Kupeleka", "Change": "Badilisha", "Express": "Haraka", "Choose a time": "Chagua muda",
+  "A 2-hour slot, today or later": "Kipindi cha saa 2, leo au baadaye", "Delivery time": "Muda wa kupeleka", "Address": "Anwani",
+  "Building, house or flat number, street": "Jengo, nambari ya nyumba au fleti, barabara",
+  "Directions for the rider": "Maelekezo kwa msafirishaji", "e.g. Blue gate opposite the school": "mfano Lango la bluu mkabala na shule",
+  "Your name": "Jina lako", "Pay with": "Lipa kwa", "Card": "Kadi", "Email for the card receipt": "Barua pepe ya risiti ya kadi",
+  "Use my points": "Tumia pointi zangu", "Order summary": "Muhtasari wa oda", "Edit": "Badilisha", "Points": "Pointi", "Total": "Jumla",
+  "← Keep shopping": "← Endelea kununua", "M-Pesa phone number": "Nambari ya simu ya M-Pesa", "Pay with M-Pesa": "Lipa kwa M-Pesa",
+  "Pay by card": "Lipa kwa kadi", "Cancel and go back to the shop": "Ghairi na urudi dukani",
+  "Order QR code, scanned when you collect": "Msimbo wa QR wa oda, unachanganuliwa unapochukua", "Call": "Piga simu",
+  "Returns": "Kurudisha", "Return items": "Rudisha bidhaa", "Problem with this order? Tell us": "Tatizo na oda hii? Tueleze",
+  "View cart": "Angalia kikapu", "Checkout": "Lipa", "Shop": "Duka", "Orders": "Oda", "Account": "Akaunti", "Cart": "Kikapu",
+  "Your cart": "Kikapu chako", "Close the cart": "Funga kikapu", "Subtotal": "Jumla ndogo", "Keep shopping": "Endelea kununua",
+  "Where should we deliver?": "Tukuletee wapi?", "Close": "Funga", "Use my location": "Tumia mahali nilipo",
+  "Pick on the map": "Chagua kwenye ramani", "Why are they coming back?": "Kwa nini zinarudishwa?", "Choose a reason": "Chagua sababu",
+  "Changed my mind": "Nimebadilisha nia", "Bought too many": "Nilinunua nyingi mno", "Wrong item delivered": "Nililetewa bidhaa isiyo sahihi",
+  "Not what I expected": "Si kama nilivyotarajia",
+  "The items are unopened and in the same state as when I got them.": "Bidhaa hazijafunguliwa na ziko katika hali ile ile nilipozipata.",
+  "Bring them to the store with this order page. Staff check them, and once approved the store refunds you.":
+    "Zilete dukani pamoja na ukurasa huu wa oda. Wahudumu watazikagua, na zikiidhinishwa duka litakurudishia pesa.",
+  "Report a problem": "Ripoti tatizo", "What is it about?": "Linahusu nini?", "An order": "Oda", "The store": "Duka",
+  "The app isn't working": "Programu haifanyi kazi", "An idea": "Wazo", "What happened?": "Nini kilitokea?",
+  "Tell us in your own words": "Tueleze kwa maneno yako mwenyewe", "How can we reach you?": "Tunawezaje kukufikia?",
+  "Phone or email": "Simu au barua pepe", "Photo or screenshot": "Picha au picha ya skrini",
+  "We'll attach the page you were on and your browser type, to help us fix it.":
+    "Tutaambatisha ukurasa uliokuwa na aina ya kivinjari chako, ili kutusaidia kulirekebisha.",
+  "Send": "Tuma", "Undo": "Tendua", "Change language": "Badilisha lugha",
+  // said by the script
+  "Please check what you entered.": "Tafadhali kagua ulichoweka.", "Something went wrong. Please try again.": "Kuna hitilafu. Tafadhali jaribu tena.",
+  "Order online, collect or deliver": "Agiza mtandaoni, chukua au uletewe", "Your account": "Akaunti yako", "Paying": "Inalipwa",
+  "Your order": "Oda yako", "{store} · Online shop": "{store} · Duka la mtandaoni",
+  "Live from the store shelves · updated {time}": "Moja kwa moja kutoka rafu za duka · imesasishwa {time}",
+  "Stock updated {time}": "Bidhaa zilisasishwa {time}", "One less": "Punguza moja", "One more": "Ongeza moja",
+  "Try instead:": "Jaribu badala yake:", "Similar, in stock:": "Zinazofanana, zipo:", "Swap": "Badilisha", "Add": "Ongeza",
+  "All": "Zote", "Results for “{q}”": "Matokeo ya “{q}”", "All products": "Bidhaa zote", "1 item": "Bidhaa 1", "{n} items": "Bidhaa {n}",
+  "Out of stock": "Zimeisha", "Only {n} left": "Zimebaki {n} tu", "Add {name}": "Ongeza {name}", "No products match.": "Hakuna bidhaa zinazolingana.",
+  "Order {id}": "Oda {id}", "Packed, waiting for the rider": "Imefungwa, inasubiri msafirishaji", "Ready to collect": "Iko tayari kuchukuliwa",
+  "On the way to you": "Iko njiani kukujia", "Being packed": "Inafungwa", "Sold out since you added it.": "Imeisha tangu uliiongeza.",
+  "Please remove it.": "Tafadhali iondoe.", "Only {n} available now.": "Zinazopatikana sasa ni {n} tu.", "Change to {n}": "Badilisha iwe {n}",
+  "{price} each": "{price} kila moja", "Your cart is empty.": "Kikapu chako ni tupu.", "Pay {amount} by card": "Lipa {amount} kwa kadi",
+  "Pay {amount} with M-Pesa": "Lipa {amount} kwa M-Pesa",
+  "Phone number (for the store or rider to reach you)": "Nambari ya simu (ili duka au msafirishaji akufikie)",
+  "M-Pesa number": "Nambari ya M-Pesa", "{items} · View cart": "{items} · Angalia kikapu", "{name} added": "{name} imeongezwa",
+  "On all your devices": "Kwenye vifaa vyako vyote", "On this phone": "Kwenye simu hii", "In progress": "Inaendelea",
+  "Delivered": "Imeletwa", "Collected": "Imechukuliwa", "Collect": "Kuchukua", "+{n} points": "+{n} pointi", "Receipt": "Risiti",
+  "Buy again": "Nunua tena", "No orders yet on this phone.": "Bado hakuna oda kwenye simu hii.", "Start shopping": "Anza kununua",
+  "None of that order is available right now: {list}.": "Hakuna bidhaa ya oda hiyo inayopatikana sasa: {list}.",
+  "Added to your cart. Not available right now: {list}.": "Zimeongezwa kwenye kikapu chako. Hazipatikani sasa: {list}.",
+  "1 item added from your last order": "Bidhaa 1 imeongezwa kutoka oda yako ya mwisho",
+  "{n} items added from your last order": "Bidhaa {n} zimeongezwa kutoka oda yako ya mwisho",
+  "Checking…": "Inakagua…", "Closed for today": "Imefungwa kwa leo", "{km} from the store": "{km} kutoka dukani",
+  "Express · about {n} min": "Haraka · takriban dakika {n}", "next {slot}": "inayofuata {slot}",
+  "Delivery or collect?": "Kupeleka au kuchukua?", "Check that we deliver to you before you shop": "Hakikisha tunapeleka kwako kabla ya kununua",
+  "Check": "Kagua", "We deliver to you · {km}": "Tunapeleka kwako · {km}", "Express {fee}": "Haraka {fee}",
+  "Scheduled {fee}": "Kwa muda uliopangwa {fee}", "Too far to deliver · {km}": "Ni mbali mno kupeleka · {km}",
+  "We deliver within {km}. You can still shop and collect in store.": "Tunapeleka ndani ya {km}. Bado unaweza kununua na kuchukua dukani.",
+  "Shop and collect in store": "Nunua na uchukue dukani", "Done": "Tayari",
+  "We deliver within {km} of the store. Check before you shop: we'll show the delivery fees, or tell you if it's too far.":
+    "Tunapeleka ndani ya {km} kutoka dukani. Kagua kabla ya kununua: tutakuonyesha ada za kupeleka, au tukwambie kama ni mbali mno.",
+  "Too far": "Ni mbali mno", "from {fee}": "kuanzia {fee}", "By distance": "Kulingana na umbali", "Closed today": "Imefungwa leo",
+  "About {n} minutes": "Takriban dakika {n}", "None left": "Hakuna iliyobaki",
+  "This browser can't share its location. Pick it on the map.": "Kivinjari hiki hakiwezi kutoa mahali ulipo. Chagua kwenye ramani.",
+  "Finding you…": "Tunakutafuta…", "Couldn't get your location. Pick it on the map instead.": "Hatukuweza kupata mahali ulipo. Chagua kwenye ramani badala yake.",
+  "Loading the map…": "Inapakia ramani…", "The map couldn't load. Use your location instead.": "Ramani haikuweza kupakia. Tumia mahali ulipo badala yake.",
+  "Tap the map where we should deliver.": "Gusa ramani mahali tunapopaswa kupeleka.",
+  "We'll pack your order and a rider brings it. Give the rider the 4-digit code shown on your order page.":
+    "Tutafunga oda yako na msafirishaji ataileta. Mpe msafirishaji nambari ya tarakimu 4 iliyo kwenye ukurasa wa oda yako.",
+  "We'll pack your order and tell you here when it's ready. Show the pass on this page when you collect.":
+    "Tutafunga oda yako na kukujulisha hapa ikiwa tayari. Onyesha pasi iliyo kwenye ukurasa huu unapochukua.",
+  "Your items are held for {n} minutes while you pay.": "Bidhaa zako zimehifadhiwa kwa dakika {n} unapolipa.",
+  "Set where to deliver first.": "Weka mahali pa kupeleka kwanza.", "Opening the card payment page…": "Inafungua ukurasa wa malipo ya kadi…",
+  "Confirming your card payment": "Tunathibitisha malipo yako ya kadi", "Check your phone": "Angalia simu yako",
+  "Checking your payment of {amount} with the card provider…": "Tunakagua malipo yako ya {amount} na mtoa huduma wa kadi…",
+  "Enter your M-Pesa PIN on your phone to pay {amount}.": "Weka PIN yako ya M-Pesa kwenye simu yako ili kulipa {amount}.",
+  "That order was cancelled. Nothing was charged.": "Oda hiyo ilighairiwa. Hakuna pesa iliyotozwa.",
+  "The card payment didn't go through{why}. Nothing was charged. Try again, or pay another way.":
+    "Malipo ya kadi hayakufaulu{why}. Hakuna pesa iliyotozwa. Jaribu tena, au lipa kwa njia nyingine.",
+  "The payment was cancelled on your phone. Nothing was charged.": "Malipo yalighairiwa kwenye simu yako. Hakuna pesa iliyotozwa.",
+  "The payment didn't go through{why}. Nothing was charged.": "Malipo hayakufaulu{why}. Hakuna pesa iliyotozwa.",
+  "The card payment wasn't completed. Nothing was charged. Try again, or pay another way.":
+    "Malipo ya kadi hayakukamilika. Hakuna pesa iliyotozwa. Jaribu tena, au lipa kwa njia nyingine.",
+  "Paid": "Imelipwa", "Packing": "Inafungwa", "Ready": "Tayari", "On the way": "Iko njiani",
+  "Paid · we're packing it": "Imelipwa · tunaifunga", "Packed · waiting for the rider": "Imefungwa · inasubiri msafirishaji",
+  "The rider couldn't complete the delivery. The store will call you.": "Msafirishaji hakuweza kukamilisha kupeleka. Duka litakupigia simu.",
+  "Delivered at {time}. Thank you!": "Imeletwa saa {time}. Asante!", "Arriving {slot}.": "Inafika {slot}.",
+  "Your delivery code. Give it to the rider when your order arrives at {address}.":
+    "Nambari yako ya kupokea. Mpe msafirishaji oda yako ikifika {address}.",
+  "We'll show “Ready to collect” here when it's packed.": "Tutaonyesha “Iko tayari kuchukuliwa” hapa ikishafungwa.",
+  "Ready since {time}. Show this screen at the counter, {name}.": "Iko tayari tangu saa {time}. Onyesha skrini hii kwenye kaunta, {name}.",
+  "Collected at {time}. Thank you!": "Imechukuliwa saa {time}. Asante!", "Your rider: {name}": "Msafirishaji wako: {name}",
+  "Paid {when}": "Imelipwa {when}", "Paid by card {card}": "Imelipwa kwa kadi {card}",
+  "1 point earned": "Umepata pointi 1", "{n} points earned": "Umepata pointi {n}",
+  "Bring the items to the store: staff check them, then the store refunds {amount}.":
+    "Leta bidhaa dukani: wahudumu watazikagua, kisha duka litakurudishia {amount}.",
+  "Approved. Your refund of {amount} is on its way.": "Imeidhinishwa. Pesa zako {amount} zinarudishwa.",
+  "Refunded {amount} in cash.": "Umerudishiwa {amount} taslimu.", "Refunded {amount} to your card.": "Umerudishiwa {amount} kwenye kadi yako.",
+  "Refunded {amount} by M-Pesa.": "Umerudishiwa {amount} kwa M-Pesa.", "Not accepted: {note}": "Haikukubaliwa: {note}",
+  "Unopened, non-perishable items can be returned until {date}. Food that goes off can't be.":
+    "Bidhaa ambazo hazijafunguliwa na haziharibiki zinaweza kurudishwa hadi {date}. Vyakula vinavyoharibika haviwezi.",
+  "Choose what you're returning. You have until {date}.": "Chagua unachorudisha. Una hadi {date}.", "{n} of {qty}": "{n} kati ya {qty}",
+  "Ask to return · {amount} refund": "Omba kurudisha · utarudishiwa {amount}", "Choose what to return": "Chagua unachorudisha",
+  "Return requested. Bring the items to the store with this page; once staff have checked them, you'll be refunded.":
+    "Ombi la kurudisha limetumwa. Leta bidhaa dukani pamoja na ukurasa huu; wahudumu wakishazikagua, utarudishiwa pesa.",
+  "Received": "Imepokelewa", "Being looked at": "Inashughulikiwa", "Resolved": "Imetatuliwa", "About order {id}": "Kuhusu oda {id}",
+  "Thanks, we've got it. Your reference is {ref}.": "Asante, tumeipokea. Kumbukumbu yako ni {ref}.",
+  "Our reply will show on your Account tab.": "Jibu letu litaonekana kwenye kichupo cha Akaunti.",
+  "Staff will get back to you if you left a number or email.": "Wahudumu watakujibu kama uliacha nambari au barua pepe.",
+  "Your reports": "Ripoti zako", "1 point": "pointi 1", "{n} points": "pointi {n}", "1 more point": "pointi 1 zaidi",
+  "{n} more points": "pointi {n} zaidi", "Earn {points} on this order": "Pata {points} kwa oda hii",
+  "Sign in or create a free account first.": "Ingia au ufungue akaunti ya bure kwanza.",
+  "Use {points}: {amount} off": "Tumia {points}: punguzo la {amount}", "You have {points}": "Una {points}",
+  "You'll earn {points} on this order.": "Utapata {points} kwa oda hii.", "{n} points take {amount} off.": "Pointi {n} zinakupa punguzo la {amount}.",
+  "{store} Rewards": "Zawadi za {store}", "Earn points on every order": "Pata pointi kwa kila oda",
+  "Shop faster with an account": "Nunua haraka ukiwa na akaunti", "1 point for every KES 100": "Pointi 1 kwa kila KES 100",
+  "1 point per {amount}": "Pointi 1 kwa kila {amount}", "{rate} you spend online.": "{rate} unazotumia mtandaoni.",
+  "{n} points take {amount} off an order.": "Pointi {n} zinakupa punguzo la {amount} kwa oda.",
+  "See your orders on any phone and check out in seconds.": "Ona oda zako kwenye simu yoyote na ulipe kwa sekunde chache.",
+  "{n} points = {amount} off. Points are added when your order is paid.": "Pointi {n} = punguzo la {amount}. Pointi zinaongezwa oda yako ikilipwa.",
+  "Member since {date}": "Mwanachama tangu {date}", "Worth {amount} off your next order.": "Thamani ya punguzo la {amount} kwenye oda yako ijayo.",
+  "{points} to the next {amount}.": "Zimebaki {points} hadi punguzo lijalo la {amount}.",
+  "{points} and you get {amount} off.": "Pata {points} upate punguzo la {amount}.",
+  "Points for an order still waiting for payment are added once it's paid.": "Pointi za oda inayosubiri malipo zinaongezwa ikishalipwa.",
+  "We emailed a 6-digit code to {email}. It works for 10 minutes.": "Tumetuma msimbo wa tarakimu 6 kwa {email}. Unafanya kazi kwa dakika 10.",
+  "Please read and accept the privacy notice to join.": "Tafadhali soma na ukubali ilani ya faragha ili kujiunga.",
+  "Fill in your name, phone, email and date of birth.": "Jaza jina, simu, barua pepe na tarehe yako ya kuzaliwa.",
+  "A new code is on its way.": "Msimbo mpya unakuja.", "Welcome, {name}! You're signed in.": "Karibu, {name}! Umeingia.",
+  "Details saved": "Maelezo yamehifadhiwa", "That photo couldn't be saved.": "Picha hiyo haikuweza kuhifadhiwa.", "Photo saved": "Picha imehifadhiwa",
+  "Signed out": "Umetoka",
+  "Delete your account? Your details and photo are erased and your points are lost. This can't be undone.":
+    "Ungependa kufuta akaunti yako? Maelezo na picha yako yatafutwa na pointi zako zitapotea. Hili haliwezi kutenduliwa.",
+  "Your account was deleted.": "Akaunti yako imefutwa.",
+};
+const LANGS = {en: "English", sw: "Kiswahili"};
+let lang = store.get("lang", null) || ((navigator.language || "").toLowerCase().startsWith("sw") ? "sw" : "en");
+if (!LANGS[lang]) lang = "en";
+const locale = () => lang === "sw" ? "sw-KE" : "en-KE";
+function t(text, vars = {}) {
+  const s = (lang === "sw" && SW[text]) || text;
+  return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+const items = (n) => n === 1 ? t("1 item") : t("{n} items", {n});
+const pts = (n) => n === 1 ? t("1 point") : t("{n} points", {n: Number(n).toLocaleString("en-KE")});
+function translatePage() {
+  document.documentElement.lang = lang;
+  const vars = {store: storeName};
+  document.querySelectorAll("[data-t]").forEach((el) => {
+    if (el.dataset.en === undefined) el.dataset.en = el.textContent;
+    el.textContent = t(el.dataset.en, vars);
+  });
+  document.querySelectorAll("[data-t-html]").forEach((el) => {  // the page's own markup (bold labels), never customer input
+    if (el.dataset.enHtml === undefined) el.dataset.enHtml = el.innerHTML.trim();
+    el.innerHTML = t(el.dataset.enHtml);
+  });
+  for (const attr of ["placeholder", "aria-label", "alt", "title"]) {
+    const key = "en" + attr.replace(/-(\w)/g, (_, c) => c.toUpperCase()).replace(/^./, (c) => c.toUpperCase());
+    document.querySelectorAll(`[data-t-${attr}]`).forEach((el) => {
+      if (el.dataset[key] === undefined) el.dataset[key] = el.getAttribute(attr);
+      el.setAttribute(attr, t(el.dataset[key]));
+    });
+  }
+  const other = lang === "sw" ? "en" : "sw";
+  $("lang").textContent = other.toUpperCase();
+  $("lang").setAttribute("aria-label", LANGS[other]);
+  $("lang").title = t("Change language");
+}
+
+let storeName = "";
 let basket = store.get("web.basket", {});   // {product_id: qty}
 let order = store.get("web.order", null);   // {order_id, payment_id, total, phone, paid}
 let pastOrders = store.get("web.history", []); // this phone's paid orders, newest first: {order_id, payment_id, at, lines, total, fulfilment}
@@ -808,13 +1011,13 @@ function toast(text, undoFn = null) {
 $("toast-undo").addEventListener("click", () => { if (undo) undo(); $("toast").classList.remove("show"); undo = null; });
 
 async function api(path, options = {}) {
-  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+  const r = await fetch(path, {headers: {"Content-Type": "application/json", "X-Language": lang}, ...options});
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
     let detail = body.detail;
-    if (Array.isArray(detail)) detail = "Please check what you entered.";
+    if (Array.isArray(detail)) detail = t("Please check what you entered.");
     if (detail && typeof detail === "object") detail = detail.message;
-    throw Object.assign(new Error(detail || "Something went wrong. Please try again."), {status: r.status});
+    throw Object.assign(new Error(detail || t("Something went wrong. Please try again.")), {status: r.status});
   }
   return body;
 }
@@ -833,7 +1036,7 @@ function show(v) {
   $("search-wrap").hidden = v !== "shop";
   $("header-back").hidden = v !== "checkout" && v !== "order";
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === v));
-  $("step-label").textContent = LABELS[v];
+  $("step-label").textContent = t(LABELS[v]);
   closeCart();
   if (v === "orders") { renderOrders(); loadAccountOrders(); }
   if (v === "account") { renderAccount(); loadReports(); }
@@ -848,9 +1051,9 @@ async function loadCatalogue() {
     const c = await api("api/catalogue");
     products = Object.fromEntries(c.products.map((p) => [p.product_id, p]));
     categories = c.categories;
-    const at = new Date(c.updated_at).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+    lastCatalogue = c;
     $("live-dot").classList.toggle("off", !c.shelf_live);
-    $("live-text").textContent = c.shelf_live ? `Live from the store shelves · updated ${at}` : `Stock updated ${at}`;
+    renderLive();
     for (const pid of Object.keys(basket)) if (!products[pid]) delete basket[pid];
     render();
     if (view === "orders") renderOrders();
@@ -861,30 +1064,37 @@ async function loadCatalogue() {
   catalogueTimer = setTimeout(loadCatalogue, CATALOGUE_MS);
 }
 
+let lastCatalogue = null;
+function renderLive() {
+  if (!lastCatalogue) return;
+  const at = new Date(lastCatalogue.updated_at).toLocaleTimeString(locale(), {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+  $("live-text").textContent = lastCatalogue.shelf_live ? t("Live from the store shelves · updated {time}", {time: at}) : t("Stock updated {time}", {time: at});
+}
+
 function stepper(pid, qty) {
-  return `<span class="qty"><button type="button" aria-label="One less" data-pid="${esc(pid)}" data-d="-1">−</button><span>${qty}</span>
-    <button type="button" aria-label="One more" data-pid="${esc(pid)}" data-d="1" ${qty >= products[pid].max ? "disabled" : ""}>+</button></span>`;
+  return `<span class="qty"><button type="button" aria-label="${t("One less")}" data-pid="${esc(pid)}" data-d="-1">−</button><span>${qty}</span>
+    <button type="button" aria-label="${t("One more")}" data-pid="${esc(pid)}" data-d="1" ${qty >= products[pid].max ? "disabled" : ""}>+</button></span>`;
 }
 
 function subsHtml(p, swapFor = "") {
   if (!p.substitutes.length) return "";
-  return `<div class="subs"><span class="muted">${p.status === "out" ? "Try instead:" : "Similar, in stock:"}</span>${p.substitutes.map((s) => `
+  return `<div class="subs"><span class="muted">${t(p.status === "out" ? "Try instead:" : "Similar, in stock:")}</span>${p.substitutes.map((s) => `
     <div class="sub"><span>${esc(s.name)} · ${kes(s.price)}</span>
-      <button type="button" class="small secondary" data-add="${esc(s.product_id)}" data-swap="${esc(swapFor)}">${swapFor ? "Swap" : "Add"}</button></div>`).join("")}</div>`;
+      <button type="button" class="small secondary" data-add="${esc(s.product_id)}" data-swap="${esc(swapFor)}">${t(swapFor ? "Swap" : "Add")}</button></div>`).join("")}</div>`;
 }
 
 function renderShop() {
   $("chips").innerHTML = ["", ...categories].map((c) =>
-    `<button class="${c === category ? "on" : ""}" data-cat="${esc(c)}">${esc(c || "All")}</button>`).join("");
+    `<button class="${c === category ? "on" : ""}" data-cat="${esc(c)}">${esc(c || t("All"))}</button>`).join("");
   const q = $("search").value.trim().toLowerCase();
   const list = Object.values(products).filter((p) => (!category || p.category === category) && (!q || p.name.toLowerCase().includes(q)));
-  $("list-title").textContent = q ? `Results for “${$("search").value.trim()}”` : category || "All products";
-  $("list-count").textContent = list.length ? `${list.length} item${list.length === 1 ? "" : "s"}` : "";
+  $("list-title").textContent = q ? t("Results for “{q}”", {q: $("search").value.trim()}) : category || t("All products");
+  $("list-count").textContent = list.length ? items(list.length) : "";
   $("products").innerHTML = list.length ? list.map((p) => {
     const qty = basket[p.product_id] || 0, out = p.status === "out";
-    const tag = (out ? `<span class="tag out">Out of stock</span>` : p.status === "few" ? `<span class="tag few">Only ${p.left} left</span>` : "")
+    const tag = (out ? `<span class="tag out">${t("Out of stock")}</span>` : p.status === "few" ? `<span class="tag few">${t("Only {n} left", {n: p.left})}</span>` : "")
       + (p.offer ? `<span class="tag offer">${esc(p.offer)}</span>` : "");
-    const plus = !out && !qty ? `<button class="add" data-add="${esc(p.product_id)}" aria-label="Add ${esc(p.name)}"><svg width="20" height="20"><use href="#i-plus"/></svg></button>` : "";
+    const plus = !out && !qty ? `<button class="add" data-add="${esc(p.product_id)}" aria-label="${esc(t("Add {name}", {name: p.name}))}"><svg width="20" height="20"><use href="#i-plus"/></svg></button>` : "";
     const subs = out || (qty && qty >= p.max) ? subsHtml(p) : "";
     return `<article class="product ${out ? "out" : ""}">
       <div class="pic" ${tile(p)}>${picInner(p)}${tag}${plus}</div>
@@ -895,31 +1105,31 @@ function renderShop() {
         ${qty ? `<div class="qtyrow">${stepper(p.product_id, qty)}</div>` : ""}${subs}
       </div>
     </article>`;
-  }).join("") : `<div class="empty" style="grid-column:1/-1"><svg width="56" height="56"><use href="#i-search"/></svg><div>No products match.</div></div>`;
+  }).join("") : `<div class="empty" style="grid-column:1/-1"><svg width="56" height="56"><use href="#i-search"/></svg><div>${t("No products match.")}</div></div>`;
   const banner = order && order.paid && !DONE_STAGES.includes(order.stage);
   $("order-banner").hidden = !banner;
   if (banner) {
-    $("order-banner-title").textContent = `Order ${order.order_id.slice(-8)}`;
-    $("order-banner-text").textContent = ({ready: order.fulfilment === "delivery" ? "Packed, waiting for the rider" : "Ready to collect",
-                                           on_the_way: "On the way to you"}[order.stage] || "Being packed");
+    $("order-banner-title").textContent = t("Order {id}", {id: order.order_id.slice(-8)});
+    $("order-banner-text").textContent = t({ready: order.fulfilment === "delivery" ? "Packed, waiting for the rider" : "Ready to collect",
+                                            on_the_way: "On the way to you"}[order.stage] || "Being packed");
   }
 }
 
 function cartLine(pid, withProblems) {
   const p = products[pid], qty = basket[pid];
   let problem = "";
-  if (withProblems && p.status === "out") problem = `<div class="problem">Sold out since you added it. ${p.substitutes.length ? "" : "Please remove it."}${subsHtml(p, pid)}</div>`;
-  else if (withProblems && qty > p.max) problem = `<div class="problem">Only ${p.max} available now.
-    <button type="button" class="small" data-set="${esc(pid)}" data-q="${p.max}">Change to ${p.max}</button></div>`;
+  if (withProblems && p.status === "out") problem = `<div class="problem">${t("Sold out since you added it.")} ${p.substitutes.length ? "" : t("Please remove it.")}${subsHtml(p, pid)}</div>`;
+  else if (withProblems && qty > p.max) problem = `<div class="problem">${t("Only {n} available now.", {n: p.max})}
+    <button type="button" class="small" data-set="${esc(pid)}" data-q="${p.max}">${t("Change to {n}", {n: p.max})}</button></div>`;
   return `<div class="line">${picture(p, "thumb")}
-    <div class="what"><b>${esc(p.name)}</b><span class="muted small">${kes(p.price)} each${p.was_price ? ` <s>${kes(p.was_price)}</s>` : ""} · ${kes(qty * p.price)}</span></div>
+    <div class="what"><b>${esc(p.name)}</b><span class="muted small">${t("{price} each", {price: kes(p.price)})}${p.was_price ? ` <s>${kes(p.was_price)}</s>` : ""} · ${kes(qty * p.price)}</span></div>
     <div>${stepper(pid, qty)}</div>${problem}</div>`;
 }
 
 function renderCart() {
   const ids = Object.keys(basket);
   $("cart-lines").innerHTML = ids.length ? ids.map((pid) => cartLine(pid, true)).join("")
-    : `<div class="empty"><svg width="56" height="56"><use href="#i-bag"/></svg><div>Your cart is empty.</div></div>`;
+    : `<div class="empty"><svg width="56" height="56"><use href="#i-bag"/></svg><div>${t("Your cart is empty.")}</div></div>`;
   $("cart-total").textContent = kes(total());
   $("cart-checkout").disabled = !ids.length || blocked();
 }
@@ -931,7 +1141,7 @@ function blocked() {
 
 function renderCheckout() {
   const ids = Object.keys(basket);
-  $("lines").innerHTML = ids.length ? ids.map((pid) => cartLine(pid, true)).join("") : `<p class="muted" style="margin:0">Your cart is empty.</p>`;
+  $("lines").innerHTML = ids.length ? ids.map((pid) => cartLine(pid, true)).join("") : `<p class="muted" style="margin:0">${t("Your cart is empty.")}</p>`;
   $("fee-line").hidden = fulfil() !== "delivery";
   $("fee-amount").textContent = kes(fee());
   renderPointsBox();
@@ -940,10 +1150,10 @@ function renderCheckout() {
   $("points-amount").textContent = "− " + kes(off);
   $("checkout-total").textContent = kes(total() + fee() - off);
   const card = payMethod() === "card";
-  $("pay-button").textContent = `Pay ${kes(total() + fee() - off)} ${card ? "by card" : "with M-Pesa"}`;
+  $("pay-button").textContent = t(card ? "Pay {amount} by card" : "Pay {amount} with M-Pesa", {amount: kes(total() + fee() - off)});
   $("email-field").hidden = !card;
   $("email").required = card;
-  $("phone-label").textContent = card ? "Phone number (for the store or rider to reach you)" : "M-Pesa number";
+  $("phone-label").textContent = t(card ? "Phone number (for the store or rider to reach you)" : "M-Pesa number");
   $("pay-button").disabled = blocked();
 }
 
@@ -951,14 +1161,14 @@ function total() { return Object.entries(basket).reduce((n, [pid, q]) => n + q *
 
 function render() {
   store.set("web.basket", basket);
-  const items = Object.values(basket).reduce((n, q) => n + q, 0);
-  $("count").textContent = `${items === 1 ? "1 item" : items + " items"} · View cart`;
+  const n = Object.values(basket).reduce((sum, q) => sum + q, 0);
+  $("count").textContent = t("{items} · View cart", {items: items(n)});
   $("total").textContent = kes(total());
-  $("bag-count").textContent = items;
-  $("cart-badge").textContent = items;
-  $("cart-badge").hidden = !items;
-  $("checkout").disabled = items === 0;
-  $("basket-bar").classList.toggle("empty-cart", items === 0);
+  $("bag-count").textContent = n;
+  $("cart-badge").textContent = n;
+  $("cart-badge").hidden = !n;
+  $("checkout").disabled = n === 0;
+  $("basket-bar").classList.toggle("empty-cart", n === 0);
   if (view === "shop") renderShop();
   if (view === "checkout") renderCheckout();
   if ($("cart-sheet").classList.contains("open")) renderCart();
@@ -971,7 +1181,7 @@ function change(pid, d, quiet = false) {
   if (next <= 0) delete basket[pid];
   else basket[pid] = Math.min(next, Math.max(p.max, before));
   render();
-  if (!quiet && d > 0 && !before) toast(`${p.name} added`, () => { delete basket[pid]; render(); });
+  if (!quiet && d > 0 && !before) toast(t("{name} added", {name: p.name}), () => { delete basket[pid]; render(); });
 }
 
 // ------------------------------------------------------------------ the cart sheet (shopping carries on behind it)
@@ -1040,23 +1250,23 @@ function ordersList() {
 function renderOrders() {
   $("orders-badge").hidden = true;
   const list = ordersList();
-  $("orders-where").textContent = acct.signed_in ? "On all your devices" : "On this phone";
+  $("orders-where").textContent = t(acct.signed_in ? "On all your devices" : "On this phone");
   $("past").innerHTML = list.length ? list.map((h) => {
     const when = new Date(h.at), live = !DONE_STAGES.includes(h.stage);
     const shown = h.lines.slice(0, 4).map((l) => picture(products[l.product_id] || {name: l.name, category: ""}, "thumb")).join("");
     const more = h.lines.length > 4 ? `<span class="more">+${h.lines.length - 4}</span>` : "";
     const count = h.lines.reduce((n, l) => n + l.qty, 0);
     return `<div class="card">
-      <div class="top"><b>${isNaN(when) ? "" : when.toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"})}</b>
-        <span class="pill ${live ? "live" : ""}">${live ? "In progress" : h.fulfilment === "delivery" ? "Delivered" : "Collected"}</span></div>
-      <div class="muted small">${count} item${count === 1 ? "" : "s"} · ${kes(h.total)} · ${h.fulfilment === "delivery" ? "Delivery" : "Collect"} · ${esc(h.order_id.slice(-8))}</div>
+      <div class="top"><b>${isNaN(when) ? "" : when.toLocaleDateString(locale(), {weekday: "short", day: "numeric", month: "short"})}</b>
+        <span class="pill ${live ? "live" : ""}">${t(live ? "In progress" : h.fulfilment === "delivery" ? "Delivered" : "Collected")}</span></div>
+      <div class="muted small">${items(count)} · ${kes(h.total)} · ${t(h.fulfilment === "delivery" ? "Delivery" : "Collect")} · ${esc(h.order_id.slice(-8))}</div>
       <div class="thumbs">${shown}${more}</div>
-      ${h.points ? `<div class="earn small" style="margin-bottom:8px">+${h.points} points</div>` : ""}
-      <div class="acts"><button class="secondary" data-track="${esc(h.order_id)}" ${h.payment_id ? "" : "disabled"}>${live ? "Track" : "Receipt"}</button>
-        <button data-again="${esc(h.order_id)}"><svg width="16" height="16" style="vertical-align:-3px;margin-right:6px"><use href="#i-repeat"/></svg>Buy again</button></div>
+      ${h.points ? `<div class="earn small" style="margin-bottom:8px">${t("+{n} points", {n: h.points})}</div>` : ""}
+      <div class="acts"><button class="secondary" data-track="${esc(h.order_id)}" ${h.payment_id ? "" : "disabled"}>${t(live ? "Track" : "Receipt")}</button>
+        <button data-again="${esc(h.order_id)}"><svg width="16" height="16" style="vertical-align:-3px;margin-right:6px"><use href="#i-repeat"/></svg>${t("Buy again")}</button></div>
     </div>`;
   }).join("") : `<div class="empty"><svg width="56" height="56"><use href="#i-receipt"/></svg>
-      <div>No orders yet on this phone.</div><button class="secondary" style="margin-top:14px" data-tab-go="shop">Start shopping</button></div>`;
+      <div>${t("No orders yet on this phone.")}</div><button class="secondary" style="margin-top:14px" data-tab-go="shop">${t("Start shopping")}</button></div>`;
   const go = document.querySelector("[data-tab-go]");
   if (go) go.addEventListener("click", () => show("shop"));
 }
@@ -1075,9 +1285,10 @@ function buyAgain(orderId) {
     else missing.push(l.name);
   }
   render();
-  if (!added) return say(`None of that order is available right now: ${missing.join(", ")}.`);
-  say(missing.length ? `Added to your cart. Not available right now: ${missing.join(", ")}.` : "", "ok");
-  toast(`${added} item${added === 1 ? "" : "s"} added from your last order`, () => { basket = before; render(); });
+  if (!added) return say(t("None of that order is available right now: {list}.", {list: missing.join(", ")}));
+  say(missing.length ? t("Added to your cart. Not available right now: {list}.", {list: missing.join(", ")}) : "", "ok");
+  toast(added === 1 ? t("1 item added from your last order") : t("{n} items added from your last order", {n: added}),
+        () => { basket = before; render(); });
   openCart();
 }
 
@@ -1095,7 +1306,7 @@ function trackPast(orderId) {
 const km = (n) => `${Number(n).toLocaleString("en-KE", {maximumFractionDigits: 1})} km`;
 
 async function checkWhere(lat, lng) {
-  $("where-status").textContent = "Checking…";
+  $("where-status").textContent = t("Checking…");
   try {
     quote = await api(`api/delivery/quote?lat=${lat}&lng=${lng}`);
     where = {lat, lng};
@@ -1117,38 +1328,39 @@ async function refreshQuote() {
 function quoteHtml(q) {
   if (!q) return "";
   if (!q.deliverable) return `<div class="quote far"><b>${esc(q.reason)}</b></div>`;
-  const ex = q.express.available ? `<b>${kes(q.express.fee_kes)}</b>` : `<span>Closed for today</span>`;
+  const ex = q.express.available ? `<b>${kes(q.express.fee_kes)}</b>` : `<span>${t("Closed for today")}</span>`;
   const next = q.scheduled.slots[0];
-  return `<div class="quote"><div class="muted small">${km(q.distance_km)} from the store</div>
-    <div class="opt"><span>Express · about ${q.express.eta_minutes} min</span>${ex}</div>
-    <div class="opt"><span>Choose a time${next ? ` · next ${esc(next.label)}` : ""}</span><b>${q.scheduled.available ? kes(q.scheduled.fee_kes) : "—"}</b></div></div>`;
+  return `<div class="quote"><div class="muted small">${t("{km} from the store", {km: km(q.distance_km)})}</div>
+    <div class="opt"><span>${t("Express · about {n} min", {n: q.express.eta_minutes})}</span>${ex}</div>
+    <div class="opt"><span>${t("Choose a time")}${next ? ` · ${esc(t("next {slot}", {slot: next.label}))}` : ""}</span><b>${q.scheduled.available ? kes(q.scheduled.fee_kes) : "—"}</b></div></div>`;
 }
 
 function renderWhere() {
   const on = delivery.available;
   $("where-bar").hidden = !on;
   const far = !!(quote && !quote.deliverable);
-  let title = "Delivery or collect?", text = "Check that we deliver to you before you shop", go = "Check";
+  let title = t("Delivery or collect?"), text = t("Check that we deliver to you before you shop"), go = t("Check");
   if (quote && !far) {
-    title = `We deliver to you · ${km(quote.distance_km)}`;
-    text = [quote.express.available ? `Express ${kes(quote.express.fee_kes)}` : "",
-            quote.scheduled.available ? `Scheduled ${kes(quote.scheduled.fee_kes)}` : ""].filter(Boolean).join(" · ");
-    go = "Change";
+    title = t("We deliver to you · {km}", {km: km(quote.distance_km)});
+    text = [quote.express.available ? t("Express {fee}", {fee: kes(quote.express.fee_kes)}) : "",
+            quote.scheduled.available ? t("Scheduled {fee}", {fee: kes(quote.scheduled.fee_kes)}) : ""].filter(Boolean).join(" · ");
+    go = t("Change");
   } else if (far) {
-    title = `Too far to deliver · ${km(quote.distance_km)}`;
-    text = `We deliver within ${km(quote.max_km)}. You can still shop and collect in store.`;
-    go = "Change";
+    title = t("Too far to deliver · {km}", {km: km(quote.distance_km)});
+    text = t("We deliver within {km}. You can still shop and collect in store.", {km: km(quote.max_km)});
+    go = t("Change");
   }
-  for (const [bar, t, x] of [["where-bar", "where-title", "where-text"], ["checkout-where", "cw-title", "cw-text"]]) {
+  for (const [bar, ti, x] of [["where-bar", "where-title", "where-text"], ["checkout-where", "cw-title", "cw-text"]]) {
     $(bar).classList.toggle("far", far);
-    $(t).textContent = title;
+    $(ti).textContent = title;
     $(x).textContent = text;
   }
   $("where-go").textContent = go;
   $("where-quote").innerHTML = quoteHtml(quote);
   $("where-done").hidden = !quote;
-  $("where-done").textContent = far ? "Shop and collect in store" : view === "checkout" ? "Done" : "Start shopping";
-  $("where-intro").textContent = `We deliver within ${km(delivery.max_km || 20)} of the store. Check before you shop: we'll show the delivery fees, or tell you if it's too far.`;
+  $("where-done").textContent = t(far ? "Shop and collect in store" : view === "checkout" ? "Done" : "Start shopping");
+  $("where-intro").textContent = t("We deliver within {km} of the store. Check before you shop: we'll show the delivery fees, or tell you if it's too far.",
+                                   {km: km(delivery.max_km || 20)});
   renderDeliverOption();
 }
 
@@ -1157,20 +1369,20 @@ function renderDeliverOption() {
   const far = !!(quote && !quote.deliverable);
   $("deliver-option").classList.toggle("off", far);
   $("deliver-option").querySelector("input").disabled = far;
-  $("deliver-from").textContent = far ? "Too far" : quote ? "from " + kes(Math.min(...["express", "scheduled"]
-    .filter((t) => quote[t].available).map((t) => quote[t].fee_kes))) : "By distance";
+  $("deliver-from").textContent = far ? t("Too far") : quote ? t("from {fee}", {fee: kes(Math.min(...["express", "scheduled"]
+    .filter((k) => quote[k].available).map((k) => quote[k].fee_kes)))}) : t("By distance");
   if (far && fulfil() === "delivery") document.querySelector('input[name="fulfil"][value="collect"]').checked = true;
   if (!quote || far) return;
-  $("express-fee").textContent = quote.express.available ? kes(quote.express.fee_kes) : "Closed today";
-  $("express-eta").textContent = `About ${quote.express.eta_minutes} minutes`;
-  $("scheduled-fee").textContent = quote.scheduled.available ? kes(quote.scheduled.fee_kes) : "None left";
-  for (const t of ["express", "scheduled"]) {
-    const off = !quote[t].available;
-    $("tier-" + t).classList.toggle("off", off);
-    $("tier-" + t).querySelector("input").disabled = off;
+  $("express-fee").textContent = quote.express.available ? kes(quote.express.fee_kes) : t("Closed today");
+  $("express-eta").textContent = t("About {n} minutes", {n: quote.express.eta_minutes});
+  $("scheduled-fee").textContent = quote.scheduled.available ? kes(quote.scheduled.fee_kes) : t("None left");
+  for (const k of ["express", "scheduled"]) {
+    const off = !quote[k].available;
+    $("tier-" + k).classList.toggle("off", off);
+    $("tier-" + k).querySelector("input").disabled = off;
   }
   if (!tier() || !quote[tier()].available) {
-    const pick = [store.get("web.tier", "express"), "express", "scheduled"].find((t) => quote[t] && quote[t].available);
+    const pick = [store.get("web.tier", "express"), "express", "scheduled"].find((k) => quote[k] && quote[k].available);
     if (pick) document.querySelector(`input[name="tier"][value="${pick}"]`).checked = true;
   }
   const keep = $("slot").value;
@@ -1198,11 +1410,11 @@ $("checkout-where").addEventListener("click", openWhere);
 $("close-where").addEventListener("click", closeWhere);
 $("where-done").addEventListener("click", () => { closeWhere(); render(); });
 $("where-locate").addEventListener("click", () => {
-  if (!navigator.geolocation) return ($("where-status").textContent = "This browser can't share its location. Pick it on the map.");
-  $("where-status").textContent = "Finding you…";
+  if (!navigator.geolocation) return ($("where-status").textContent = t("This browser can't share its location. Pick it on the map."));
+  $("where-status").textContent = t("Finding you…");
   navigator.geolocation.getCurrentPosition(
     (p) => { const lat = +p.coords.latitude.toFixed(6), lng = +p.coords.longitude.toFixed(6); checkWhere(lat, lng); pinOnMap(lat, lng); },
-    () => { $("where-status").textContent = "Couldn't get your location. Pick it on the map instead."; },
+    () => { $("where-status").textContent = t("Couldn't get your location. Pick it on the map instead."); },
     {enableHighAccuracy: true, timeout: 10000});
 });
 
@@ -1230,17 +1442,17 @@ function pinOnMap(lat, lng) {
 $("where-map-open").addEventListener("click", async () => {
   $("where-map").hidden = false;
   if (map) return map.invalidateSize();
-  $("where-status").textContent = "Loading the map…";
+  $("where-status").textContent = t("Loading the map…");
   try { await loadLeaflet(); } catch {
     $("where-map").hidden = true;
-    return ($("where-status").textContent = "The map couldn't load. Use your location instead.");
+    return ($("where-status").textContent = t("The map couldn't load. Use your location instead."));
   }
-  $("where-status").textContent = "Tap the map where we should deliver.";
+  $("where-status").textContent = t("Tap the map where we should deliver.");
   const s = delivery.store || {lat: -1.2864, lng: 36.8172};
   map = L.map("where-map").setView(where ? [where.lat, where.lng] : [s.lat, s.lng], where ? 14 : 11);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
               {maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
-  L.circleMarker([s.lat, s.lng], {radius: 7, color: "#0e6b47", fillOpacity: 1}).addTo(map).bindTooltip("The store");
+  L.circleMarker([s.lat, s.lng], {radius: 7, color: "#0e6b47", fillOpacity: 1}).addTo(map).bindTooltip(t("The store"));
   // Roughly where the distance limit falls (roads wind, so the real limit is measured along them).
   L.circle([s.lat, s.lng], {radius: 1000 * (delivery.max_km || 20) / (delivery.road_factor || 1.3), color: "#0e6b47",
                             weight: 1.5, fillOpacity: .05, interactive: false}).addTo(map);
@@ -1278,10 +1490,10 @@ function renderFulfil() {
   $("delivery-fields").hidden = !d;
   $("tier-choice").hidden = !canDeliver();
   $("address").required = d;
-  $("fulfil-hint").textContent = d
+  $("fulfil-hint").textContent = t(d
     ? "We'll pack your order and a rider brings it. Give the rider the 4-digit code shown on your order page."
-    : "We'll pack your order and tell you here when it's ready. Show the pass on this page when you collect.";
-  $("fulfil-hint").textContent += ` Your items are held for ${holdMinutes} minutes while you pay.`;
+    : "We'll pack your order and tell you here when it's ready. Show the pass on this page when you collect.")
+    + " " + t("Your items are held for {n} minutes while you pay.", {n: holdMinutes});
   render();
 }
 document.querySelectorAll('input[name="fulfil"]').forEach((r) => r.addEventListener("change", renderFulfil));
@@ -1299,7 +1511,7 @@ $("order-form").addEventListener("submit", async (e) => {
                   items: Object.entries(basket).map(([product_id, qty]) => ({product_id, qty}))};
     if (body.payment_method === "card") body.email = $("email").value.trim();
     if (body.fulfilment === "delivery") {
-      if (!canDeliver() || !where) { $("pay-button").disabled = false; openWhere(); return say("Set where to deliver first."); }
+      if (!canDeliver() || !where) { $("pay-button").disabled = false; openWhere(); return say(t("Set where to deliver first.")); }
       body.delivery = {address: $("address").value.trim(), notes: $("notes").value.trim(), lat: where.lat, lng: where.lng, tier: tier(),
                        slot_start: tier() === "scheduled" ? $("slot").value : null};
     }
@@ -1321,7 +1533,7 @@ $("order-form").addEventListener("submit", async (e) => {
 
 // The card provider's page takes the card details; the customer comes back here (?order=...) afterwards.
 function goToCardPage(url) {
-  $("wait-title").textContent = "Opening the card payment page…";
+  $("wait-title").textContent = t("Opening the card payment page…");
   $("wait-text").textContent = "";
   show("wait");
   location.href = url;
@@ -1331,17 +1543,25 @@ function waitForPayment() {
   show("wait");
   $("retry-box").hidden = true;
   cardPolls = 0;
-  const card = order.method === "card";
-  $("wait-title").textContent = card ? "Confirming your card payment" : "Check your phone";
-  $("wait-text").textContent = card ? `Checking your payment of ${kes(order.total)} with the card provider…`
-    : `Enter your M-Pesa PIN on your phone to pay ${kes(order.total)}.`;
+  retryText = null;
+  renderWait();
   clearTimeout(pollTimer);
   poll();
 }
 
+function renderWait() {
+  const card = order.method === "card";
+  $("wait-title").textContent = t(card ? "Confirming your card payment" : "Check your phone");
+  $("wait-text").textContent = card ? t("Checking your payment of {amount} with the card provider…", {amount: kes(order.total)})
+    : t("Enter your M-Pesa PIN on your phone to pay {amount}.", {amount: kes(order.total)});
+  if (retryText) $("retry-text").textContent = retryText();
+}
+
+let retryText = null;  // what went wrong with the payment, in the page's language
 function offerRetry(text) {
+  retryText = text;
   $("retry-box").hidden = false;
-  $("retry-text").textContent = text;
+  $("retry-text").textContent = text();
   $("retry-phone").value = order.phone || "";
   $("retry-card-form").hidden = !cardOn;
   $("retry-email").value = order.email || store.get("web.email", "");
@@ -1354,18 +1574,19 @@ async function poll() {
     const s = await api(`api/orders/${order_id}/payments/${payment_id}`);
     // A reply about another order (one still in flight when the customer started a new order or paid again) is stale.
     if (!order || order.order_id !== order_id || order.payment_id !== payment_id) return;
-    if (s.stage === "cancelled") return forgetOrder("That order was cancelled. Nothing was charged.");
+    if (s.stage === "cancelled") return forgetOrder(t("That order was cancelled. Nothing was charged."));
     if (["packing", "ready", "collected", "on_the_way", "delivered"].includes(s.stage)) return showOrder(s);
     if (s.stage === "payment_failed" && view === "wait") {
-      return offerRetry(s.payment_method === "card"
-        ? `The card payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged. Try again, or pay another way.`
+      const why = s.result ? ` (${s.result})` : "";
+      return offerRetry(() => s.payment_method === "card"
+        ? t("The card payment didn't go through{why}. Nothing was charged. Try again, or pay another way.", {why})
         : s.payment_status === "cancelled"
-        ? "The payment was cancelled on your phone. Nothing was charged."
-        : `The payment didn't go through${s.result ? ` (${s.result})` : ""}. Nothing was charged.`);
+        ? t("The payment was cancelled on your phone. Nothing was charged.")
+        : t("The payment didn't go through{why}. Nothing was charged.", {why}));
     }
     // Back from the card page without paying (or still finishing): after a few checks, offer to try again.
     if (s.payment_method === "card" && s.stage === "awaiting_payment" && view === "wait" && ++cardPolls === 4) {
-      offerRetry("The card payment wasn't completed. Nothing was charged. Try again, or pay another way.");
+      offerRetry(() => t("The card payment wasn't completed. Nothing was charged. Try again, or pay another way."));
     }
   } catch (err) {
     if (err.status === 404) return forgetOrder("");
@@ -1404,7 +1625,9 @@ const STEPS = {
   delivery: [["paid", "Paid"], ["packing", "Packing"], ["on_the_way", "On the way"], ["delivered", "Delivered"]],
 };
 const DONE_STAGES = ["collected", "delivered"];
+let lastStatus = null;  // the order page as last shown, to show again in another language
 function showOrder(s) {
+  lastStatus = s;
   clearTimeout(pollTimer);
   const viewing = order.viewing;  // an older order opened from the Orders tab: the current cart stays as it is
   if (!order.paid && !viewing) { basket = {}; store.set("web.basket", basket); if (!pastOrders.some((h) => h.order_id === s.order_id)) $("orders-badge").hidden = false; }
@@ -1415,9 +1638,9 @@ function showOrder(s) {
   const isDelivery = s.fulfilment === "delivery", d = s.delivery || {};
   const steps = STEPS[isDelivery ? "delivery" : "collect"];
   const reached = {packing: 1, ready: isDelivery ? 1 : 2, collected: 3, on_the_way: 2, delivered: 3}[s.stage];
-  $("steps").innerHTML = steps.map(([key, label], i) => `<div class="${i <= reached ? "done" : ""}">${label}</div>`).join("");
+  $("steps").innerHTML = steps.map(([key, label], i) => `<div class="${i <= reached ? "done" : ""}">${t(label)}</div>`).join("");
   $("pass").classList.toggle("done", DONE_STAGES.includes(s.stage));
-  const when = (iso) => { const t = new Date(iso); return isNaN(t) ? "" : t.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); };
+  const when = (iso) => { const at = new Date(iso); return isNaN(at) ? "" : at.toLocaleTimeString(locale(), {hour: "2-digit", minute: "2-digit"}); };
   $("pass-code").textContent = s.order_id.slice(-8);
   $("pass-qr").parentElement.hidden = isDelivery || s.stage === "collected";
   if (!isDelivery) {
@@ -1427,24 +1650,25 @@ function showOrder(s) {
   $("pass-pin").hidden = !isDelivery || s.stage === "delivered" || !d.pin;
   $("pass-pin").textContent = d.pin || "";
   if (isDelivery) {
-    $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Packed · waiting for the rider",
-      on_the_way: "On the way", delivered: "Delivered"}[s.stage];
+    $("pass-title").textContent = t({packing: "Paid · we're packing it", ready: "Packed · waiting for the rider",
+      on_the_way: "On the way", delivered: "Delivered"}[s.stage]);
     $("pass-hint").textContent = d.status === "failed"
-      ? "The rider couldn't complete the delivery. The store will call you."
-      : s.stage === "delivered" ? `Delivered at ${when(d.delivered_at)}. Thank you!`
-      : `${d.tier === "scheduled" && d.slot ? `Arriving ${d.slot}. ` : ""}Your delivery code. Give it to the rider when your order arrives at ${d.address}.`;
+      ? t("The rider couldn't complete the delivery. The store will call you.")
+      : s.stage === "delivered" ? t("Delivered at {time}. Thank you!", {time: when(d.delivered_at)})
+      : (d.tier === "scheduled" && d.slot ? t("Arriving {slot}.", {slot: d.slot}) + " " : "")
+        + t("Your delivery code. Give it to the rider when your order arrives at {address}.", {address: d.address});
   } else {
-    $("pass-title").textContent = {packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage];
+    $("pass-title").textContent = t({packing: "Paid · we're packing it", ready: "Ready to collect", collected: "Collected"}[s.stage]);
     $("pass-hint").textContent = {
-      packing: "We'll show “Ready to collect” here when it's packed.",
-      ready: `Ready since ${when(s.ready_at)}. Show this screen at the counter, ${s.customer_name}.`,
-      collected: `Collected at ${when(s.collected_at)}. Thank you!`,
+      packing: t("We'll show “Ready to collect” here when it's packed."),
+      ready: t("Ready since {time}. Show this screen at the counter, {name}.", {time: when(s.ready_at), name: s.customer_name}),
+      collected: t("Collected at {time}. Thank you!", {time: when(s.collected_at)}),
     }[s.stage];
   }
   const rider = isDelivery && s.stage !== "delivered" ? d.rider : null;
   $("rider-card").hidden = !rider;
   if (rider) {
-    $("rider-text").textContent = `Your rider: ${rider.name}`;
+    $("rider-text").textContent = t("Your rider: {name}", {name: rider.name});
     $("rider-call").hidden = !rider.phone;
     $("rider-call").href = "tel:" + rider.phone;
   }
@@ -1459,9 +1683,10 @@ function showOrder(s) {
   $("receipt-total").textContent = kes(s.amount ?? s.total);
   const paid = s.paid_at ? new Date(s.paid_at) : null;
   $("receipt-meta").textContent = [
-    paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
-    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
-    s.points && s.points.earn ? `${s.points.earn} point${s.points.earn === 1 ? "" : "s"} earned` : "",
+    paid && !isNaN(paid) ? t("Paid {when}", {when: paid.toLocaleString(locale(), {dateStyle: "medium", timeStyle: "short"})}) : "",
+    s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "", s.card ? t("Paid by card {card}", {card: s.card}) : s.phone,
+    t("Order {id}", {id: s.order_id}),
+    s.points && s.points.earn ? (s.points.earn === 1 ? t("1 point earned") : t("{n} points earned", {n: s.points.earn})) : "",
   ].filter(Boolean).join(" · ");
   if (returnable && returnable.sale_id !== s.order_id) { returnable = null; $("returns-card").hidden = true; }
   loadReturns();
@@ -1480,10 +1705,11 @@ $("view-order").addEventListener("click", () => { show("order"); poll(); });
 
 let returnable = null, returnPick = {}, returnsFetchedAt = 0;
 const RETURN_STATUS = {
-  requested: (r) => `Bring the items to the store: staff check them, then the store refunds ${kes(r.total_kes)}.`,
-  approved: (r) => `Approved. Your refund of ${kes(r.refund_kes)} is on its way.`,
-  refunded: (r) => `Refunded ${kes(r.refund_kes)}${r.refund_method === "cash" ? " in cash" : r.refund_method === "card" ? " to your card" : " by M-Pesa"}.`,
-  rejected: (r) => `Not accepted: ${r.note}`,
+  requested: (r) => t("Bring the items to the store: staff check them, then the store refunds {amount}.", {amount: kes(r.total_kes)}),
+  approved: (r) => t("Approved. Your refund of {amount} is on its way.", {amount: kes(r.refund_kes)}),
+  refunded: (r) => t(r.refund_method === "cash" ? "Refunded {amount} in cash." : r.refund_method === "card" ? "Refunded {amount} to your card."
+                     : "Refunded {amount} by M-Pesa.", {amount: kes(r.refund_kes)}),
+  rejected: (r) => t("Not accepted: {note}", {note: r.note}),
 };
 
 async function loadReturns(force = false) {
@@ -1501,8 +1727,8 @@ function renderReturns() {
   const r = returnable;
   $("returns-card").hidden = !r || (!r.open && !r.returns.length);
   if ($("returns-card").hidden) return;
-  const until = r.deadline ? new Date(r.deadline).toLocaleDateString([], {day: "numeric", month: "short"}) : "";
-  $("returns-rule").textContent = r.open ? `Unopened, non-perishable items can be returned until ${until}. Food that goes off can't be.` : r.reason;
+  const until = r.deadline ? new Date(r.deadline).toLocaleDateString(locale(), {day: "numeric", month: "short"}) : "";
+  $("returns-rule").textContent = r.open ? t("Unopened, non-perishable items can be returned until {date}. Food that goes off can't be.", {date: until}) : r.reason;
   $("return-open").hidden = !r.open;
   $("returns-list").innerHTML = r.returns.map((x) => `<div class="rline" style="display:block">
     <b>${x.lines.map((l) => `${l.qty} × ${esc(l.name || l.product_id)}`).join(", ")}</b>
@@ -1512,18 +1738,19 @@ function renderReturns() {
 function renderReturnSheet() {
   const r = returnable;
   if (!r) return;
-  $("return-intro").textContent = `Choose what you're returning. You have until ${new Date(r.deadline).toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"})}.`;
+  $("return-intro").textContent = t("Choose what you're returning. You have until {date}.",
+                                    {date: new Date(r.deadline).toLocaleDateString(locale(), {weekday: "short", day: "numeric", month: "short"})});
   $("return-lines").innerHTML = r.items.map((i) => {
     const n = returnPick[i.product_id] || 0, p = products[i.product_id] || {name: i.name, category: ""};
     return `<div class="line">${picture(p, "thumb")}
       <div class="what"><b>${esc(i.name)}</b><span class="muted small">${i.why_not ? esc(i.why_not)
-        : `${i.returnable} of ${i.qty} · ${kes(i.unit_refund_kes)} each`}</span></div>
-      <div>${i.returnable ? `<span class="qty"><button type="button" aria-label="One less" data-ret="${esc(i.product_id)}" data-rd="-1" ${n ? "" : "disabled"}>−</button><span>${n}</span>
-        <button type="button" aria-label="One more" data-ret="${esc(i.product_id)}" data-rd="1" ${n >= i.returnable ? "disabled" : ""}>+</button></span>` : ""}</div></div>`;
+        : `${t("{n} of {qty}", {n: i.returnable, qty: i.qty})} · ${t("{price} each", {price: kes(i.unit_refund_kes)})}`}</span></div>
+      <div>${i.returnable ? `<span class="qty"><button type="button" aria-label="${t("One less")}" data-ret="${esc(i.product_id)}" data-rd="-1" ${n ? "" : "disabled"}>−</button><span>${n}</span>
+        <button type="button" aria-label="${t("One more")}" data-ret="${esc(i.product_id)}" data-rd="1" ${n >= i.returnable ? "disabled" : ""}>+</button></span>` : ""}</div></div>`;
   }).join("");
-  const total = r.items.reduce((t, i) => t + (returnPick[i.product_id] || 0) * i.unit_refund_kes, 0);
+  const total = r.items.reduce((sum, i) => sum + (returnPick[i.product_id] || 0) * i.unit_refund_kes, 0);
   const any = Object.values(returnPick).some(Boolean);
-  $("return-send").textContent = any ? `Ask to return · ${kes(total)} refund` : "Choose what to return";
+  $("return-send").textContent = any ? t("Ask to return · {amount} refund", {amount: kes(total)}) : t("Choose what to return");
   $("return-send").disabled = !any || !$("return-reason").value || !$("return-unopened").checked;
 }
 
@@ -1557,7 +1784,7 @@ $("return-send").addEventListener("click", async () => {
       reason: $("return-reason").value, unopened: $("return-unopened").checked})});
     closeReturn();
     await loadReturns(true);
-    say("Return requested. Bring the items to the store with this page; once staff have checked them, you'll be refunded.", "ok");
+    say(t("Return requested. Bring the items to the store with this page; once staff have checked them, you'll be refunded."), "ok");
   } catch (err) { say(err.message); renderReturnSheet(); }
 });
 
@@ -1586,7 +1813,7 @@ function closeReport() {
 }
 function renderReport() {
   $("report-about").hidden = !reportOrder;
-  $("report-about").textContent = reportOrder ? `About order ${reportOrder.slice(-8)}` : "";
+  $("report-about").textContent = reportOrder ? t("About order {id}", {id: reportOrder.slice(-8)}) : "";
   $("report-app-note").hidden = rkind() !== "app";
   $("report-send").disabled = !rkind() || $("report-message").value.trim().length < 5;
 }
@@ -1611,7 +1838,8 @@ $("report-send").addEventListener("click", async () => {
       order_id: reportOrder, contact: $("report-contact").value.trim(), context, photo_b64})});
     store.set("web.reports", [r.report_id, ...store.get("web.reports", [])].slice(0, 10));
     closeReport();
-    say(`Thanks, we've got it. Your reference is ${r.report_id}. ${acct.signed_in ? "Our reply will show on your Account tab." : "Staff will get back to you if you left a number or email."}`, "ok");
+    say(t("Thanks, we've got it. Your reference is {ref}.", {ref: r.report_id}) + " "
+        + t(acct.signed_in ? "Our reply will show on your Account tab." : "Staff will get back to you if you left a number or email."), "ok");
     loadReports();
   } catch (err) { say(err.message); renderReport(); }
 });
@@ -1624,9 +1852,9 @@ async function loadReports() {
     if (acct.signed_in) list = await api("api/account/reports");
     else list = (await Promise.all(store.get("web.reports", []).slice(0, 5).map((id) => api(`api/reports/${id}`).catch(() => null)))).filter(Boolean);
   } catch {}
-  $("my-reports").innerHTML = list.length ? `<div class="muted small" style="margin:12px 0 2px">Your reports</div>` + list.map((r) => `<div class="rep">
+  $("my-reports").innerHTML = list.length ? `<div class="muted small" style="margin:12px 0 2px">${t("Your reports")}</div>` + list.map((r) => `<div class="rep">
       <div style="display:flex;justify-content:space-between;gap:8px"><b class="small">${esc(r.kind_label || "")}${r.message ? ": " + esc(r.message.slice(0, 60)) : ""}</b>
-        <span class="pill ${r.status === "resolved" ? "" : "live"}">${esc(REPORT_STATUS[r.status])}</span></div>
+        <span class="pill ${r.status === "resolved" ? "" : "live"}">${esc(t(REPORT_STATUS[r.status]))}</span></div>
       <div class="muted small">${esc(r.report_id)}</div>
       ${r.reply ? `<div class="reply small">${esc(r.reply)}</div>` : ""}</div>`).join("") : "";
 }
@@ -1636,7 +1864,6 @@ async function loadReports() {
 let acct = {available: false, signed_in: false, customer: null, settings: null};
 let accountOrders = null, acctStep = "home", codeEmail = "";
 const loyal = () => acct.settings && acct.settings.loyalty_enabled ? acct.settings : null;
-const plural = (n, w) => `${Number(n).toLocaleString("en-KE")} ${w}${n === 1 ? "" : "s"}`;
 
 async function loadAccount() {
   try { acct = await api("api/account"); } catch { acct = {...acct, signed_in: false}; }
@@ -1644,6 +1871,9 @@ async function loadAccount() {
   $("report-order").hidden = !acct.available;
   $("tabs").classList.toggle("four", !!acct.available);
   if (!acct.signed_in) accountOrders = null;
+  // A phone that hasn't chosen a language yet takes the account's.
+  const theirs = acct.signed_in && acct.customer?.language;
+  if (theirs && theirs !== lang && store.get("lang", null) === null) setLang(theirs, false);
   renderAccount();
   render();
 }
@@ -1665,42 +1895,43 @@ function renderPointsBox() {
   if ($("points-box").hidden) return;
   const earn = Math.floor((total() - pointsOff()) / l.kes_per_point);
   if (!acct.signed_in) {
-    $("pb-title").textContent = `Earn ${plural(earn, "point")} on this order`;
-    $("pb-text").textContent = "Sign in or create a free account first.";
+    $("pb-title").textContent = t("Earn {points} on this order", {points: pts(earn)});
+    $("pb-text").textContent = t("Sign in or create a free account first.");
     $("pb-switch").hidden = true; $("pb-signin").hidden = false;
     return;
   }
   $("pb-signin").hidden = true;
-  const pts = acct.customer.loyalty.points;
-  const can = Math.min(Math.floor(pts / l.redeem_points), Math.floor(Math.max(0, total() - 1) / l.redeem_kes));
+  const have = acct.customer.loyalty.points;
+  const can = Math.min(Math.floor(have / l.redeem_points), Math.floor(Math.max(0, total() - 1) / l.redeem_kes));
   $("pb-switch").hidden = !can;
   if (!can) $("use-points").checked = false;
-  $("pb-title").textContent = can ? `Use ${plural(can * l.redeem_points, "point")}: ${kes(can * l.redeem_kes)} off` : `You have ${plural(pts, "point")}`;
-  $("pb-text").textContent = `You'll earn ${plural(earn, "point")} on this order` +
-    (can ? "." : `. ${l.redeem_points} points take ${kes(l.redeem_kes)} off.`);
+  $("pb-title").textContent = can ? t("Use {points}: {amount} off", {points: pts(can * l.redeem_points), amount: kes(can * l.redeem_kes)})
+    : t("You have {points}", {points: pts(have)});
+  $("pb-text").textContent = t("You'll earn {points} on this order.", {points: pts(earn)}) +
+    (can ? "" : " " + t("{n} points take {amount} off.", {n: l.redeem_points, amount: kes(l.redeem_kes)}));
 }
 $("use-points").addEventListener("change", () => render());
 $("pb-signin").addEventListener("click", () => { acctStep = "signin"; show("account"); });
 
 function renderAccount() {
   const l = loyal(), c = acct.customer;
-  document.querySelectorAll(".store-name").forEach((e) => (e.textContent = $("store-name").textContent));
   const signedIn = acct.signed_in && c;
   $("acct-out").hidden = signedIn || acctStep !== "home";
   for (const step of ["join", "signin", "code"]) $(step + "-form").hidden = signedIn || acctStep !== step;
   $("acct-in").hidden = !signedIn;
-  $("reward-kicker").textContent = l ? `${$("store-name").textContent} Rewards` : "Your account";
-  $("reward-pitch-title").textContent = l ? "Earn points on every order" : "Shop faster with an account";
-  $("reward-pitch").textContent = l ? `${l.kes_per_point === 100 ? "1 point for every KES 100" : `1 point per ${kes(l.kes_per_point)}`} you spend online. ` +
-    `${l.redeem_points} points take ${kes(l.redeem_kes)} off an order.` : "See your orders on any phone and check out in seconds.";
+  $("reward-kicker").textContent = l ? t("{store} Rewards", {store: storeName}) : t("Your account");
+  $("reward-pitch-title").textContent = t(l ? "Earn points on every order" : "Shop faster with an account");
+  $("reward-pitch").textContent = l ? t("{rate} you spend online.", {rate: l.kes_per_point === 100 ? t("1 point for every KES 100")
+    : t("1 point per {amount}", {amount: kes(l.kes_per_point)})}) + " " +
+    t("{n} points take {amount} off an order.", {n: l.redeem_points, amount: kes(l.redeem_kes)}) : t("See your orders on any phone and check out in seconds.");
   $("perk-points").hidden = !l;
-  if (l) $("perk-points-text").textContent = `${l.redeem_points} points = ${kes(l.redeem_kes)} off. Points are added when your order is paid.`;
+  if (l) $("perk-points-text").textContent = t("{n} points = {amount} off. Points are added when your order is paid.", {n: l.redeem_points, amount: kes(l.redeem_kes)});
   $("code-demo").hidden = acct.settings?.email_provider !== "outbox";
   if (!signedIn) return;
   $("p-name").textContent = c.name;
   $("p-email").textContent = c.email;
   const since = new Date(c.member_since);
-  $("p-since").textContent = isNaN(since) ? "" : "Member since " + since.toLocaleDateString([], {month: "long", year: "numeric"});
+  $("p-since").textContent = isNaN(since) ? "" : t("Member since {date}", {date: since.toLocaleDateString(locale(), {month: "long", year: "numeric"})});
   $("avatar-initials").textContent = c.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const img = $("avatar").querySelector("img");
   if (c.photo_version) {
@@ -1715,11 +1946,12 @@ function renderAccount() {
     const p = c.loyalty.points;
     $("p-points").textContent = p.toLocaleString("en-KE");
     $("p-bar").style.width = `${Math.round(100 * (p % l.redeem_points) / l.redeem_points)}%`;
-    $("p-worth").textContent = c.loyalty.worth_kes ? `Worth ${kes(c.loyalty.worth_kes)} off your next order.` +
-      ` ${plural(c.loyalty.to_next, "point")} to the next ${kes(l.redeem_kes)}.`
-      : `${plural(c.loyalty.to_next, "more point")} and you get ${kes(l.redeem_kes)} off.`;
+    const more = c.loyalty.to_next === 1 ? t("1 more point") : t("{n} more points", {n: c.loyalty.to_next});
+    $("p-worth").textContent = c.loyalty.worth_kes ? t("Worth {amount} off your next order.", {amount: kes(c.loyalty.worth_kes)}) + " " +
+      t("{points} to the next {amount}.", {points: pts(c.loyalty.to_next), amount: kes(l.redeem_kes)})
+      : t("{points} and you get {amount} off.", {points: more, amount: kes(l.redeem_kes)});
     $("p-pending").hidden = !c.loyalty.pending_orders;
-    $("p-pending").textContent = "Points for an order still waiting for payment are added once it's paid.";
+    $("p-pending").textContent = t("Points for an order still waiting for payment are added once it's paid.");
   }
   if (document.activeElement?.closest?.("#profile-form")) return;  // don't overwrite while they type
   $("e-name").value = c.name; $("e-phone").value = "0" + c.phone.slice(3); $("e-dob").value = c.dob || ""; $("e-gender").value = c.gender || "";
@@ -1732,7 +1964,7 @@ document.querySelectorAll("[data-acct-back]").forEach((b) => b.addEventListener(
 
 function codeSent(email) {
   codeEmail = email;
-  $("code-sent").textContent = `We emailed a 6-digit code to ${email}. It works for 10 minutes.`;
+  $("code-sent").textContent = t("We emailed a 6-digit code to {email}. It works for 10 minutes.", {email});
   $("c-code").value = "";
   acctGo("code");
   $("c-code").focus();
@@ -1740,10 +1972,10 @@ function codeSent(email) {
 
 $("join-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!$("j-consent").checked) return say("Please read and accept the privacy notice to join.");
+  if (!$("j-consent").checked) return say(t("Please read and accept the privacy notice to join."));
   const body = {name: $("j-name").value.trim(), phone: $("j-phone").value.trim(), email: $("j-email").value.trim(),
                 dob: $("j-dob").value, gender: $("j-gender").value || null, consent: true};
-  if (!body.name || !body.phone || !body.email || !body.dob) return say("Fill in your name, phone, email and date of birth.");
+  if (!body.name || !body.phone || !body.email || !body.dob) return say(t("Fill in your name, phone, email and date of birth."));
   try { const r = await api("api/account/signup", {method: "POST", body: JSON.stringify(body)}); codeSent(r.email); }
   catch (err) { say(err.message); }
 });
@@ -1753,7 +1985,7 @@ $("signin-form").addEventListener("submit", async (e) => {
   catch (err) { say(err.message); }
 });
 $("code-resend").addEventListener("click", async () => {
-  try { await api("api/account/code", {method: "POST", body: JSON.stringify({email: codeEmail})}); say("A new code is on its way.", "ok"); }
+  try { await api("api/account/code", {method: "POST", body: JSON.stringify({email: codeEmail})}); say(t("A new code is on its way."), "ok"); }
   catch (err) { say(err.message); }
 });
 $("code-form").addEventListener("submit", async (e) => {
@@ -1762,7 +1994,8 @@ $("code-form").addEventListener("submit", async (e) => {
     await api("api/account/verify", {method: "POST", body: JSON.stringify({email: codeEmail, code: $("c-code").value.trim()})});
     acctStep = "home";
     await loadAccount();
-    say(`Welcome, ${acct.customer.name.split(" ")[0]}! You're signed in.`, "ok");
+    if (acct.customer?.language && acct.customer.language !== lang) setLang(acct.customer.language, false);  // their language, on any phone
+    say(t("Welcome, {name}! You're signed in.", {name: acct.customer.name.split(" ")[0]}), "ok");
     loadAccountOrders();
   } catch (err) { say(err.message); }
 });
@@ -1773,7 +2006,7 @@ $("profile-form").addEventListener("submit", async (e) => {
       phone: $("e-phone").value.trim(), dob: $("e-dob").value, gender: $("e-gender").value || null})});
     document.activeElement?.blur();
     renderAccount();
-    toast("Details saved");
+    toast(t("Details saved"));
   } catch (err) { say(err.message); }
 });
 $("photo-input").addEventListener("change", async (e) => {
@@ -1781,12 +2014,12 @@ $("photo-input").addEventListener("change", async (e) => {
   e.target.value = "";
   if (!f) return;
   try {
-    const r = await fetch("api/account/photo", {method: "PUT", body: await shrink(f), headers: {"Content-Type": "image/jpeg"}});
+    const r = await fetch("api/account/photo", {method: "PUT", body: await shrink(f), headers: {"Content-Type": "image/jpeg", "X-Language": lang}});
     const b = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(typeof b.detail === "string" ? b.detail : "That photo couldn't be saved.");
+    if (!r.ok) throw new Error(typeof b.detail === "string" ? b.detail : t("That photo couldn't be saved."));
     acct.customer = b;
     renderAccount();
-    toast("Photo saved");
+    toast(t("Photo saved"));
   } catch (err) { say(err.message); }
 });
 $("photo-remove").addEventListener("click", async () => {
@@ -1796,11 +2029,11 @@ $("sign-out").addEventListener("click", async () => {
   await api("api/account/signout", {method: "POST"}).catch(() => {});
   accountOrders = null;
   await loadAccount();
-  toast("Signed out");
+  toast(t("Signed out"));
 });
 $("delete-account").addEventListener("click", async () => {
-  if (!confirm("Delete your account? Your details and photo are erased and your points are lost. This can't be undone.")) return;
-  try { await api("api/account", {method: "DELETE"}); accountOrders = null; await loadAccount(); say("Your account was deleted.", "ok"); }
+  if (!confirm(t("Delete your account? Your details and photo are erased and your points are lost. This can't be undone."))) return;
+  try { await api("api/account", {method: "DELETE"}); accountOrders = null; await loadAccount(); say(t("Your account was deleted."), "ok"); }
   catch (err) { say(err.message); }
 });
 
@@ -1818,7 +2051,30 @@ async function shrink(file, max = 800) {
 
 // ------------------------------------------------------------------ start
 
+// Switching language redraws what's on screen; the cart, the order and the timers carry on as they are.
+function setLang(l, save = true) {
+  lang = l;
+  store.set("lang", lang);
+  translatePage();
+  $("step-label").textContent = t(LABELS[view]);
+  if (storeName) document.title = t("{store} · Online shop", {store: storeName});
+  renderLive();
+  render();
+  renderWhere();
+  renderAccount();
+  if (view === "orders") renderOrders();
+  if (view === "account") loadReports();
+  if (view === "wait" && order) renderWait();
+  if (view === "order" && lastStatus) showOrder(lastStatus);
+  if (returnable) { renderReturns(); if ($("return-sheet").classList.contains("open")) renderReturnSheet(); }
+  renderReport();
+  if (save && acct.signed_in) api("api/account/language", {method: "PUT", body: JSON.stringify({language: lang})}).catch(() => {});
+  if (lastCatalogue) loadCatalogue();  // offers come from the server in the page's language
+}
+$("lang").addEventListener("click", () => setLang(lang === "sw" ? "en" : "sw"));
+
 api("api/store").then((s) => {
+  storeName = s.name;
   $("store-name").textContent = s.name;
   $("collect-store").textContent = s.name;
   delivery = s.delivery;
@@ -1828,9 +2084,11 @@ api("api/store").then((s) => {
   $("deliver-option").hidden = !delivery.available;
   renderWhere();
   if (delivery.available && where) refreshQuote();
-  document.title = `${s.name} · Online shop`;
+  document.title = t("{store} · Online shop", {store: s.name});
+  translatePage();
   if (s.accounts && s.accounts.available) loadAccount();
 }).catch(() => {});
+translatePage();
 show("shop");
 // Coming back from the card page: the address has ?order=...; the order itself is remembered in this browser.
 const returning = new URLSearchParams(location.search).get("order");

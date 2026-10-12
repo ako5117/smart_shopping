@@ -32,3 +32,14 @@ def test_sign_up_sign_in_and_points_over_http(db, inventory, clock):
 def test_loyalty_off_from_settings(db, inventory, clock):
     c = app(db, inventory, clock, loyalty_enabled=False)
     assert c.get("/settings").json()["loyalty_enabled"] is False
+
+
+def test_language_over_http(db, inventory, clock):
+    c = app(db, inventory, clock)
+    assert c.post("/signup", json={**JANE, "language": "sw"}).status_code == 202
+    s = c.post("/sessions", json={"email": "jane@example.com", "code": last_code(db)}).json()
+    me = {"X-Session": s["token"]}
+    assert c.get("/me", headers=me).json()["language"] == "sw"
+    assert c.put("/me/language", json={"language": "en"}, headers=me).json()["language"] == "en"
+    assert c.put("/me/language", json={"language": "fr"}, headers=me).status_code == 422
+    assert c.post("/codes", json={"email": "jane@example.com", "language": "sw"}).status_code == 202

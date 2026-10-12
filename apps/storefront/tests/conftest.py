@@ -78,6 +78,7 @@ class FakeInventory:
                                            "customer_phone": body.get("customer_phone", ""),
                                            "loyalty_discount_kes": body.get("loyalty_discount_kes", 0),
                                            "customer_id": body.get("customer_id", ""),
+                                           "language": body.get("language", "en"),
                                            "status": "pending_payment", "payment_ref": None, "exited_at": None,
                                            "ready_at": None, "created_at": NOW.isoformat()}
             return httpx.Response(201, json=self.sales[body["sale_id"]])
@@ -231,12 +232,15 @@ class FakeCustomers:
         self.orders = {}
         self.cancelled = []
         self.signups = []
+        self.codes = []
+        self.language = "en"
         self.reports = []
         self.photo = None
 
     def profile(self):
         return {"customer_id": "C1", "name": "Jane Wanjiru", "phone": "254712345678", "email": "jane@example.com",
                 "dob": "1994-05-17", "gender": "female", "photo_version": "p1" if self.photo else None,
+                "language": self.language,
                 "loyalty": {"enabled": True, "points": self.points, "worth_kes": self.points // 100 * 50}}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -252,6 +256,7 @@ class FakeCustomers:
             return httpx.Response(202, json={"email": body["email"].lower(), "sent": True}) if body.get("consent") else \
                 httpx.Response(422, json={"detail": "Please read and accept the privacy notice to join."})
         if path == "/codes":
+            self.codes.append(body)
             return httpx.Response(202, json={"email": body["email"], "sent": True})
         if path == "/sessions" and method == "POST":
             if body["code"] != "123456":
@@ -285,6 +290,9 @@ class FakeCustomers:
             return httpx.Response(200, json=self.profile())
         if path == "/me" and method == "PUT":
             return httpx.Response(200, json={**self.profile(), "name": body["name"]})
+        if path == "/me/language" and method == "PUT":
+            self.language = body["language"]
+            return httpx.Response(200, json=self.profile())
         if path == "/me" and method == "DELETE":
             return httpx.Response(204)
         if path == "/me/photo":

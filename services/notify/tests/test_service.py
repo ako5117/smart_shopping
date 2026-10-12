@@ -149,3 +149,16 @@ def test_inventory_error_raises_from_watch(notifier, stores):
     stores.down = True
     with pytest.raises(httpx.HTTPError):
         notifier.watch()
+
+
+def test_texts_come_in_the_customers_language(notifier, stores):
+    stores.add_sale(language="sw", ready_at=ago(minutes=1))
+    stores.add_sale(sale_id="WEB-0000BBBB", fulfilment="delivery", paid=ago(hours=5), language="sw")
+    stores.deliveries["WEB-0000BBBB"] = {"sale_id": "WEB-0000BBBB", "status": "picked_up", "pin": "0427",
+                                         "customer_phone": "0712345678", "rider_id": None, "picked_up_at": ago(minutes=2)}
+    assert notifier.watch() == 3
+    texts = {(m["sale_id"], m["kind"]): m["body"] for m in notifier.messages()}
+    assert texts[("WEB-0000AAAA", "paid")].startswith("Mama Mboga Mart: oda 0000AAAA imelipwa, KES 200.")
+    assert texts[("WEB-0000AAAA", "ready")].startswith("Mama Mboga Mart: oda 0000AAAA iko tayari.")
+    assert texts[("WEB-0000BBBB", "on_the_way")] == \
+        "Mama Mboga Mart: oda 0000BBBB iko njiani na msafirishaji. Nambari ya kupokea 0427."

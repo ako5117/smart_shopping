@@ -70,10 +70,16 @@ class SignupIn(BaseModel):
     dob: str = Field(..., max_length=10, description="YYYY-MM-DD")
     gender: Optional[Literal["female", "male", "other", ""]] = None
     consent: bool = False
+    language: Literal["en", "sw"] = "en"
 
 
 class EmailIn(BaseModel):
     email: str = Field(..., max_length=120)
+    language: Optional[Literal["en", "sw"]] = Field(None, description="The email's language (else the account's)")
+
+
+class LanguageIn(BaseModel):
+    language: Literal["en", "sw"]
 
 
 class VerifyIn(EmailIn):
@@ -169,11 +175,11 @@ def create_app(db: Optional[Database] = None, inventory=None, settings: Optional
 
     @app.post("/signup", status_code=202)
     def signup(b: SignupIn):
-        return guard(customers.signup, b.name, b.phone, b.email, b.dob, b.gender, b.consent)
+        return guard(customers.signup, b.name, b.phone, b.email, b.dob, b.gender, b.consent, b.language)
 
     @app.post("/codes", status_code=202)
     def send_code(b: EmailIn):
-        return guard(customers.request_code, b.email)
+        return guard(customers.request_code, b.email, b.language)
 
     @app.post("/sessions", status_code=201)
     def verify(b: VerifyIn):
@@ -192,6 +198,11 @@ def create_app(db: Optional[Database] = None, inventory=None, settings: Optional
     @app.put("/me")
     def update(b: ProfileIn, x_session: Optional[str] = Header(None)):
         return guard(customers.update, me(x_session), b.name, b.phone, b.dob, b.gender)
+
+    @app.put("/me/language")
+    def set_language(b: LanguageIn, x_session: Optional[str] = Header(None)):
+        """The language the shop shows (and emails come in) for this customer: en or sw."""
+        return guard(customers.set_language, me(x_session), b.language)
 
     @app.delete("/me", status_code=204)
     def delete(x_session: Optional[str] = Header(None)):

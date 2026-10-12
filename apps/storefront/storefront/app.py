@@ -36,7 +36,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from . import account, reports
+from . import account, i18n, reports
 from .config import Settings, load_settings
 from .shelf import picked_up, read_recent_lines
 
@@ -170,6 +170,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     returns_limiter = RateLimiter(5, 3600)
     accounts = account.Accounts(customers)
     app = FastAPI(title="Smart Shopping - Online store")
+    i18n.install(app)
 
     def upstream(name: str, fn):
         try:
@@ -357,14 +358,20 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 "accounts": {"available": accounts.on, **(loyalty or {})}}
 
     @app.get("/api/delivery/quote")
-    def quote(lat: float, lng: float):
+    def quote(lat: float, lng: float, request: Request):
         """Can we deliver here, and for how much? Asked before shopping and again at checkout."""
         if not (-90 <= lat <= 90 and -180 <= lng <= 180):
             raise HTTPException(422, "That location isn't valid. Try finding it on the map again.")
-        return delivery_quote(lat, lng)
+        q, lang = delivery_quote(lat, lng), i18n.language(request)
+        out = {**q, "reason": i18n.translate(q.get("reason") or "", lang)}
+        if q.get("scheduled"):
+            out["scheduled"] = {**q["scheduled"], "slots": [{**s, "label": i18n.translate(s["label"], lang)}
+                                                            for s in q["scheduled"].get("slots", [])]}
+        return out
 
     @app.get("/api/catalogue")
-    def catalogue():
+    def catalogue(request: Request):
+        lang = i18n.language(request)
         products = upstream("Inventory", products_cache.get)
         live = live_availability()
         available = live["available"]
@@ -372,7 +379,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         for p in products:
             n = available.get(p["product_id"], 0)
             status = stock_status(n, settings.few_left)
-            out.append({**p, "status": status, "left": n if status == "few" else None,
+            out.append({**p, "offer": i18n.translate(p["offer"], lang) if p.get("offer") else p.get("offer"),
+                        "status": status, "left": n if status == "few" else None,
                         "max": min(n, settings.max_qty_per_item),
                         "substitutes": substitutes(p, products, available) if status != "in" else []})
         out.sort(key=lambda p: (p["category"] or "~", p["name"]))
@@ -435,6 +443,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 "customer_phone": body.phone.strip(),
                 "check_stock": True, "fulfilment": body.fulfilment, "delivery_fee_kes": fee,
                 "loyalty_discount_kes": points_off, "customer_id": (linked or {}).get("customer_id", ""),
+                "language": i18n.language(request),  # the texts about this order come in it
                 "items": [{"product_id": pid, "qty": q} for pid, q in merged.items()]}))
         except HTTPException:
             if linked:
@@ -501,7 +510,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 "checkout_url": payment.get("checkout_url")}
 
     @app.get("/api/orders/{order_id}/payments/{payment_id}")
-    def order_status(order_id: str, payment_id: str):
+    def order_status(order_id: str, payment_id: str, request: Request):
         if not ORDER_ID.match(order_id) or not PAYMENT_ID.match(payment_id):
             raise HTTPException(404, "Order not found")
         r = upstream("Payments", lambda: payments.get(f"/payments/{payment_id}"))
@@ -518,6 +527,8 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
                 payment = refreshed.json()
         sale = online_sale(order_id)
         delivery = delivery_for(sale)
+        if delivery and delivery.get("slot"):
+            delivery["slot"] = i18n.translate(delivery["slot"], i18n.language(request))
         if sale["status"] == "cancelled":
             stage = "cancelled"
         elif sale["status"] == "paid" and sale.get("fulfilment") == "delivery":
@@ -559,12 +570,15 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
         return online_sale(order_id)
 
     @app.get("/api/orders/{order_id}/payments/{payment_id}/returns")
-    def order_returns(order_id: str, payment_id: str):
+    def order_returns(order_id: str, payment_id: str, request: Request):
         """What can be returned from this order (unopened, non-perishable, within the return period), and returns so far."""
         own_order(order_id, payment_id)
         r = upstream("Inventory", lambda: inventory.get(f"/sales/{order_id}/returnable"))
         r.raise_for_status()
-        return r.json()
+        out, lang = r.json(), i18n.language(request)
+        out["reason"] = i18n.translate(out.get("reason") or "", lang)
+        out["items"] = [{**i, "why_not": i18n.translate(i.get("why_not") or "", lang)} for i in out.get("items", [])]
+        return out
 
     @app.post("/api/orders/{order_id}/payments/{payment_id}/returns", status_code=201)
     def ask_return(order_id: str, payment_id: str, body: ReturnIn):

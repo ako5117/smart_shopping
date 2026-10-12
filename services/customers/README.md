@@ -69,7 +69,6 @@ A supermarket connects its own email service by adding a sender to `customers/ma
 
 ## Later
 
-- **Language preference** for each customer, with the shop translated to match.
 - **Points for Scan & Go:** Scan & Go purchases don't earn points yet.
 
 ## Endpoints
@@ -77,12 +76,13 @@ A supermarket connects its own email service by adding a sender to `customers/ma
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/settings` | Loyalty rates, whether points are on, the email provider |
-| `POST` | `/signup` | `{name, phone, email, dob, gender?, consent}`: create the account (or update one never confirmed) and email a code |
-| `POST` | `/codes` | `{email}`: a sign-in code, if the email has an account. The answer is the same either way |
+| `POST` | `/signup` | `{name, phone, email, dob, gender?, consent, language?}`: create the account (or update one never confirmed) and email a code, in that language (`en` or `sw`) |
+| `POST` | `/codes` | `{email, language?}`: a sign-in code, if the email has an account. The answer is the same either way. The email is in `language`, else the account's |
 | `POST` | `/sessions` | `{email, code}`: confirm and sign in. Returns `{token, customer}`. A wrong code gets `422` with `attempts_left` |
 | `DELETE` | `/sessions` | Sign out (`X-Session`) |
 | `GET` / `PUT` / `DELETE` | `/me` | The signed-in customer (`X-Session`): profile with points; change details; delete the account |
 | `PUT` / `GET` / `DELETE` | `/me/photo` | Profile photo |
+| `PUT` | `/me/language` | `{language}`: `en` or `sw`, the shop's language for this customer (and their emails) |
 | `GET` | `/me/orders` | Their online orders, with points earned and spent |
 | `POST` | `/orders` | `{sale_id, goods_kes, use_points}` (`X-Session`): link an order before it's recorded, spending points if asked. Returns the discount |
 | `POST` | `/orders/{sale_id}/cancel` | The order didn't go ahead: give back the points spent on it |

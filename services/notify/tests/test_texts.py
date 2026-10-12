@@ -46,3 +46,15 @@ def test_on_the_way_without_rider_phone():
 def test_fit_refuses_long_text():
     with pytest.raises(ValueError):
         texts.fit("x" * 161)
+
+
+def test_texts_in_kiswahili_fit_one_sms_too():
+    bodies = [texts.paid(LONG, "ABCDEFGH", 1_234_567, lang="sw"), texts.paid(LONG, "ABCDEFGH", 1_234_567, "4821", "sw"),
+              texts.ready(LONG, "ABCDEFGH", "sw"),
+              texts.on_the_way(LONG, "ABCDEFGH", "Bartholomew-Wanyama-Ochieng", "+254712345678", "4821", "sw")]
+    for b in bodies:
+        assert len(b) <= texts.LIMIT, (len(b), b)
+        assert set(b) <= texts.GSM
+    assert texts.paid("Duka", "ABCDEFGH", 2500, lang="sw") == \
+        "Duka: oda ABCDEFGH imelipwa, KES 2,500. Tutakutumia ujumbe ikiwa tayari kuchukuliwa."
+    assert "Nambari yako ya kupokea ni 4821" in texts.paid("Duka", "ABCDEFGH", 2500, "4821", "sw")

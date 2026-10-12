@@ -9,6 +9,8 @@ Texts online customers when their order moves on. Staff see every text, and can 
 | A collect order is packed | `Mama Mboga Mart: order 0000AAAA is ready. Collect it at the counter and show the pass on your order page.` |
 | A delivery leaves with its rider | `Mama Mboga Mart: order 0000AAAA is on the way with otieno (0722000111). Delivery code 0427.` |
 
+Texts go in the language the order was placed in. In Kiswahili, for example: `Mama Mboga Mart: oda 0000AAAA imelipwa, KES 200. Tutakutumia ujumbe ikiwa tayari kuchukuliwa.` See [`docs/languages.md`](../../docs/languages.md).
+
 Texts use only GSM characters (no curly quotes or emoji), so each one is a single SMS. Store and rider names are shortened if they'd make it longer.
 
 ## How it works

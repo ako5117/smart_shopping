@@ -10,7 +10,8 @@ ADDED_COLUMNS = {
               ("fulfilment", "TEXT NOT NULL DEFAULT 'collect'"), ("delivery_fee_kes", "INTEGER NOT NULL DEFAULT 0"),
               ("customer_phone", "TEXT NOT NULL DEFAULT ''"),
               ("loyalty_discount_kes", "INTEGER NOT NULL DEFAULT 0"), ("customer_id", "TEXT NOT NULL DEFAULT ''"),
-              ("paid_at", "TEXT"), ("traveller", "TEXT NOT NULL DEFAULT ''")],
+              ("paid_at", "TEXT"), ("traveller", "TEXT NOT NULL DEFAULT ''"),
+              ("language", "TEXT NOT NULL DEFAULT 'en'")],
     "sale_items": [("unit_price_kes", "INTEGER"), ("list_price_kes", "INTEGER")],
     "stock_ledger": [("recorded_by", "TEXT NOT NULL DEFAULT ''")],
 }
@@ -78,7 +79,8 @@ CREATE TABLE IF NOT EXISTS sales (
     loyalty_discount_kes INTEGER NOT NULL DEFAULT 0,  -- online orders: taken off for loyalty points spent
     customer_id TEXT NOT NULL DEFAULT '',  -- online orders by a signed-in customer (Customers Service)
     paid_at TEXT,  -- when the payment was confirmed (the returns window starts here)
-    traveller TEXT NOT NULL DEFAULT ''  -- airport shops: who flew where (JSON: name, flight, from, to, date, seat), no booking reference
+    traveller TEXT NOT NULL DEFAULT '',  -- airport shops: who flew where (JSON: name, flight, from, to, date, seat), no booking reference
+    language TEXT NOT NULL DEFAULT 'en'  -- en | sw: the customer's language, for the texts about the order
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     sale_id TEXT NOT NULL REFERENCES sales(sale_id),

@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from .airport import Airport, FlightBoard, NotAllowed
+from . import i18n
 from .config import Settings, load_settings
 
 log = logging.getLogger("scan_and_go")
@@ -175,6 +176,7 @@ def create_app(settings: Optional[Settings] = None, inventory: Optional[httpx.Cl
     catalogue = Catalogue(inventory)
     limiter = RateLimiter(settings.stk_limit_per_phone, settings.stk_limit_window_s)
     app = FastAPI(title="Smart Shopping - Scan & Go")
+    i18n.install(app)
 
     def upstream(name: str, fn):
         try:
