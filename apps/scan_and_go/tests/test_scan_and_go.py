@@ -125,7 +125,8 @@ def test_store_offline(client, inventory):
 def test_page_and_store_info(client):
     assert "<title>Scan &amp; Go</title>" in client.get("/").text
     assert client.get("/api/store").json() == {"store_id": "001", "name": "Test Store", "currency": "KES",
-                                               "card": False, "reports": False}
+                                               "card": False, "reports": False,
+                                               "mode": "shop", "airport": None}
 
 
 def test_pass_shows_exit_check(client, inventory, payments):

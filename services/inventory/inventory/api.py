@@ -4,7 +4,7 @@
 """
 
 import os
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -71,6 +71,7 @@ class SaleIn(BaseModel):
     customer_phone: str = Field("", max_length=16, description="Online orders: where order updates are texted")
     loyalty_discount_kes: int = Field(0, ge=0, description="Online orders: taken off for loyalty points spent")
     customer_id: str = Field("", max_length=40, description="Online orders by a signed-in customer")
+    traveller: Optional[Dict[str, str]] = Field(None, description="Airport shops: name, flight, from, to, date, seat (no booking reference)")
 
 
 class ReadyIn(BaseModel):
@@ -235,7 +236,7 @@ def create_app(db: Optional[Database] = None, return_days: Optional[int] = None,
     def create_sale(s: SaleIn):
         return guard(inv.create_sale, s.sale_id, s.store_id, [Item(i.product_id, i.qty) for i in s.items],
                      s.channel, s.customer_name, s.check_stock, s.fulfilment, s.delivery_fee_kes, s.customer_phone,
-                     s.loyalty_discount_kes, s.customer_id)
+                     s.loyalty_discount_kes, s.customer_id, s.traveller)
 
     @app.get("/sales")
     def list_sales(store_id: str, limit: int = Query(50, ge=1, le=500),

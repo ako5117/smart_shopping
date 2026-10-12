@@ -95,7 +95,11 @@ function showSale(sale) {
     $("confirm").focus();
   } else {
     current = sale;
-    verdict("ok", "PAID ✓", `<div>Check the bag matches, then confirm.</div>${itemsList(sale)}
+    const t = sale.traveller;  // airport shops: check the boarding pass matches
+    const flyer = t ? `<div class="flyer">✈ <b>${esc(t.name)}</b> · ${esc(t.flight)} ${esc(t.from)}→${esc(t.to || "?")}
+      · ${esc(t.date)}${t.seat ? ` · seat ${esc(t.seat)}` : ""}${t.gate ? ` · gate ${esc(t.gate)}` : ""}.
+      <span class="muted">Check their boarding pass matches.</span></div>` : "";
+    verdict("ok", "PAID ✓", `${flyer}<div>Check the bag matches, then confirm.</div>${itemsList(sale)}
       <div><button id="confirm">Confirm: customer left the store</button></div>`);
     $("confirm").focus();
   }

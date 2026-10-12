@@ -12,6 +12,7 @@ Smart Shopping runs the same system in two tiers. A store starts on **Standard**
 ## What both tiers include
 
 - **Scan & Go:** customers scan barcodes with their own phone, pay by M-Pesa or card, and show a one-time pass at the exit.
+- **Airport mode** for shops airside: travellers scan their boarding pass in Scan & Go instead of signing in, and each sale records the flight.
 - **Online shop:** live stock, substitutes for sold-out items, and click & collect or delivery.
 - **Returns:** unopened, non-perishable items within 14 days of payment, asked for online or at the counter, checked and approved by a manager, refunded by hand.
 - **Problem reports:** customers report problems and ideas from the online shop and Scan & Go, with a photo if they like; staff answer them on the dashboard.

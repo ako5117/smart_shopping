@@ -132,3 +132,16 @@ def test_loyalty_discount_on_online_orders(inv):
     with pytest.raises(ValueError):
         inv.create_sale("SG-1", STORE, [Item(MILK, 1)], loyalty_discount_kes=10)  # online only, for now
     assert inv.db.one("SELECT COUNT(*) AS n FROM sales")["n"] == 1
+
+
+def test_airport_sales_record_the_traveller(inv):
+    inv.restock(STORE, EAN[MILK], 5, "s1")
+    flyer = {"name": "Jane Wanjiru", "flight": "KQ100", "from": "NBO", "to": "LHR", "date": "2026-10-12", "seat": "23A"}
+    sale = inv.create_sale("SG-1", STORE, [Item(MILK, 1)], traveller=flyer, customer_name="Jane Wanjiru")
+    assert sale["traveller"] == flyer
+    assert inv.create_sale("SG-2", STORE, [Item(MILK, 1)])["traveller"] is None
+    assert [s["traveller"] for s in inv.recent_sales(STORE)] == [None, flyer]
+    with pytest.raises(ValueError):
+        inv.create_sale("SG-3", STORE, [Item(MILK, 1)], traveller={**flyer, "pnr": "ABC123"})  # no booking references
+    with pytest.raises(ValueError):
+        inv.create_sale("SG-4", STORE, [Item(MILK, 1)], traveller={"name": "Jane"})

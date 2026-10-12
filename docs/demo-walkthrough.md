@@ -164,6 +164,17 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
 - **Customer:** the Account tab shows the report as **Resolved** with the store's reply.
 - **Scan & Go** has the same **Report a problem** at the bottom of its page.
 
+### 6e. Airport mode (optional; Customer and Staff), 3 min
+
+- **The point:** the same Scan & Go works for a duty-free shop. Travellers don't sign up: their boarding pass says who they are and where they're flying.
+- **Switch:** run `./scripts/demo.sh --mode airport` (Jomo Kenyatta International, NBO, with a demo departures board). Reload Scan & Go.
+- **Customer:** Scan & Go opens on **Scan your boarding pass**.
+  - Scan a boarding pass barcode, or tap **Type my flight details instead** and enter a name, **KQ 100** and **LHR**.
+  - The flight, gate and departure time show at the top. Try **KQ 200**: it isn't leaving NBO today, so it's refused.
+  - Shop and pay as usual. The receipt shows the flight.
+- **Staff (Exit check):** scan the exit pass. **PAID** shows the traveller's name, flight and seat, to compare with their boarding pass.
+- **Point out:** the booking reference on the pass is never stored. `./scripts/demo.sh --mode shop` switches back.
+
 ### 7. Back to the store view (Staff: Overview), 2 min
 
 - **Today:** now shows the paid sales and items sold.

@@ -1,0 +1,10 @@
+[
+  {"flight": "KQ 100", "to": "LHR", "departs": "23:55", "gate": "14"},
+  {"flight": "KQ 310", "to": "JNB", "departs": "23:40", "gate": "9"},
+  {"flight": "KQ 602", "to": "MBA", "departs": "23:59", "gate": "4"},
+  {"flight": "ET 309", "to": "ADD", "departs": "23:50", "gate": "3"},
+  {"flight": "KL 566", "to": "AMS", "departs": "23:35", "gate": "16"},
+  {"flight": "EK 720", "to": "DXB", "departs": "23:45", "gate": "11"},
+  {"flight": "QR 1342", "to": "DOH", "departs": "23:30", "gate": "12"},
+  {"flight": "5H 410", "to": "KIS", "departs": "23:58", "gate": "1"}
+]

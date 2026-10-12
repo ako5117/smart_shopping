@@ -216,6 +216,10 @@ services:
       INVENTORY_URL: http://inventory:8010
       PAYMENTS_URL: http://payments:8000
       CUSTOMERS_URL: http://customers:8090
+      STORE_MODE: ${STORE_MODE:-shop}
+      AIRPORT_CODE: ${AIRPORT_CODE:-}
+      FLIGHTS_FILE: ${FLIGHTS_FILE:-}
+      STORE_TZ: ${STORE_TZ:-}
       UVICORN_ROOT_PATH: /shop
     depends_on: [inventory, payments, customers]
 

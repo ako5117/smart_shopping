@@ -109,6 +109,12 @@
   .choice label:has(input:checked) { border-color: var(--accent); background: var(--ok-bg); }
   .choice input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  .flyer { display: flex; gap: 10px; align-items: center; background: var(--ok-bg); color: var(--accent); border-radius: 14px;
+           padding: 10px 12px; margin-bottom: 14px; font-weight: 600; }
+  .flyer span { flex: 1; min-width: 0; }
+  .flyer small { display: block; font-weight: 500; opacity: .85; }
+  .flyer button { background: transparent; color: var(--accent); padding: 6px 4px; }
+  label.f { display: block; font-size: 14px; font-weight: 650; margin: 12px 0 6px; }
   [hidden] { display: none !important; }
 </style>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%230e6b47%27/%3E%3Cpath d=%27M9 12h14l-1 11a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2zM13 13v-2a3 3 0 0 1 6 0v2%27 fill=%27none%27 stroke=%27white%27 stroke-width=%272%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
@@ -119,8 +125,28 @@
 <main>
   <div id="msg" class="msg" hidden></div>
 
+  <!-- 0. Airport mode: the boarding pass before shopping -->
+  <section id="flyer-view" hidden>
+    <div class="card">
+      <h2 style="margin-top:0">Scan your boarding pass</h2>
+      <p class="muted" style="margin-top:0" id="flyer-intro">Shopping here is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.</p>
+      <div id="pass-viewer" class="viewer idle"><button id="start-pass-camera">Scan boarding pass</button></div>
+      <button class="link" id="type-flight">Type my flight details instead</button>
+      <form id="flight-form" hidden>
+        <label class="f" for="f-name">Name, as on your boarding pass</label>
+        <input id="f-name" maxlength="60" autocomplete="name" required>
+        <label class="f" for="f-flight">Flight number</label>
+        <input id="f-flight" maxlength="12" placeholder="e.g. KQ 100" autocapitalize="characters" required>
+        <label class="f" for="f-to">Flying to <span class="muted" style="font-weight:500">(airport code, optional)</span></label>
+        <input id="f-to" maxlength="3" placeholder="e.g. LHR" autocapitalize="characters">
+        <button style="width:100%;margin-top:12px">Continue</button>
+      </form>
+    </div>
+  </section>
+
   <!-- 1. Scanning -->
   <section id="scan-view">
+    <div class="flyer" id="flyer-bar" hidden><span id="flyer-text"></span><button id="flyer-change">Change</button></div>
     <div class="card">
       <div id="viewer" class="viewer idle"><button id="start-camera">Start scanning</button></div>
       <form id="manual" class="row" style="margin-top:10px">
@@ -264,9 +290,9 @@ async function api(path, options = {}) {
 }
 
 function show(view) {
-  for (const v of ["scan", "phone", "wait", "receipt"]) $(v + "-view").hidden = v !== view;
+  for (const v of ["flyer", "scan", "phone", "wait", "receipt"]) $(v + "-view").hidden = v !== view;
   $("checkout-bar").hidden = view !== "scan";
-  $("step-label").textContent = {scan: "Scan", phone: "Pay", wait: "Paying", receipt: "Receipt"}[view];
+  $("step-label").textContent = {flyer: "Boarding pass", scan: "Scan", phone: "Pay", wait: "Paying", receipt: "Receipt"}[view];
   if (view !== "scan") stopCamera();
 }
 
@@ -326,30 +352,43 @@ $("manual").addEventListener("submit", (e) => {
 
 // ------------------------------------------------------------------ camera
 
-let stream = null, scanning = false, zxingReader = null;
+let stream = null, scanning = false, zxingReader = null, camViewer = null;
+// Products carry EAN-13 barcodes; boarding passes PDF417, Aztec or QR codes.
+const CAMERAS = {
+  product: {viewer: "viewer", button: `<button id="start-camera">Start scanning</button>`, hint: "Point at a barcode",
+            native: ["ean_13"], zxing: () => [ZXing.BarcodeFormat.EAN_13], onCode: (c) => addByBarcode(c), fallback: "type the barcode number"},
+  pass: {viewer: "pass-viewer", button: `<button id="start-pass-camera">Scan boarding pass</button>`, hint: "Point at the boarding pass barcode",
+         native: ["pdf417", "aztec", "qr_code"], zxing: () => [ZXing.BarcodeFormat.PDF_417, ZXing.BarcodeFormat.AZTEC, ZXing.BarcodeFormat.QR_CODE],
+         onCode: (c) => checkBoardingPass(c), fallback: "type your flight details"},
+};
 
-async function startCamera() {
+async function startCamera(kind = "product") {
   say("");
-  if (!navigator.mediaDevices?.getUserMedia) return say("This browser can't use the camera. Type the barcode number instead.");
+  const cam = CAMERAS[kind];
+  if (!navigator.mediaDevices?.getUserMedia) return say(`This browser can't use the camera. Please ${cam.fallback} instead.`);
+  stopCamera();
   try {
     stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false});
   } catch {
-    return say("Camera access was blocked. Allow it in your browser settings, or type the barcode number.");
+    return say(`Camera access was blocked. Allow it in your browser settings, or ${cam.fallback}.`);
   }
-  $("viewer").className = "viewer";
-  $("viewer").innerHTML = `<video playsinline muted></video><div class="frame"></div><div class="hint">Point at a barcode</div>`;
-  const video = $("viewer").querySelector("video");
+  camViewer = kind;
+  const viewer = $(cam.viewer);
+  viewer.className = "viewer";
+  viewer.innerHTML = `<video playsinline muted></video><div class="frame"></div><div class="hint">${cam.hint}</div>`;
+  const video = viewer.querySelector("video");
   video.srcObject = stream;
   await video.play();
   scanning = true;
 
-  if ("BarcodeDetector" in window && (await BarcodeDetector.getSupportedFormats()).includes("ean_13")) {
-    const detector = new BarcodeDetector({formats: ["ean_13"]});
+  const supported = "BarcodeDetector" in window ? await BarcodeDetector.getSupportedFormats() : [];
+  if (cam.native.every((f) => supported.includes(f))) {
+    const detector = new BarcodeDetector({formats: cam.native});
     const tick = async () => {
       if (!scanning) return;
       try {
         const [hit] = await detector.detect(video);
-        if (hit) addByBarcode(hit.rawValue);
+        if (hit) cam.onCode(hit.rawValue);
       } catch {}
       setTimeout(tick, 250);
     };
@@ -361,11 +400,11 @@ async function startCamera() {
         const s = document.createElement("script");
         s.src = ZXING_URL; s.onload = ok; s.onerror = fail; document.head.appendChild(s);
       });
-      const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.EAN_13]]]);
+      const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, cam.zxing()]]);
       zxingReader = new ZXing.BrowserMultiFormatReader(hints, 250);
-      zxingReader.decodeFromStream(stream, video, (result) => { if (result && scanning) addByBarcode(result.getText()); });
+      zxingReader.decodeFromStream(stream, video, (result) => { if (result && scanning) cam.onCode(result.getText()); });
     } catch {
-      say("The barcode scanner couldn't load. Type the barcode number instead.");
+      say(`The barcode scanner couldn't load. Please ${cam.fallback} instead.`);
     }
   }
 }
@@ -374,16 +413,67 @@ function stopCamera() {
   scanning = false;
   if (zxingReader) { try { zxingReader.reset(); } catch {} zxingReader = null; }
   if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
-  $("viewer").className = "viewer idle";
-  $("viewer").innerHTML = `<button id="start-camera">Start scanning</button>`;
+  for (const cam of Object.values(CAMERAS)) {
+    $(cam.viewer).className = "viewer idle";
+    $(cam.viewer).innerHTML = cam.button;
+  }
+  camViewer = null;
 }
 
-$("viewer").addEventListener("click", (e) => { if (e.target.id === "start-camera") startCamera(); });
+$("viewer").addEventListener("click", (e) => { if (e.target.id === "start-camera") startCamera("product"); });
+$("pass-viewer").addEventListener("click", (e) => { if (e.target.id === "start-pass-camera") startCamera("pass"); });
+
+// ------------------------------------------------------------------ airport mode: who's flying
+
+let airport = null;                        // this airport's code, in airport mode
+let flyer = store.get("sg.flyer", null);   // {input, info}: the boarding pass (or typed flight) and what it says
+let airportTz = "Africa/Nairobi";          // what "today" means for flights (STORE_TZ)
+const today = () => new Date().toLocaleDateString("en-CA", {timeZone: airportTz});
+
+async function checkTraveller(input) {
+  try {
+    const info = await api("api/traveller", {method: "POST", body: JSON.stringify(input)});
+    flyer = {input, info};
+    store.set("sg.flyer", flyer);
+    say("");
+    renderFlyer();
+    show("scan");
+  } catch (err) {
+    say(err.message);
+    if (camViewer === "pass") { lastPass = ""; }
+  }
+}
+let lastPass = "";
+function checkBoardingPass(code) {
+  if (code === lastPass) return;  // the camera sees the same code many times a second
+  lastPass = code;
+  stopCamera();
+  checkTraveller({boarding_pass: code});
+}
+function renderFlyer() {
+  $("flyer-bar").hidden = !(airport && flyer);
+  if (!flyer) return;
+  const t = flyer.info;
+  $("flyer-text").innerHTML = `✈ ${esc(t.flight)} to ${esc(t.to || "?")}${t.departs ? ` · departs ${esc(t.departs)}` : ""}${t.gate ? ` · gate ${esc(t.gate)}` : ""}
+    <small>${esc(t.name)}${t.seat ? ` · seat ${esc(t.seat)}` : ""}</small>`;
+}
+function needFlyer() {
+  // A boarding pass is for one day's flight: ask again tomorrow.
+  if (flyer && flyer.info.date < today()) { flyer = null; store.del("sg.flyer"); }
+  return airport && !flyer;
+}
+$("type-flight").addEventListener("click", () => { stopCamera(); $("flight-form").hidden = false; $("f-name").focus(); });
+$("flight-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  checkTraveller({name: $("f-name").value.trim(), flight: $("f-flight").value.trim(), to: $("f-to").value.trim().toUpperCase()});
+});
+$("flyer-change").addEventListener("click", () => { flyer = null; store.del("sg.flyer"); lastPass = ""; show("flyer"); });
 
 // ------------------------------------------------------------------ checkout and payment
 
 $("checkout").addEventListener("click", () => {
   say("");
+  if (needFlyer()) return show("flyer");
   $("phone").value = store.get("sg.phone", "");
   $("email").value = store.get("sg.email", "");
   show("phone");
@@ -399,7 +489,8 @@ $("phone-form").addEventListener("submit", async (e) => {
   try {
     const method = payMethod(), phone = $("phone").value.trim(), email = $("email").value.trim();
     const r = await api("api/checkout", {method: "POST", body: JSON.stringify({
-      method, ...(method === "card" ? {email} : {phone}), items: basket.map((l) => ({product_id: l.product_id, qty: l.qty}))})});
+      method, ...(method === "card" ? {email} : {phone}), items: basket.map((l) => ({product_id: l.product_id, qty: l.qty})),
+      ...(airport && flyer ? {traveller: flyer.input} : {})})});
     if (method === "card") store.set("sg.email", email); else store.set("sg.phone", phone);
     order = {order_id: r.order_id, payment_id: r.payment_id, total: r.total, phone, email, method};
     store.set("sg.order", order);
@@ -495,6 +586,7 @@ function showReceipt(s) {
     paid && !isNaN(paid) ? "Paid " + paid.toLocaleString([], {dateStyle: "medium", timeStyle: "short"}) : "",
     s.mpesa_receipt ? "M-Pesa " + s.mpesa_receipt : "",
     s.card ? "Paid by card " + s.card : s.phone, "Order " + s.order_id,
+    s.traveller ? `${s.traveller.name}, ${s.traveller.flight} ${s.traveller.from}→${s.traveller.to}` : "",
   ].filter(Boolean).join(" · ");
   clearInterval(clockTimer);
   if (s.exited_at) {
@@ -557,6 +649,13 @@ api("api/store").then((s) => {
   document.title = `Scan & Go · ${s.name}`;
   cardOn = s.card;
   $("pay-method").hidden = !cardOn;
+  airport = s.mode === "airport" ? s.airport : null;
+  if (s.tz) airportTz = s.tz;
+  if (airport) {
+    $("flyer-intro").textContent = `Shopping here at ${airport} is for travellers. Scan the barcode on your boarding pass (paper or on your phone) to start. No account needed.`;
+    renderFlyer();
+    if (needFlyer() && !order) show("flyer");
+  }
 }).catch(() => {});
 renderBasket();
 // Coming back from the card page: the address has ?order=...; the order itself is remembered on this phone.

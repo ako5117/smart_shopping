@@ -126,6 +126,19 @@ if [[ "${days:-14}" =~ ^[0-9]+$ ]]; then ok "Returns: unopened, non-perishable i
 else fail "RETURN_DAYS must be a whole number of days (it's \"$days\")."
 fi
 
+mode="$(val STORE_MODE)"; airport="$(val AIRPORT_CODE)"; flights="$(val FLIGHTS_FILE)"
+case "${mode:-shop}" in
+  shop) ok "Store type: shop." ;;
+  airport)
+    if [[ "$airport" =~ ^[A-Z]{3}$ ]]; then
+      if [ -n "$flights" ]; then ok "Airport mode at $airport: travellers' flights are checked against $flights."
+      else warn "Airport mode at $airport with no flight list (FLIGHTS_FILE): any flight from $airport today is accepted."
+      fi
+    else fail "AIRPORT_CODE must be this airport's 3-letter IATA code in capitals, e.g. NBO (it's \"$airport\")."
+    fi ;;
+  *) fail "STORE_MODE must be shop or airport (it's \"$mode\")." ;;
+esac
+
 loyalty="$(val LOYALTY_ENABLED)"; email="$(val EMAIL_PROVIDER)"
 case "${loyalty:-true}" in
   true) ok "Loyalty points: on." ;;

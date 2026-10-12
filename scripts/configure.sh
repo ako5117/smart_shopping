@@ -79,6 +79,17 @@ one_of "$LOYALTY_ENABLED" true false || die "Answer true or false."
 LOYALTY_KES_PER_POINT="$(current LOYALTY_KES_PER_POINT)"; LOYALTY_REDEEM_POINTS="$(current LOYALTY_REDEEM_POINTS)"
 LOYALTY_REDEEM_KES="$(current LOYALTY_REDEEM_KES)"
 EMAIL_PROVIDER="$(current EMAIL_PROVIDER)"; EMAIL_PROVIDER="${EMAIL_PROVIDER:-outbox}"
+STORE_MODE_DEFAULT="$(current STORE_MODE)"; STORE_MODE_DEFAULT="${STORE_MODE_DEFAULT:-shop}"
+echo "Airport mode: travellers scan their boarding pass in Scan & Go, and sales record their flight."
+read -rp "Store type: shop or airport [$STORE_MODE_DEFAULT]: " STORE_MODE || true
+STORE_MODE="${STORE_MODE:-$STORE_MODE_DEFAULT}"
+one_of "$STORE_MODE" shop airport || die "Answer shop or airport."
+AIRPORT_CODE="$(current AIRPORT_CODE)"; FLIGHTS_FILE="$(current FLIGHTS_FILE)"
+if [ "$STORE_MODE" = airport ]; then
+  ask AIRPORT_CODE "This airport's 3-letter IATA code, e.g. NBO" ""
+  AIRPORT_CODE="$(printf '%s' "$AIRPORT_CODE" | tr '[:lower:]' '[:upper:]')"
+  [[ "$AIRPORT_CODE" =~ ^[A-Z]{3}$ ]] || die "The airport code is 3 letters, e.g. NBO."
+fi
 ask RETURN_DAYS "Days after payment that unopened, non-perishable items can be returned" "14"
 
 DARAJA_CONSUMER_KEY="$(current DARAJA_CONSUMER_KEY)"; DARAJA_CONSUMER_SECRET="$(current DARAJA_CONSUMER_SECRET)"
@@ -210,6 +221,11 @@ DARAJA_PARTY_B=$DARAJA_PARTY_B
 
 # --- Cards (Paystack). Webhook URL to set on the Paystack dashboard: $PUBLIC_BASE_URL/pay/payments/card/webhook
 PAYSTACK_SECRET_KEY=$PAYSTACK_SECRET_KEY
+
+# --- Airport mode (apps/scan_and_go/README.md)
+STORE_MODE=$STORE_MODE
+AIRPORT_CODE=$AIRPORT_CODE
+FLIGHTS_FILE=$FLIGHTS_FILE
 
 # --- Returns (services/inventory/README.md)
 RETURN_DAYS=$RETURN_DAYS
