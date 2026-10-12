@@ -37,7 +37,8 @@ def messages(path: Path, raises: bool = False):
 
 
 def test_every_message_has_a_kiswahili_translation():
-    said = messages(HERE / "scan_and_go" / "app.py") + messages(HERE / "scan_and_go" / "airport.py", raises=True)
+    said = (messages(HERE / "scan_and_go" / "app.py") + messages(HERE / "scan_and_go" / "airport.py", raises=True)
+            + messages(HERE / "scan_and_go" / "account.py"))
     assert len(said) > 30
     assert missing(said) == []
 
@@ -66,3 +67,11 @@ def test_errors_come_in_the_page_language(client):
         "Huo si msimbopau sahihi. Jaribu kuchanganua tena."
     assert client.get("/api/products/6161000000041").json()["detail"] == "That isn't a valid barcode. Try scanning again."
     assert client.get("/api/products/6161000000041", headers={"X-Language": "fr"}).json()["detail"].startswith("That isn't")
+
+
+def test_sign_in_messages_from_the_customers_service_are_translated():
+    """Scan & Go passes on what the Customers Service says when a code is asked for or checked."""
+    service = REPO / "services" / "customers" / "customers" / "service.py"
+    if not service.exists():
+        pytest.skip("the Customers Service isn't alongside (e.g. inside a Docker build)")
+    assert missing(messages(service, raises=True)) == []

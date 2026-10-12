@@ -138,6 +138,7 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
   - Shop and check out: name and number are filled in, and the order shows "You'll earn N points".
   - Pay. After payment the receipt says how many points were earned and the Account tab shows the new balance.
   - Once the balance reaches 100, checkout offers **Use 100 points: KES 50 off**. The total drops, and that's what M-Pesa charges.
+- **Scan & Go earns too:** open Scan & Go, tap **Sign in** on the points card and enter the same email. Read the new code on the Loyalty page. Scan and pay: the receipt shows the points earned, and with 100 points checkout offers **Use 100 points: KES 50 off** here too.
 - **Orders tab:** signed in, it says "On all your devices". Sign in on another phone and the same orders, with **Buy again**, are there.
 - **Manager:** the Loyalty page shows members (name and a masked email, never birthdays or gender), points earned and spent, and discounts given.
 - **Switch it off:** set `LOYALTY_ENABLED=false` and restart. Accounts and orders keep working, points disappear from the shop, and balances are kept for later.

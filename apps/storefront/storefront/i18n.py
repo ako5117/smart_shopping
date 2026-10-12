@@ -68,6 +68,13 @@ SW: Dict[str, str] = {
     "The store system couldn't start your order. Please pay at a till.":
         "Mfumo wa duka haukuweza kuanzisha oda yako. Tafadhali lipa kwenye kaunta ya malipo.",
 
+    # --- Scan & Go points (scan_and_go/account.py)
+    "Points aren't available in this store": "Pointi hazipatikani katika duka hili",
+    "Points aren't available right now. You can still pay without them.":
+        "Pointi hazipatikani kwa sasa. Bado unaweza kulipa bila hizo.",
+    "Your points can't be used right now. Try again, or pay without them.":
+        "Pointi zako haziwezi kutumika kwa sasa. Jaribu tena, au lipa bila hizo.",
+
     # --- Scan & Go airport mode (scan_and_go/airport.py)
     "That flight number isn't right": "Nambari hiyo ya safari si sahihi",
     "Enter the flight number as on your boarding pass, e.g. KQ 100":

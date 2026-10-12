@@ -69,7 +69,6 @@ A supermarket connects its own email service by adding a sender to `customers/ma
 
 ## Later
 
-- **Points for Scan & Go:** Scan & Go purchases don't earn points yet.
 
 ## Endpoints
 

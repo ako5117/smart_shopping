@@ -121,7 +121,7 @@ def test_delivery_orders_carry_their_fee(inv):
             inv.create_sale("WEB-X", STORE, [Item(MILK, 1)], **bad)
 
 
-def test_loyalty_discount_on_online_orders(inv):
+def test_loyalty_discount_online_and_in_store(inv):
     inv.restock(STORE, EAN[MILK], 5, "s1")
     inv.upsert_product(MILK, EAN[MILK], MILK, price_kes=65)
     price = 65
@@ -129,9 +129,11 @@ def test_loyalty_discount_on_online_orders(inv):
     assert (sale["loyalty_discount_kes"], sale["customer_id"]) == (50, "C1")
     with pytest.raises(ValueError):
         inv.create_sale("WEB-2", STORE, [Item(MILK, 1)], channel="online", loyalty_discount_kes=price)  # not the whole order
+    sg = inv.create_sale("SG-1", STORE, [Item(MILK, 2)], loyalty_discount_kes=50, customer_id="C1")  # Scan & Go too
+    assert (sg["channel"], sg["loyalty_discount_kes"]) == ("in_store", 50)
     with pytest.raises(ValueError):
-        inv.create_sale("SG-1", STORE, [Item(MILK, 1)], loyalty_discount_kes=10)  # online only, for now
-    assert inv.db.one("SELECT COUNT(*) AS n FROM sales")["n"] == 1
+        inv.create_sale("SG-2", STORE, [Item(MILK, 1)], loyalty_discount_kes=-5)
+    assert inv.db.one("SELECT COUNT(*) AS n FROM sales")["n"] == 2
 
 
 def test_airport_sales_record_the_traveller(inv):
