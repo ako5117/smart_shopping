@@ -182,6 +182,7 @@ Open a third window for the rider: http://localhost/rider/, signed in as `rider`
   - Place an order. The order page is in Kiswahili, and so is the text the customer gets (dashboard, **Online orders**, the texts at the bottom).
   - Open Scan & Go on the same phone: it's in Kiswahili too.
 - **Point out:** a signed-in customer's language is kept on their account and follows them to another phone. Product names stay as the store enters them.
+- **Be upfront:** the Kiswahili was written by an AI assistant (Claude) and hasn't been checked by a Kiswahili speaker yet. If anyone in the room speaks Kiswahili, their corrections are welcome.
 
 ### 7. Back to the store view (Staff: Overview), 2 min
 

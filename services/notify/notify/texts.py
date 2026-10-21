@@ -1,6 +1,7 @@
 """What the customer is texted, and the phone numbers it goes to.
 
-Texts go in the customer's language (the order records it): English, or Kiswahili (sw).
+Texts go in the customer's language (the order records it): English, or Kiswahili (sw). The Kiswahili texts were
+written by Claude (an AI assistant) and haven't been checked by a Kiswahili speaker yet (docs/languages.md).
 
 Each text fits one SMS: at most 160 characters, using only characters in the GSM 03.38 alphabet (a
 single curly quote or emoji would turn it into a 70-character Unicode SMS, costing two or three).

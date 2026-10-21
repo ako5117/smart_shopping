@@ -92,6 +92,7 @@ EMAILS = {
                     "Your {store} sign-in code is {code}. It works for {minutes} minutes.\n\n"
                     "If you didn't ask for it, ignore this email."),
     },
+    # The Kiswahili was written by Claude (an AI assistant) and hasn't been checked by a Kiswahili speaker yet.
     "sw": {
         "welcome": ("Thibitisha barua pepe yako",
                     "Karibu {store}, {first}.\n\nMsimbo wako ni {code}. Uweke kwenye duka la mtandaoni ili kuthibitisha "
