@@ -2,6 +2,8 @@
 
 Customers can use the online shop and Scan & Go in **English** or **Kiswahili**. Staff apps (the dashboard and the rider app) are in English.
 
+> **Who wrote the Kiswahili:** all of it was written by Claude, an AI assistant, while building these features. No Kiswahili speaker has checked it yet. If a customer or staff member finds a translation wrong or odd, that's where it came from. See **Before going live** below.
+
 ## What the customer sees
 
 - **Choosing:** the button at the top right of the online shop and Scan & Go switches the language (**SW** or **EN**).
@@ -42,4 +44,10 @@ Customers can use the online shop and Scan & Go in **English** or **Kiswahili**.
 
 ## Before going live
 
-The Kiswahili was written for this release. Have a native speaker read through it in the app before customers use it, especially the privacy notice and the texts. Corrections go in the same tables.
+The Kiswahili was written by Claude (an AI assistant) for this release; it is not a professional or native-speaker translation. Have a native speaker read through it in the app before customers use it, especially:
+
+- the privacy notice (what customers agree to when they make an account);
+- the SMS texts and emails (they go to customers' phones and inboxes);
+- payment and refund messages.
+
+Corrections go in the same tables: `SW` in each page, `SW` in `i18n.py` (both copies), `EMAILS` in the Customers Service, and `services/notify/notify/texts.py`. The tests then check nothing is left out.

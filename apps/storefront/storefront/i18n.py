@@ -8,6 +8,9 @@ A message with something filled in (a product name, a number) is listed with {na
 filled-in parts are kept as they are, unless one is itself in the catalogue (the day in "Today 14:00-16:00").
 
 The online shop (apps/storefront) and Scan & Go have identical copies of this file; a test checks they match.
+
+The Kiswahili here was written by Claude (an AI assistant), not by a Kiswahili speaker, and hasn't been checked by one
+yet. If a translation reads wrong, that's where it came from: correct it here (docs/languages.md).
 """
 
 import re
