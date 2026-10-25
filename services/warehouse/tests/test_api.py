@@ -30,6 +30,8 @@ def receive(client, ean=MILK, qty=10, bin="A-01", scan_id="scan-0001"):
 def test_needs_a_login(client):
     assert client.get("/health").json() == {"status": "ok"}
     assert "Warehouse" in client.get("/").text  # the page itself loads; it asks for the login's details
+    font = client.get("/static/fonts/lexend-400.woff2")
+    assert font.status_code == 200 and font.content[:4] == b"wOF2"  # served from here, not a font host
     assert client.get("/api/me").status_code == 401
     assert client.post("/api/receipts", json={}).status_code in (401, 422)
 

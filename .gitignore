@@ -26,3 +26,7 @@ backups/
 # Staff logins and roles (scripts/staff.sh); the .example files are committed
 deploy/staff/users
 deploy/staff/roles
+
+# Markdown: only README.md files are committed; other notes stay local
+*.md
+!README.md

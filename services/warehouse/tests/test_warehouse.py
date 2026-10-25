@@ -93,7 +93,7 @@ def test_move_refuses_more_than_the_bin_holds(wh):
     put(wh, qty=3)
     with pytest.raises(NotEnoughStock) as e:
         wh.move(MILK, 4, "A-01", "B-07", "m1")
-    assert e.value.short == [{"product_id": "milk-500ml", "bin": "A-01", "requested": 4, "available": 3}]
+    assert e.value.short == [{"product_id": "milk-500ml", "name": "Milk 500ml", "bin": "A-01", "requested": 4, "available": 3}]
     assert wh.bin_qty("A-01", "milk-500ml") == 3
 
 
@@ -129,7 +129,7 @@ def test_send_is_all_or_nothing(wh):
     put(wh, qty=2)
     with pytest.raises(NotEnoughStock) as e:
         wh.send("T-0001", "001", [(MILK, "A-01", 1), (SUGAR, "C-01", 1)])
-    assert e.value.short == [{"product_id": "sugar-1kg", "bin": "C-01", "requested": 1, "available": 0}]
+    assert e.value.short == [{"product_id": "sugar-1kg", "name": "Sugar 1kg", "bin": "C-01", "requested": 1, "available": 0}]
     assert wh.bin_qty("A-01", "milk-500ml") == 2
     with pytest.raises(NotFound):
         wh.transfer("T-0001")

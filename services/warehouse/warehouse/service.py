@@ -29,7 +29,7 @@ class Unavailable(Exception):
 
 
 class NotEnoughStock(Conflict):
-    """short: [{product_id, bin, requested, available}]"""
+    """short: [{product_id, name, bin, requested, available}]"""
 
     def __init__(self, short: List[dict]):
         super().__init__("Not enough in the bin for: " + ", ".join(f"{s['product_id']} ({s['bin']})" for s in short))
@@ -142,7 +142,8 @@ class Warehouse:
             if not done:
                 have = self._qty(c, from_bin, pid)
                 if qty > have:
-                    raise NotEnoughStock([{"product_id": pid, "bin": from_bin, "requested": qty, "available": have}])
+                    raise NotEnoughStock([{"product_id": pid, "name": p["name"], "bin": from_bin, "requested": qty,
+                                          "available": have}])
                 self._record(c, from_bin, pid, "move", -qty, f"move:{move_id}:out", move_id, by)
                 self._record(c, to_bin, pid, "move", qty, f"move:{move_id}:in", move_id, by)
         return {"product": p, "from_bin": from_bin, "to_bin": to_bin, "moved": qty,
@@ -159,10 +160,13 @@ class Warehouse:
         if not store_id.strip():
             raise ValueError("Which store is it for?")
         merged: Dict[Tuple[str, str], int] = {}
+        names: Dict[str, str] = {}
         for ean13, bin, qty in lines:
             if qty <= 0:
                 raise ValueError("Quantities must be at least 1")
-            key = (self.product(ean13)["product_id"], clean_bin(bin))
+            p = self.product(ean13)
+            names[p["product_id"]] = p["name"]
+            key = (p["product_id"], clean_bin(bin))
             merged[key] = merged.get(key, 0) + qty
         with self.db.tx() as c:
             existing = c.execute("SELECT * FROM transfers WHERE transfer_id = ?", (transfer_id,)).fetchone()
@@ -171,7 +175,7 @@ class Warehouse:
                 for (pid, bin), qty in merged.items():
                     have = self._qty(c, bin, pid)
                     if qty > have:
-                        short.append({"product_id": pid, "bin": bin, "requested": qty, "available": have})
+                        short.append({"product_id": pid, "name": names[pid], "bin": bin, "requested": qty, "available": have})
                 if short:
                     raise NotEnoughStock(short)
                 c.execute("INSERT INTO transfers (transfer_id, warehouse_id, store_id, status, created_by, created_at) "

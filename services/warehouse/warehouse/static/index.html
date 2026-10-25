@@ -3,339 +3,811 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f7a4d">
+<meta name="theme-color" content="#000000">
 <title>Warehouse</title>
+<link rel="preload" href="static/fonts/lexend-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="static/fonts/libre-caslon-text-700.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* Brand fonts are Cochin (headlines) and BC Novatica (body); these are free stand-ins (static/fonts/README.md). */
+  @font-face { font-family: "Libre Caslon Text"; src: url("static/fonts/libre-caslon-text-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Lexend"; src: url("static/fonts/lexend-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Lexend"; src: url("static/fonts/lexend-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #646d78; --line: #e3e6ea;
-    --accent: #1f7a4d; --accent-text: #ffffff; --bad: #b42318; --bad-bg: #fdecea; --ok-bg: #e7f5ee; --chip: #eef0f3;
+    --red-sand: #c73a39; --moon-dust: #edece0; --night-sky: #000000;
+    --ground: var(--moon-dust); --raised: #f7f6ee; --sunk: #e2e0d1; --ink: var(--night-sky); --muted: #5e5c52;
+    --line: #c9c7b8; --field: #807e72; --accent: var(--red-sand); --on-accent: #ffffff; --headline: var(--red-sand);
+    --shell: var(--night-sky); --on-shell: var(--moon-dust); --on-shell-muted: #a9a79b;
+    --serif: "Libre Caslon Text", "Cochin", Georgia, serif;
+    --sans: "Lexend", "BC Novatica", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --tap: 56px; --radius: 12px; --bar: 72px; --tabs: 64px;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #12151a; --panel: #1b1f26; --text: #e6e8eb; --muted: #9aa3ad; --line: #2c323b;
-      --accent: #4cc38a; --accent-text: #0d1f16; --bad: #f2786d; --bad-bg: #3d1d1b; --ok-bg: #173327; --chip: #262b33;
+      --ground: var(--night-sky); --raised: #121211; --sunk: #1c1c1a; --ink: var(--moon-dust); --muted: #a9a79b;
+      --line: #3a3934; --field: #6e6c64; --headline: #e0504f; --shell: #0b0b0a; color-scheme: dark;
     }
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--text); }
-  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh; }
-  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line);
-           padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  header b { font-size: 17px; }
-  nav { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
-  nav button { background: var(--chip); color: var(--text); font-weight: 600; white-space: nowrap; }
-  nav button.on { background: var(--accent); color: var(--accent-text); }
-  main { max-width: 560px; margin: 0 auto; padding: 16px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
-  .muted { color: var(--muted); }
-  .small { font-size: 14px; }
-  label { display: block; font-size: 14px; color: var(--muted); margin: 10px 0 4px; }
-  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 11px 14px; cursor: pointer;
-           background: var(--accent); color: var(--accent-text); }
-  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-  button:disabled { opacity: .5; cursor: default; }
-  input, select { font: inherit; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px;
-          background: var(--bg); color: var(--text); }
-  .row { display: flex; gap: 8px; align-items: center; }
-  .grow { flex: 1; min-width: 0; }
-  .wide { width: 100%; margin-top: 14px; }
-  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 14px; }
-  .msg.bad { background: var(--bad-bg); color: var(--bad); }
-  .msg.ok { background: var(--ok-bg); color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  td, th { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
-  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
-  .pill { display: inline-block; font-size: 13px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); }
-  .pill.go { background: var(--ok-bg); color: var(--accent); }
-  #scanner { position: fixed; inset: 0; background: #000; z-index: 5; display: flex; flex-direction: column; }
-  #scanner video { flex: 1; width: 100%; object-fit: cover; }
-  #scanner .bar { padding: 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.45 var(--sans); letter-spacing: -0.01em;
+         min-height: 100dvh; font-variant-numeric: tabular-nums; caret-color: var(--accent); accent-color: var(--accent); }
+  ::selection { background: var(--red-sand); color: #ffffff; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   [hidden] { display: none !important; }
+  svg.i { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Shell */
+  header { position: sticky; top: 0; z-index: 3; background: var(--shell); color: var(--on-shell);
+           display: flex; align-items: center; justify-content: space-between; gap: 12px;
+           padding: 12px max(16px, calc((100% - 528px) / 2)); padding-top: max(12px, env(safe-area-inset-top)); }
+  header .name { font: 700 20px/1.15 var(--serif); margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header .who { font-size: 14px; color: var(--on-shell-muted); }
+  .signal { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .signal .dot { width: 9px; height: 9px; border-radius: 50%; background: #6fbf73; }
+  .signal.off .dot { background: var(--red-sand); }
+  .right { display: grid; justify-items: end; gap: 1px; }
+
+  nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; background: var(--shell);
+             display: grid; grid-template-columns: repeat(5, 1fr); padding: 0 max(0px, calc((100% - 528px) / 2)) env(safe-area-inset-bottom); }
+  nav.tabs button { all: unset; height: var(--tabs); display: grid; justify-items: center; align-content: center; gap: 3px;
+                    color: var(--on-shell-muted); font: 600 12px/1 var(--sans); cursor: pointer; position: relative; }
+  nav.tabs button[aria-current="page"] { color: var(--on-shell); }
+  nav.tabs button[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 22%; right: 22%; height: 3px;
+                                                   background: var(--red-sand); border-radius: 0 0 3px 3px; }
+  nav.tabs button[aria-current="page"] svg { color: var(--red-sand); }
+  nav.tabs button:focus-visible { outline: 3px solid var(--red-sand); outline-offset: -3px; }
+
+  /* The action bar: result of the last save, and the one primary action, under the thumb. */
+  .bar { position: fixed; left: 0; right: 0; bottom: calc(var(--tabs) + env(safe-area-inset-bottom)); z-index: 2;
+         background: var(--ground); border-top: 1px solid var(--line); padding: 8px 16px 10px; }
+  .bar .inner { max-width: 528px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .last { display: flex; align-items: center; gap: 8px; font-size: 15px; min-height: 22px; color: var(--muted); }
+  .last svg { width: 20px; height: 20px; }
+  .last.sent { color: var(--ink); }
+  .last.sent svg { color: #2e7d32; }
+  .last.waiting svg { color: var(--muted); }
+  .last.refused { color: var(--ink); font-weight: 600; }
+  .last.refused svg { color: var(--accent); }
+  .last span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  main { max-width: 560px; margin: 0 auto; padding: 20px 16px calc(var(--bar) + var(--tabs) + 40px); }
+  h1 { font: 700 30px/1.1 var(--serif); color: var(--headline); margin: 0 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+  .lede { margin: 0 0 18px; color: var(--muted); font-size: 15px; text-wrap: pretty; }
+  h2 { font: 700 21px/1.2 var(--serif); margin: 30px 0 10px; color: var(--ink); }
+
+  /* Controls */
+  button { font: inherit; cursor: pointer; }
+  .primary { width: 100%; min-height: var(--tap); border: 0; border-radius: var(--radius); background: var(--accent); color: var(--on-accent);
+             font: 600 19px/1 var(--sans); display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+             transition: background-color .15s ease-out, transform .15s ease-out; }
+  .primary:active { transform: scale(.985); background: #a92f2e; }
+  .primary:disabled { background: var(--sunk); color: var(--muted); cursor: default; transform: none; }
+  .secondary { min-height: 48px; padding: 0 16px; border-radius: var(--radius); border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+               font: 600 16px/1 var(--sans); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .secondary:active { background: var(--sunk); }
+  .secondary:disabled { opacity: .45; cursor: default; }
+  .scan { min-height: var(--tap); min-width: 92px; padding: 0 14px; border-radius: var(--radius); border: 0; background: var(--ink); color: var(--ground);
+          font: 600 16px/1 var(--sans); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .scan:active { opacity: .85; }
+  label, .label { display: block; font: 600 14px/1.2 var(--sans); color: var(--muted); margin: 18px 0 6px; }
+  input, select { font: 400 19px/1.2 var(--sans); width: 100%; min-height: var(--tap); padding: 0 14px; border-radius: var(--radius);
+                  border: 1.5px solid var(--field); background: var(--raised); color: var(--ink); }
+  input::placeholder { color: var(--muted); opacity: 1; }
+  input:focus, select:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 22%, transparent); }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[aria-invalid="true"], input[aria-invalid="true"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .row { display: flex; gap: 8px; align-items: stretch; }
+  .grow { flex: 1; min-width: 0; }
+  .hint { font-size: 15px; color: var(--muted); margin-top: 6px; min-height: 21px; }
+  .hint b { color: var(--ink); font-weight: 600; }
+
+  /* The bin plate: the bin code at specimen scale, readable at arm's length in a dim aisle. */
+  .plate { background: var(--raised); border: 1.5px solid var(--ink); border-radius: 16px; padding: 14px 14px 12px; }
+  .plate + .plate { margin-top: 12px; }
+  .plate > .label { margin: 0; }
+  .plate .code { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; border-radius: 10px;
+                 font: 700 4.5rem/1 var(--serif); letter-spacing: -0.02em; margin: 8px 0 6px; overflow-wrap: anywhere; color: var(--ink); }
+  .plate .code:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .plate .code:not(.empty) { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .plate .code:not(.empty) span { min-width: 0; }
+  .plate .code:not(.empty) svg { box-sizing: border-box; width: 48px; height: 48px; padding: 10px; border-radius: 12px;
+                                 border: 1.5px solid var(--ink); stroke-width: 1.75; }
+  .plate .code:not(.empty):active svg { background: var(--sunk); }
+  .plate .code.mid { font-size: 3.4rem; }
+  .plate .code.long { font-size: 2.6rem; }
+  .plate .code.empty { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 84px; margin: 10px 0 4px;
+                       background: var(--ink); color: var(--ground); font: 600 20px/1.2 var(--sans); letter-spacing: 0; }
+  .plate .code.empty:active { opacity: .85; }
+  .plate .code.empty svg { width: 28px; height: 28px; }
+  .plate.small .code { font-size: 3.2rem; }
+  .plate.small .code.mid, .plate.small .code.long { font-size: 2.4rem; }
+  .plate.small .code.empty { min-height: 72px; font-size: 19px; }
+  .plate .holds { font-size: 15px; color: var(--muted); }
+  .plate .holds:empty { display: none; }
+  .plate .link { all: unset; cursor: pointer; display: inline-block; padding: 10px 0 2px; font: 600 15px/1.4 var(--sans); color: var(--ink);
+                 text-decoration: underline; text-underline-offset: 3px; }
+  .plate .link:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .plate input { margin-top: 10px; }
+  .plate .holds b { color: var(--ink); font-weight: 600; }
+  .plate input, #stock-bin { font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .plate input:placeholder-shown, #stock-bin:placeholder-shown { font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  .qty { display: grid; grid-template-columns: var(--tap) 1fr var(--tap); gap: 8px; }
+  .qty button { min-height: var(--tap); border-radius: var(--radius); border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+                display: grid; place-items: center; }
+  .qty button:active { background: var(--sunk); }
+  .qty input { text-align: center; font: 600 28px/1 var(--sans); }
+
+  /* Messages that need a decision; quiet results go in the action bar and the log. */
+  .msg { display: flex; gap: 10px; align-items: flex-start; background: var(--night-sky); color: var(--moon-dust); border-radius: var(--radius);
+         padding: 12px 14px; margin-bottom: 16px; font-size: 16px; }
+  .msg svg { color: #e0504f; margin-top: 1px; }
+  .outbox { display: flex; gap: 10px; align-items: center; background: var(--sunk); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 16px; font-size: 15px; }
+  .outbox .grow { line-height: 1.35; }
+  .outbox .secondary { min-height: 40px; padding: 0 12px; font-size: 15px; }
+
+  /* Lists */
+  ul.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  ul.list li { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 16px; min-height: 52px; }
+  ul.list li .grow { line-height: 1.35; }
+  ul.list li .sub { display: block; font-size: 14px; color: var(--muted); }
+  ul.list li .n { font-weight: 600; font-size: 19px; }
+  ul.list li svg.state-sent { color: #2e7d32; }
+  ul.list li svg.state-waiting { color: var(--muted); }
+  ul.list li svg.state-refused { color: var(--accent); }
+  .icon-btn { width: 48px; height: 48px; border: 0; background: transparent; color: var(--ink); border-radius: 10px; display: grid; place-items: center; flex: none; }
+  .icon-btn:active { background: var(--sunk); }
+  .empty { color: var(--muted); font-size: 15px; padding: 12px 0; }
+  .pill { font: 600 13px/1 var(--sans); padding: 6px 10px; border-radius: 999px; background: var(--sunk); color: var(--ink); white-space: nowrap; }
+
+  /* Stock: bins as headings, set like the plate. */
+  .bin-group h3 { font: 700 30px/1 var(--serif); margin: 22px 0 6px; }
+  #stock { margin-top: 8px; }
+
+  /* Camera */
+  #scanner { position: fixed; inset: 0; z-index: 10; background: #000; display: flex; flex-direction: column; color: var(--moon-dust); }
+  #scanner video { flex: 1; width: 100%; min-height: 0; object-fit: cover; }
+  #scanner .frame { position: absolute; left: 10%; right: 10%; top: 30%; height: 22%; border: 3px solid var(--red-sand); border-radius: 14px; pointer-events: none; }
+  #scanner .frame.bin { top: 24%; height: 34%; left: 18%; right: 18%; }
+  #scanner .bottom { padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); display: grid; gap: 12px; background: #000; }
+  #scanner .bottom p { margin: 0; font-size: 17px; text-align: center; }
+  #scanner .secondary { border-color: var(--moon-dust); color: var(--moon-dust); width: 100%; min-height: var(--tap); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<header><b id="title">Warehouse</b><span class="muted small" id="who"></span></header>
-<nav id="tabs">
-  <button data-tab="receive" class="on">Receive</button>
-  <button data-tab="count">Count</button>
-  <button data-tab="move">Move</button>
-  <button data-tab="send">Send to store</button>
-  <button data-tab="stock">Stock</button>
-</nav>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-receive" viewBox="0 0 24 24"><path d="M12 3v11m0 0-4-4m4 4 4-4"/><path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></symbol>
+  <symbol id="i-count" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.5 6 1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="M4 8h14m0 0-4-4m4 4-4 4"/><path d="M20 16H6m0 0 4-4m-4 4 4 4"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M2 6h12v10H2zM14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-stock" viewBox="0 0 24 24"><path d="M3 4v17M21 4v17M3 9h18M3 15h18"/><path d="M7 9V6h4v3M13 15v-3h4v3"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.01"/></symbol>
+</svg>
+
+<header>
+  <p class="name" id="title">Warehouse</p>
+  <div class="right">
+    <span class="signal" id="signal" role="status"><span class="dot"></span><span id="signal-text">Online</span></span>
+    <span class="who" id="who"></span>
+  </div>
+</header>
+
 <main>
-  <div id="msg" class="msg" hidden></div>
+  <div id="msg" class="msg" role="alert" hidden><svg class="i"><use href="#i-alert"/></svg><div id="msg-text" class="grow"></div></div>
+  <div id="waiting" class="outbox" hidden>
+    <svg class="i"><use href="#i-clock"/></svg>
+    <div class="grow" id="waiting-text"></div>
+    <button type="button" class="secondary" id="retry">Try now</button>
+  </div>
 
-  <!-- Goods in from a supplier -->
-  <form class="card" data-pane="receive">
-    <b>Goods in</b>
-    <div class="muted small">Scan each product as it's put away.</div>
-    <label>Barcode</label>
-    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
-    <div class="muted small" data-name="ean13"></div>
-    <label>Bin</label>
-    <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
-    <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
-    <label>Supplier delivery note (optional)</label><input name="ref" maxlength="60">
-    <button class="wide">Save</button>
+  <!-- Goods in -->
+  <form id="f-receive" data-pane="receive" novalidate>
+    <h1>Goods in</h1>
+    <p class="lede">Scan the bin, then each product as you put it away.</p>
+    <div class="plate" data-plate="bin">
+      <span class="label">Put away in bin</span>
+      <button type="button" class="code empty" data-code></button>
+      <div class="holds" data-holds></div>
+      <button type="button" class="link" data-type>Type the code instead</button>
+      <input name="bin" placeholder="Bin code, e.g. A-01-3" autocomplete="off" aria-label="Bin code" maxlength="20" hidden>
+    </div>
+    <label for="r-ean">Product barcode</label>
+    <div class="row"><input class="grow" id="r-ean" name="ean13" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 digits">
+      <button type="button" class="scan" data-scan="ean13"><svg class="i"><use href="#i-scan"/></svg>Scan</button></div>
+    <div class="hint" data-name></div>
+    <label for="r-qty">How many</label>
+    <div class="qty"><button type="button" data-step="-1" aria-label="One less"><svg class="i"><use href="#i-minus"/></svg></button>
+      <input id="r-qty" name="qty" type="number" inputmode="numeric" min="1" value="1">
+      <button type="button" data-step="1" aria-label="One more"><svg class="i"><use href="#i-plus"/></svg></button></div>
+    <label for="r-ref">Supplier delivery note <span style="font-weight:400">(optional)</span></label>
+    <input id="r-ref" name="ref" maxlength="60" autocomplete="off">
   </form>
 
-  <!-- Counting a bin -->
-  <form class="card" data-pane="count" hidden>
-    <b>Count a bin</b>
-    <div class="muted small">Scan the bin, then each product in it, and type how many you see.</div>
-    <label>Bin</label>
-    <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
-    <label>Barcode</label>
-    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
-    <div class="muted small" data-name="ean13"></div>
-    <label>Counted</label><input name="counted_qty" type="number" min="0" inputmode="numeric" required>
-    <button class="wide">Save count</button>
+  <!-- Count -->
+  <form id="f-count" data-pane="count" novalidate hidden>
+    <h1>Count a bin</h1>
+    <p class="lede">Scan the bin, then each product in it, and enter what you see.</p>
+    <div class="plate" data-plate="bin">
+      <span class="label">Counting bin</span>
+      <button type="button" class="code empty" data-code></button>
+      <div class="holds" data-holds></div>
+      <button type="button" class="link" data-type>Type the code instead</button>
+      <input name="bin" placeholder="Bin code, e.g. A-01-3" autocomplete="off" aria-label="Bin code" maxlength="20" hidden>
+    </div>
+    <label for="c-ean">Product barcode</label>
+    <div class="row"><input class="grow" id="c-ean" name="ean13" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 digits">
+      <button type="button" class="scan" data-scan="ean13"><svg class="i"><use href="#i-scan"/></svg>Scan</button></div>
+    <div class="hint" data-name></div>
+    <label for="c-qty">Counted</label>
+    <div class="qty"><button type="button" data-step="-1" aria-label="One less"><svg class="i"><use href="#i-minus"/></svg></button>
+      <input id="c-qty" name="counted_qty" type="number" inputmode="numeric" min="0" value="0">
+      <button type="button" data-step="1" aria-label="One more"><svg class="i"><use href="#i-plus"/></svg></button></div>
   </form>
 
-  <!-- Moving between bins -->
-  <form class="card" data-pane="move" hidden>
-    <b>Move between bins</b>
-    <label>Barcode</label>
-    <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
-    <div class="muted small" data-name="ean13"></div>
-    <label>From bin</label>
-    <div class="row"><input class="grow" name="from_bin" autocapitalize="characters" required><button type="button" data-scan="from_bin">Scan</button></div>
-    <label>To bin</label>
-    <div class="row"><input class="grow" name="to_bin" autocapitalize="characters" required><button type="button" data-scan="to_bin">Scan</button></div>
-    <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
-    <button class="wide">Move</button>
+  <!-- Move -->
+  <form id="f-move" data-pane="move" novalidate hidden>
+    <h1>Move between bins</h1>
+    <p class="lede">Take from one bin, put in another.</p>
+    <div class="plate small" data-plate="from_bin">
+      <span class="label">From bin</span>
+      <button type="button" class="code empty" data-code></button>
+      <div class="holds" data-holds></div>
+      <button type="button" class="link" data-type>Type the code instead</button>
+      <input name="from_bin" placeholder="Bin code, e.g. A-01-3" autocomplete="off" aria-label="From bin code" maxlength="20" hidden>
+    </div>
+    <div class="plate small" data-plate="to_bin">
+      <span class="label">To bin</span>
+      <button type="button" class="code empty" data-code></button>
+      <div class="holds" data-holds></div>
+      <button type="button" class="link" data-type>Type the code instead</button>
+      <input name="to_bin" placeholder="Bin code, e.g. A-01-3" autocomplete="off" aria-label="To bin code" maxlength="20" hidden>
+    </div>
+    <label for="m-ean">Product barcode</label>
+    <div class="row"><input class="grow" id="m-ean" name="ean13" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 digits">
+      <button type="button" class="scan" data-scan="ean13"><svg class="i"><use href="#i-scan"/></svg>Scan</button></div>
+    <div class="hint" data-name></div>
+    <label for="m-qty">How many</label>
+    <div class="qty"><button type="button" data-step="-1" aria-label="One less"><svg class="i"><use href="#i-minus"/></svg></button>
+      <input id="m-qty" name="qty" type="number" inputmode="numeric" min="1" value="1">
+      <button type="button" data-step="1" aria-label="One more"><svg class="i"><use href="#i-plus"/></svg></button></div>
   </form>
 
-  <!-- Sending goods to a store -->
+  <!-- Send to store -->
   <div data-pane="send" hidden>
-    <form class="card" id="line-form">
-      <b>Send to a store</b>
-      <label>Store</label><select id="store"></select>
-      <label>Barcode</label>
-      <div class="row"><input class="grow" name="ean13" inputmode="numeric" pattern="\d{13}" required><button type="button" data-scan="ean13">Scan</button></div>
-      <div class="muted small" data-name="ean13"></div>
-      <label>From bin</label>
-      <div class="row"><input class="grow" name="bin" autocapitalize="characters" required><button type="button" data-scan="bin">Scan</button></div>
-      <label>How many</label><input name="qty" type="number" min="1" inputmode="numeric" required>
-      <button class="wide secondary">Add to the list</button>
+    <form id="f-line" novalidate>
+      <h1>Send to a store</h1>
+      <p class="lede">Pick each product from its bin onto the list, then send the list in one go.</p>
+      <label for="s-store">Store</label>
+      <select id="s-store" name="store"></select>
+      <div class="plate small" data-plate="bin" style="margin-top:16px">
+        <span class="label">Pick from bin</span>
+        <button type="button" class="code empty" data-code></button>
+        <div class="holds" data-holds></div>
+        <button type="button" class="link" data-type>Type the code instead</button>
+        <input name="bin" placeholder="Bin code, e.g. A-01-3" autocomplete="off" aria-label="Bin code" maxlength="20" hidden>
+      </div>
+      <label for="s-ean">Product barcode</label>
+      <div class="row"><input class="grow" id="s-ean" name="ean13" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 digits">
+        <button type="button" class="scan" data-scan="ean13"><svg class="i"><use href="#i-scan"/></svg>Scan</button></div>
+      <div class="hint" data-name></div>
+      <label for="s-qty">How many</label>
+      <div class="qty"><button type="button" data-step="-1" aria-label="One less"><svg class="i"><use href="#i-minus"/></svg></button>
+        <input id="s-qty" name="qty" type="number" inputmode="numeric" min="1" value="1">
+        <button type="button" data-step="1" aria-label="One more"><svg class="i"><use href="#i-plus"/></svg></button></div>
+      <button type="submit" class="secondary" style="width:100%;margin-top:14px;min-height:var(--tap)"><svg class="i"><use href="#i-plus"/></svg>Add to the list</button>
     </form>
-    <div class="card" id="pick" hidden>
-      <table><thead><tr><th>Product</th><th>Bin</th><th class="n">Qty</th><th></th></tr></thead><tbody></tbody></table>
-      <button class="wide" id="dispatch">Send these to the store</button>
-    </div>
-    <div class="card"><b>On the way</b><div id="transfers" class="small"></div></div>
+    <h2>On the list</h2>
+    <ul class="list" id="picks"></ul>
+    <h2>Sent to stores</h2>
+    <ul class="list" id="transfers"></ul>
   </div>
 
-  <!-- What's where -->
+  <!-- Stock -->
   <div data-pane="stock" hidden>
-    <div class="card">
-      <div class="row"><input class="grow" id="stock-bin" placeholder="Bin (empty: all)" autocapitalize="characters">
-        <button type="button" id="stock-go">Show</button></div>
-    </div>
-    <div class="card"><table><thead><tr><th>Bin</th><th>Product</th><th class="n">Qty</th></tr></thead><tbody id="stock"></tbody></table></div>
+    <h1>Stock</h1>
+    <p class="lede">What's in each bin, from the warehouse records.</p>
+    <form id="f-stock" class="row" novalidate>
+      <input class="grow" id="stock-bin" placeholder="All bins" autocomplete="off" aria-label="Bin code, or empty for all bins" maxlength="20">
+      <button type="submit" class="scan">Show</button>
+    </form>
+    <div id="stock"></div>
   </div>
+
+  <h2 id="log-title">On this phone</h2>
+  <ul class="list" id="log"></ul>
 </main>
+
+<div class="bar">
+  <div class="inner">
+    <div class="last" id="last" aria-live="polite"></div>
+    <button type="submit" class="primary" id="act" form="f-receive">Save</button>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Tasks">
+  <button type="button" data-tab="receive" aria-current="page"><svg class="i"><use href="#i-receive"/></svg>Goods in</button>
+  <button type="button" data-tab="count"><svg class="i"><use href="#i-count"/></svg>Count</button>
+  <button type="button" data-tab="move"><svg class="i"><use href="#i-move"/></svg>Move</button>
+  <button type="button" data-tab="send"><svg class="i"><use href="#i-send"/></svg>Send</button>
+  <button type="button" data-tab="stock"><svg class="i"><use href="#i-stock"/></svg>Stock</button>
+</nav>
 
 <div id="scanner" hidden>
   <video playsinline muted></video>
-  <div class="bar"><span id="scan-hint">Point the camera at the barcode</span><button type="button" id="scan-stop">Close</button></div>
+  <div class="frame" id="scan-frame"></div>
+  <div class="bottom">
+    <p id="scan-hint">Hold the barcode inside the frame</p>
+    <button type="button" class="secondary" id="scan-stop">Close camera</button>
+  </div>
 </div>
 
 <script>
 const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 const ZXING_URL = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
-let me = null, picks = [];
+const EAN = /^\d{13}$/;
+const BIN = /^[A-Z0-9][A-Z0-9-]{0,19}$/;
 
-function say(text, ok = false) {
-  const m = $("#msg");
-  m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); m.hidden = !text;
+// ---------------------------------------------------------------- phone storage (best effort)
+const saved = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let outbox = saved.get("wh-outbox", []);  // saves not yet confirmed by the server, oldest first
+let log = saved.get("wh-log", []);        // what this phone did, newest first
+let picks = saved.get("wh-picks", []);
+let me = null, tab = "receive", online = navigator.onLine;
+const names = new Map();  // barcode -> product name, for labels while offline
+
+function persist() { saved.set("wh-outbox", outbox); saved.set("wh-log", log.slice(0, 40)); saved.set("wh-picks", picks); }
+
+function newId() {
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+}
+
+function icon(id, cls = "") {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("class", "i " + cls); s.setAttribute("aria-hidden", "true");
+  const u = document.createElementNS("http://www.w3.org/2000/svg", "use"); u.setAttribute("href", "#i-" + id);
+  s.append(u); return s;
+}
+
+function say(text) {
+  $("#msg-text").textContent = text || ""; $("#msg").hidden = !text;
   if (text) window.scrollTo({top: 0, behavior: "smooth"});
 }
 
-function newId() {
-  return (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+function errorText(body, fallback) {
+  const d = body && body.detail !== undefined ? body.detail : body;
+  if (typeof d === "string") return d;
+  if (d && d.short) return d.short.map((x) => `${x.bin} holds ${x.available} ${x.name || x.product_id}, not ${x.requested}. ` +
+                                         `Use ${x.available} or fewer, or count the bin if the shelf shows more.`).join(" ");
+  if (d && d.message) return d.message;
+  if (Array.isArray(d)) return d.map((e) => e.msg).join("; ");
+  return fallback;
 }
 
-async function api(path, options = {}) {
-  const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...options});
+// Reads (lookups, lists). Throw a short message; "offline" when the signal is gone.
+async function get(path) {
+  let r;
+  try { r = await fetch(path); } catch { setOnline(false); throw new Error("offline"); }
+  setOnline(true);
   const body = r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text();
-  if (!r.ok) {
-    const d = body.detail ?? body;
-    throw new Error(typeof d === "string" ? d : d.message ?? (Array.isArray(d) ? d.map((e) => e.msg).join("; ") : JSON.stringify(d)));
-  }
+  if (!r.ok) throw new Error(errorText(body, "Something went wrong (" + r.status + ")."));
   return body;
 }
 
-function cell(text, cls = "") {
-  const td = document.createElement("td"); td.textContent = text; if (cls) td.className = cls; return td;
+function setOnline(v) { online = v; renderSignal(); }
+
+// ---------------------------------------------------------------- the outbox
+// Every save goes here first, with an id made once. It is sent in order; when there's no signal it waits on the
+// phone and goes by itself later. The id means the server counts it once however many times it's sent.
+function enqueue(path, body, label) {
+  const job = {id: newId(), path, body, label, tab};
+  for (const k of ["scan_id", "count_id", "move_id", "transfer_id"]) if (k in body) body[k] = job.id;
+  outbox.push(job);
+  log.unshift({id: job.id, label, state: "waiting", at: Date.now(), tab});
+  persist(); render(); flush();
+  return job;
 }
 
-// The product's name under its barcode once 13 digits are in.
+let flushing = false;
+async function flush() {
+  if (flushing || !outbox.length) return;
+  flushing = true;
+  try {
+    while (outbox.length) {
+      const job = outbox[0];
+      let r;
+      try {
+        r = await fetch(job.path, {method: "POST", headers: {"Content-Type": "application/json"},
+                                   body: job.body ? JSON.stringify(job.body) : undefined});
+      } catch { setOnline(false); break; }  // no signal: keep it and try later
+      setOnline(true);
+      // The service or the store's system is down, or the login needs renewing: keep it and try later.
+      if (r.status >= 500 || [401, 408, 429].includes(r.status)) break;
+      const data = await r.json().catch(() => ({}));
+      outbox.shift();
+      const entry = log.find((e) => e.id === job.id) || {id: job.id, label: job.label, at: Date.now(), tab: job.tab};
+      if (r.ok) { entry.state = "sent"; entry.label = describe(job, data); }
+      else {
+        entry.state = "refused"; entry.note = errorText(data, "Refused (" + r.status + ").");
+        entry.short = data?.detail?.short ? data.detail.short.map((x) => `only ${x.available} in ${x.bin}`).join(", ") : "";
+        say(job.label + ": " + entry.note);
+      }
+      if (!log.includes(entry)) log.unshift(entry);
+      persist(); render(); afterSave(job, r.ok, data);
+    }
+  } finally { flushing = false; render(); }
+}
+
+function describe(job, d) {
+  try {
+    switch (job.path) {
+      case "api/receipts": return `${d.product.name} +${job.body.qty} into ${d.bin} · now ${d.bin_qty}`;
+      case "api/counts": return `${d.product.name} in ${d.bin}: ${d.counted} counted` +
+                                (d.difference ? ` (${d.difference > 0 ? "+" : ""}${d.difference})` : " · matches");
+      case "api/moves": return `${d.product.name} ${d.moved} from ${d.from_bin} to ${d.to_bin}`;
+      case "api/transfers": return `Sent ${d.lines.reduce((n, l) => n + l.qty, 0)} items to store ${d.store_id}`;
+    }
+    if (job.path.endsWith("/received")) return `Store ${d.store_id} has ${d.lines.reduce((n, l) => n + l.qty, 0)} items`;
+  } catch {}
+  return job.label;
+}
+
+function afterSave(job, ok, data) {
+  if (!ok) return;
+  for (const plate of $$("[data-plate]")) loadHolds(plate);
+  if (job.path === "api/transfers" || job.path.endsWith("/received")) loadTransfers();
+  if (tab === "stock") loadStock();
+}
+
+window.addEventListener("online", () => { setOnline(true); flush(); });
+window.addEventListener("offline", () => setOnline(false));
+setInterval(() => { if (outbox.length) flush(); }, 20000);
+$("#retry").onclick = () => flush();
+
+// ---------------------------------------------------------------- rendering
+function ago(t) {
+  const s = Math.round((Date.now() - t) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + " min ago";
+  return new Date(t).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+}
+
+const STATE = {sent: ["check", "Sent"], waiting: ["clock", "Waiting for signal"], refused: ["alert", "Not saved"]};
+
+function render() {
+  renderSignal();
+  const n = outbox.length;
+  $("#waiting").hidden = n === 0;
+  $("#waiting-text").textContent = n === 1 ? "1 save is waiting for signal. It will send by itself."
+                                           : `${n} saves are waiting for signal. They will send by themselves.`;
+  const list = $("#log"); list.textContent = "";
+  for (const e of log.slice(0, 12)) {
+    const li = document.createElement("li");
+    const [ic, word] = STATE[e.state];
+    li.append(icon(ic, "state-" + e.state));
+    const t = document.createElement("div"); t.className = "grow"; t.textContent = e.label;
+    const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = word + " · " + ago(e.at) + (e.note ? " · " + e.note : "");
+    t.append(sub); li.append(t); list.append(li);
+  }
+  if (!log.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Nothing yet. Each save appears here, marked sent or waiting."; list.append(li); }
+  renderLast(); renderPicks(); renderAction();
+}
+
+// The line above Save: the last save made on this task, or what to do next.
+function renderLast() {
+  const last = $("#last");
+  last.hidden = tab === "stock";
+  const e = log.find((x) => x.tab === tab);
+  const fresh = e && Date.now() - e.at < 10 * 60 * 1000;  // older results give way to the next step
+  last.textContent = ""; last.className = "last" + (fresh ? " " + e.state : "");
+  if (fresh) {
+    last.append(icon(STATE[e.state][0]));
+    const s = document.createElement("span");
+    s.textContent = e.state === "refused" ? "Not saved: " + (e.short || e.note || e.label) : (e.state === "waiting" ? "Waiting: " : "") + e.label;
+    last.append(s);
+  } else last.textContent = nextStep();
+}
+function nextStep() {
+  const pane = $(`[data-pane="${tab}"]`), f = $("form", pane) || pane;
+  const val = (n) => (f.elements?.[n]?.value || "").trim();
+  const product = EAN.test(val("ean13")) ? (tab === "send" ? "Check how many, then add it to the list." : "Check how many, then save.")
+                                         : "Scan the product.";
+  if (tab === "move") return !val("from_bin") ? "Scan the bin you're taking from." : !val("to_bin") ? "Scan the bin it's going to." : product;
+  if (tab === "send" && picks.length && !val("ean13")) return "Add more, or send the list.";
+  return val("bin") ? product : (tab === "send" ? "Scan the bin to pick from." : "Scan a bin to start.");
+}
+
+function renderSignal() {
+  const el = $("#signal"); el.classList.toggle("off", !online);
+  $("#signal-text").textContent = online ? (outbox.length ? `Sending ${outbox.length}` : "Online") : (outbox.length ? "No signal" : "No signal");
+}
+
+const ACTIONS = {receive: ["f-receive", "Save goods in"], count: ["f-count", "Save count"], move: ["f-move", "Move"]};
+function renderAction() {
+  const b = $("#act");
+  $(".bar").hidden = tab === "stock";
+  if (tab === "send") {
+    const items = picks.reduce((n, p) => n + p.qty, 0);
+    b.removeAttribute("form"); b.type = "button";
+    b.textContent = items ? `Send ${items} item${items === 1 ? "" : "s"} to store ${$("#s-store").value}` : "Add items to send";
+    b.disabled = !items;
+  } else if (ACTIONS[tab]) {
+    b.type = "submit"; b.setAttribute("form", ACTIONS[tab][0]); b.textContent = ACTIONS[tab][1]; b.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------- tabs
+for (const b of $$("nav.tabs button")) b.onclick = () => show(b.dataset.tab);
+function show(t) {
+  tab = t;
+  for (const b of $$("nav.tabs button")) {
+    if (b.dataset.tab === t) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  }
+  for (const p of $$("[data-pane]")) p.hidden = p.dataset.pane !== t;
+  $("#log-title").hidden = $("#log").hidden = t === "stock";
+  say(""); renderAction(); renderLast(); window.scrollTo(0, 0);
+  if (t === "stock") loadStock();
+  if (t === "send") loadTransfers();
+}
+
+// ---------------------------------------------------------------- bin plates
+// Layout changes wait until the finger lifts, so a tap that blurred a field still lands where it was aimed.
+let pressing = false, afterPress = [];
+document.addEventListener("pointerdown", () => { pressing = true; }, true);
+document.addEventListener("pointerup", () => setTimeout(() => {
+  pressing = false; const jobs = afterPress; afterPress = []; jobs.forEach((f) => f());
+}), true);
+function afterTap(f) { if (pressing) afterPress.push(f); else f(); }
+function setPlate(plate) {
+  const input = $("input", plate), code = $("[data-code]", plate);
+  const v = input.value.trim().toUpperCase();
+  code.className = "code" + (v ? (v.length > 7 ? " long" : v.length > 4 ? " mid" : "") : " empty");
+  code.textContent = "";
+  if (v) {
+    const t = document.createElement("span"); t.textContent = v;
+    code.append(t, icon("scan")); code.setAttribute("aria-label", `Bin ${v}. Tap to scan another bin.`);
+  }
+  else { code.append(icon("scan"), "Scan the bin label"); code.setAttribute("aria-label", "Scan the bin label"); }
+  input.setAttribute("aria-invalid", v && !BIN.test(v) ? "true" : "false");
+  clearTimeout(plate._t); plate._t = setTimeout(() => loadHolds(plate), 350);
+  renderLast();
+}
+
+async function loadHolds(plate) {
+  const v = $("input", plate).value.trim().toUpperCase(), out = $("[data-holds]", plate);
+  if (!v) { out.textContent = ""; return; }
+  if (!BIN.test(v)) { out.textContent = "A bin code is letters, digits and dashes, like A-01-3."; return; }
+  try {
+    const rows = await get("api/stock?bin=" + encodeURIComponent(v));
+    out.textContent = "";
+    if (!rows.length) { out.textContent = "Empty in the records."; return; }
+    rows.slice(0, 3).forEach((r, i) => {
+      if (i) out.append(" · ");
+      const b = document.createElement("b"); b.textContent = r.qty; out.append(r.name + " ", b);
+      names.set(r.ean13, r.name);
+    });
+    if (rows.length > 3) out.append(` · and ${rows.length - 3} more`);
+  } catch (e) { out.textContent = e.message === "offline" ? "No signal: contents show when it's back." : e.message; }
+}
+for (const plate of $$("[data-plate]")) {
+  const input = $("input", plate), type = $("[data-type]", plate);
+  input.addEventListener("input", () => setPlate(plate));
+  $("[data-code]", plate).onclick = () => scan(input);
+  type.onclick = () => { input.hidden = false; type.hidden = true; input.focus(); };
+  // Once a typed code is complete, fold the field away again: the plate shows it, and tapping the plate rescans.
+  input.addEventListener("change", () => afterTap(() => {
+    if (BIN.test(input.value.trim().toUpperCase())) { input.value = input.value.trim().toUpperCase(); input.hidden = true; type.hidden = false; }
+  }));
+  setPlate(plate);
+}
+
+// ---------------------------------------------------------------- products
 async function showName(form) {
-  const input = form.elements.ean13, out = $("[data-name=ean13]", form);
-  if (!/^\d{13}$/.test(input.value)) { out.textContent = ""; return; }
+  renderLast();
+  const input = form.elements.ean13, out = $("[data-name]", form);
+  const v = input.value.trim();
+  input.setAttribute("aria-invalid", v && v.length === 13 && !EAN.test(v) ? "true" : "false");
+  if (!EAN.test(v)) { out.textContent = v ? `${v.length} of 13 digits` : ""; return; }
   try {
-    const p = await api("api/products/" + input.value);
-    const where = p.bins.map((b) => `${b.bin}: ${b.qty}`).join(", ");
-    out.textContent = p.name + (where ? ` — ${where}` : " — none in the warehouse");
-  } catch (e) { out.textContent = e.message; }
+    const p = await get("api/products/" + v);
+    names.set(v, p.name);
+    out.textContent = "";
+    const b = document.createElement("b"); b.textContent = p.name; out.append(b);
+    out.append(p.bins.length ? " · " + p.bins.map((x) => `${x.bin}: ${x.qty}`).join(", ") : " · none in the warehouse yet");
+  } catch (e) {
+    out.textContent = e.message === "offline" ? (names.get(v) ? names.get(v) + " · no signal, it will still save" : "No signal: the name shows once it's sent.") : e.message;
+  }
 }
+for (const f of $$("form")) if (f.elements.ean13) f.elements.ean13.addEventListener("input", () => showName(f));
 
-// Tabs
-for (const b of document.querySelectorAll("#tabs button")) {
-  b.onclick = () => {
-    for (const x of document.querySelectorAll("#tabs button")) x.classList.toggle("on", x === b);
-    for (const p of document.querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== b.dataset.tab;
-    say("");
-    if (b.dataset.tab === "stock") loadStock();
-    if (b.dataset.tab === "send") loadTransfers();
-  };
-}
-
-for (const form of document.querySelectorAll("form")) {
-  if (form.elements.ean13) form.elements.ean13.addEventListener("input", () => showName(form));
-}
-
-function values(form) {
-  const v = Object.fromEntries(new FormData(form));
-  for (const k of ["qty", "counted_qty"]) if (k in v) v[k] = Number(v[k]);
-  return v;
-}
-
-function done(form, keep, text) {
-  for (const el of form.elements) if (el.name && !keep.includes(el.name)) el.value = "";
-  const n = $("[data-name=ean13]", form); if (n) n.textContent = "";
-  say(text, true);
-}
-
-$("[data-pane=receive]").onsubmit = async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  try {
-    const r = await api("api/receipts", {method: "POST", body: JSON.stringify({...values(f), scan_id: newId()})});
-    done(f, ["bin", "ref"], `${r.product.name}: ${r.bin} now holds ${r.bin_qty}.`);
-  } catch (err) { say(err.message); }
+for (const b of $$("[data-step]")) b.onclick = () => {
+  const input = $("input", b.parentElement), min = Number(input.min || 0);
+  input.value = Math.max(min, (Number(input.value) || 0) + Number(b.dataset.step));
 };
 
-$("[data-pane=count]").onsubmit = async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  try {
-    const r = await api("api/counts", {method: "POST", body: JSON.stringify({...values(f), count_id: newId()})});
-    const diff = r.difference === 0 ? "matches the records" : `${r.difference > 0 ? "+" : ""}${r.difference} against the records`;
-    done(f, ["bin"], `${r.product.name} in ${r.bin}: ${r.counted} counted, ${diff}.`);
-  } catch (err) { say(err.message); }
+function check(form, fields) {
+  for (const [name, test, message] of fields) {
+    const el = form.elements[name], v = String(el.value).trim().toUpperCase();
+    if (!test(v)) { say(message); el.setAttribute("aria-invalid", "true"); el.focus(); return false; }
+  }
+  say(""); return true;
+}
+const isBin = (v) => BIN.test(v), isEan = (v) => EAN.test(v);
+const atLeast = (n) => (v) => /^\d+$/.test(v) && Number(v) >= n;
+const label = (ean) => names.get(ean) || "Barcode " + ean;
+
+function resetProduct(form, qty) {
+  form.elements.ean13.value = ""; $("[data-name]", form).textContent = "";
+  const q = form.elements.qty || form.elements.counted_qty; q.value = qty;
+  form.elements.ean13.focus({preventScroll: true});
+}
+
+$("#f-receive").onsubmit = (e) => {
+  e.preventDefault(); const f = e.target;
+  if (!check(f, [["bin", isBin, "Scan or type the bin you're putting it in."], ["ean13", isEan, "Scan the product's barcode (13 digits)."],
+                 ["qty", atLeast(1), "Enter how many, at least 1."]])) return;
+  const body = {bin: f.elements.bin.value.trim().toUpperCase(), ean13: f.elements.ean13.value.trim(), qty: Number(f.elements.qty.value),
+                ref: f.elements.ref.value.trim(), scan_id: ""};
+  enqueue("api/receipts", body, `${label(body.ean13)} +${body.qty} into ${body.bin}`);
+  resetProduct(f, 1);
 };
 
-$("[data-pane=move]").onsubmit = async (e) => {
-  e.preventDefault();
-  const f = e.target;
-  try {
-    const r = await api("api/moves", {method: "POST", body: JSON.stringify({...values(f), move_id: newId()})});
-    done(f, [], `Moved ${r.moved} ${r.product.name}: ${r.from_bin} has ${r.from_qty}, ${r.to_bin} has ${r.to_qty}.`);
-  } catch (err) { say(err.message); }
+$("#f-count").onsubmit = (e) => {
+  e.preventDefault(); const f = e.target;
+  if (!check(f, [["bin", isBin, "Scan or type the bin you're counting."], ["ean13", isEan, "Scan the product's barcode (13 digits)."],
+                 ["counted_qty", atLeast(0), "Enter how many you counted (0 if none)."]])) return;
+  const body = {bin: f.elements.bin.value.trim().toUpperCase(), ean13: f.elements.ean13.value.trim(),
+                counted_qty: Number(f.elements.counted_qty.value), count_id: ""};
+  enqueue("api/counts", body, `${label(body.ean13)} in ${body.bin}: ${body.counted_qty} counted`);
+  resetProduct(f, 0);
 };
 
-// Send to store: build a pick list, then send it in one go.
-$("#line-form").onsubmit = async (e) => {
-  e.preventDefault();
-  const f = e.target, v = values(f);
-  try {
-    const p = await api("api/products/" + v.ean13);
-    picks.push({...v, bin: v.bin.trim().toUpperCase(), name: p.name});
-    done(f, [], "");
-    renderPicks();
-  } catch (err) { say(err.message); }
+$("#f-move").onsubmit = (e) => {
+  e.preventDefault(); const f = e.target;
+  if (!check(f, [["from_bin", isBin, "Scan or type the bin you're taking from."], ["to_bin", isBin, "Scan or type the bin you're putting it in."],
+                 ["ean13", isEan, "Scan the product's barcode (13 digits)."], ["qty", atLeast(1), "Enter how many, at least 1."]])) return;
+  const body = {from_bin: f.elements.from_bin.value.trim().toUpperCase(), to_bin: f.elements.to_bin.value.trim().toUpperCase(),
+                ean13: f.elements.ean13.value.trim(), qty: Number(f.elements.qty.value), move_id: ""};
+  if (body.from_bin === body.to_bin) return say("Pick two different bins.");
+  enqueue("api/moves", body, `${label(body.ean13)} ${body.qty} from ${body.from_bin} to ${body.to_bin}`);
+  resetProduct(f, 1);
 };
+
+// ---------------------------------------------------------------- send to a store
+$("#f-line").onsubmit = (e) => {
+  e.preventDefault(); const f = e.target;
+  if (!check(f, [["bin", isBin, "Scan or type the bin you're picking from."], ["ean13", isEan, "Scan the product's barcode (13 digits)."],
+                 ["qty", atLeast(1), "Enter how many, at least 1."]])) return;
+  const ean13 = f.elements.ean13.value.trim(), bin = f.elements.bin.value.trim().toUpperCase(), qty = Number(f.elements.qty.value);
+  const same = picks.find((p) => p.ean13 === ean13 && p.bin === bin);
+  if (same) same.qty += qty; else picks.push({ean13, bin, qty, name: label(ean13)});
+  persist(); resetProduct(f, 1); render();
+};
+$("#s-store").onchange = renderAction;
 
 function renderPicks() {
-  const body = $("#pick tbody"); body.innerHTML = "";
-  picks.forEach((l, i) => {
-    const tr = document.createElement("tr");
-    tr.append(cell(l.name), cell(l.bin), cell(l.qty, "n"));
-    const x = document.createElement("button"); x.type = "button"; x.className = "secondary"; x.textContent = "✕";
-    x.onclick = () => { picks.splice(i, 1); renderPicks(); };
-    const td = document.createElement("td"); td.append(x); tr.append(td);
-    body.append(tr);
+  const list = $("#picks"); list.textContent = "";
+  picks.forEach((p, i) => {
+    const li = document.createElement("li");
+    const t = document.createElement("div"); t.className = "grow"; t.textContent = p.name;
+    const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = "from " + p.bin; t.append(sub);
+    const n = document.createElement("span"); n.className = "n"; n.textContent = p.qty;
+    const x = document.createElement("button"); x.type = "button"; x.className = "icon-btn"; x.setAttribute("aria-label", "Take " + p.name + " off the list");
+    x.append(icon("x")); x.onclick = () => { picks.splice(i, 1); persist(); render(); };
+    li.append(t, n, x); list.append(li);
   });
-  $("#pick").hidden = picks.length === 0;
+  if (!picks.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Add the first product above. Nothing leaves the bins until you send."; list.append(li); }
 }
 
-let pendingTransfer = null;  // kept until it succeeds, so a retry after a dropped connection isn't sent twice
-$("#dispatch").onclick = async () => {
-  pendingTransfer ??= newId();
-  const store_id = $("#store").value;
-  try {
-    await api("api/transfers", {method: "POST", body: JSON.stringify({
-      transfer_id: pendingTransfer, store_id, lines: picks.map(({ean13, bin, qty}) => ({ean13, bin, qty}))})});
-    picks = []; pendingTransfer = null; renderPicks();
-    say(`Sent to store ${store_id}. Mark it received when it arrives.`, true);
-    loadTransfers();
-  } catch (err) { say(err.message); }
-};
+$("#act").addEventListener("click", () => {
+  if (tab !== "send" || !picks.length) return;
+  const store_id = $("#s-store").value, items = picks.reduce((n, p) => n + p.qty, 0);
+  enqueue("api/transfers", {transfer_id: "", store_id, lines: picks.map(({ean13, bin, qty}) => ({ean13, bin, qty}))},
+          `${items} items to store ${store_id}`);
+  picks = []; persist(); render();
+});
 
 async function loadTransfers() {
-  const box = $("#transfers"); box.textContent = "";
+  const list = $("#transfers");
   try {
-    const list = await api("api/transfers?limit=20");
-    if (!list.length) { box.textContent = "Nothing sent yet."; return; }
-    for (const t of list) {
-      const div = document.createElement("div"); div.className = "row"; div.style.padding = "8px 0";
+    const rows = await get("api/transfers?limit=15");
+    list.textContent = "";
+    for (const t of rows) {
+      const li = document.createElement("li");
       const items = t.lines.reduce((n, l) => n + l.qty, 0);
-      const info = document.createElement("div"); info.className = "grow";
-      info.textContent = `Store ${t.store_id} · ${items} items · ${t.created_at.slice(0, 16).replace("T", " ")}`;
-      div.append(info);
+      const d = document.createElement("div"); d.className = "grow"; d.textContent = `Store ${t.store_id} · ${items} items`;
+      const sub = document.createElement("span"); sub.className = "sub";
+      sub.textContent = "Sent " + new Date(t.created_at).toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) +
+                        (t.status === "received" ? " · received by " + (t.received_by || "the store") : " · on the way");
+      d.append(sub); li.append(d);
       if (t.status === "dispatched") {
-        const b = document.createElement("button"); b.className = "secondary"; b.textContent = "Received";
-        b.onclick = async () => {
-          b.disabled = true;
-          try { await api(`api/transfers/${encodeURIComponent(t.transfer_id)}/received`, {method: "POST"});
-                say(`Added to store ${t.store_id}'s stock.`, true); loadTransfers(); }
-          catch (err) { say(err.message); b.disabled = false; }
-        };
-        div.append(b);
-      } else {
-        const s = document.createElement("span"); s.className = "pill go"; s.textContent = "Received"; div.append(s);
-      }
-      box.append(div);
+        const queued = outbox.some((j) => j.path === `api/transfers/${encodeURIComponent(t.transfer_id)}/received`);
+        const b = document.createElement("button"); b.type = "button"; b.className = "secondary"; b.textContent = queued ? "Waiting" : "Received";
+        b.disabled = queued;
+        b.onclick = () => { b.disabled = true; b.textContent = "Waiting";
+          enqueue(`api/transfers/${encodeURIComponent(t.transfer_id)}/received`, null, `Store ${t.store_id} received ${items} items`); };
+        li.append(b);
+      } else { const s = document.createElement("span"); s.className = "pill"; s.textContent = "Received"; li.append(s); }
+      list.append(li);
     }
-  } catch (err) { box.textContent = err.message; }
+    if (!rows.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Nothing sent yet."; list.append(li); }
+  } catch (e) {
+    list.textContent = ""; const li = document.createElement("li"); li.className = "empty";
+    li.textContent = e.message === "offline" ? "No signal: the list shows when it's back." : e.message; list.append(li);
+  }
 }
 
+// ---------------------------------------------------------------- stock
+$("#f-stock").onsubmit = (e) => { e.preventDefault(); loadStock(); };
 async function loadStock() {
-  const bin = $("#stock-bin").value.trim();
-  const body = $("#stock"); body.innerHTML = "";
+  const bin = $("#stock-bin").value.trim().toUpperCase(), box = $("#stock");
+  box.setAttribute("aria-busy", "true");
   try {
-    const rows = await api("api/stock" + (bin ? "?bin=" + encodeURIComponent(bin) : ""));
-    for (const r of rows) { const tr = document.createElement("tr"); tr.append(cell(r.bin), cell(r.name), cell(r.qty, "n")); body.append(tr); }
-    if (!rows.length) { const tr = document.createElement("tr"); tr.append(cell("Nothing here.")); body.append(tr); }
-  } catch (err) { say(err.message); }
+    const rows = await get("api/stock" + (bin ? "?bin=" + encodeURIComponent(bin) : ""));
+    box.textContent = "";
+    const groups = new Map();
+    for (const r of rows) { if (!groups.has(r.bin)) groups.set(r.bin, []); groups.get(r.bin).push(r); names.set(r.ean13, r.name); }
+    for (const [b, items] of groups) {
+      const g = document.createElement("section"); g.className = "bin-group";
+      const h = document.createElement("h3"); h.textContent = b; g.append(h);
+      const ul = document.createElement("ul"); ul.className = "list";
+      for (const r of items) {
+        const li = document.createElement("li");
+        const d = document.createElement("div"); d.className = "grow"; d.textContent = r.name;
+        const sub = document.createElement("span"); sub.className = "sub"; sub.textContent = r.ean13; d.append(sub);
+        const n = document.createElement("span"); n.className = "n"; n.textContent = r.qty;
+        li.append(d, n); ul.append(li);
+      }
+      g.append(ul); box.append(g);
+    }
+    if (!rows.length) { const p = document.createElement("p"); p.className = "empty"; p.textContent = bin ? `Bin ${bin} is empty in the records.` : "No stock yet. Goods in puts the first products in their bins."; box.append(p); }
+  } catch (e) {
+    box.textContent = ""; const p = document.createElement("p"); p.className = "empty";
+    p.textContent = e.message === "offline" ? "No signal: stock shows when it's back." : e.message; box.append(p);
+  } finally { box.removeAttribute("aria-busy"); }
 }
-$("#stock-go").onclick = loadStock;
 
-// Camera scanning: product barcodes (EAN-13) and bin labels (Code 128 or QR).
+// ---------------------------------------------------------------- camera
 let stream = null, scanning = false, reader = null;
-for (const b of document.querySelectorAll("[data-scan]")) {
-  b.onclick = () => scan(b.closest("form").elements[b.dataset.scan]);
-}
+for (const b of $$("[data-scan]")) b.onclick = () => scan(b.closest("form").elements[b.dataset.scan]);
+// Without a camera the bin can still be typed: the plate shows its input.
+function typeInstead(input) { const plate = input.closest("[data-plate]"); if (plate) $("[data-type]", plate).click(); }
 
 async function scan(input) {
-  if (!navigator.mediaDevices?.getUserMedia) return say("This phone's browser can't use the camera here. Type the code instead.");
   const isProduct = input.name === "ean13";
-  const native = isProduct ? ["ean_13"] : ["code_128", "qr_code"];
-  const found = (code) => {
-    if (isProduct && !/^\d{13}$/.test(code)) return;
-    input.value = code; stopScan();
-    input.dispatchEvent(new Event("input"));
+  if (!navigator.mediaDevices?.getUserMedia) { typeInstead(input); return say("This browser can't use the camera here. Type the code instead."); }
+  const formats = isProduct ? ["ean_13"] : ["code_128", "qr_code"];
+  const found = (raw) => {
+    const code = String(raw).trim();
+    if (isProduct ? !EAN.test(code) : !BIN.test(code.toUpperCase())) return;
+    if (navigator.vibrate) navigator.vibrate(60);
+    input.value = isProduct ? code : code.toUpperCase(); stopScan();
+    if (!isProduct) { input.hidden = true; const t = input.closest("[data-plate]")?.querySelector("[data-type]"); if (t) t.hidden = false; }
+    input.dispatchEvent(new Event("input", {bubbles: true}));
   };
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false});
-  } catch { return say("The camera is blocked. Allow it for this site, or type the code."); }
+  try { stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false}); }
+  catch { typeInstead(input); return say("The camera is blocked. Allow it for this site, or type the code."); }
+  $("#scan-frame").className = "frame" + (isProduct ? "" : " bin");
+  $("#scan-hint").textContent = isProduct ? "Hold the product barcode inside the frame" : "Hold the bin label inside the frame";
   const video = $("#scanner video");
-  $("#scanner").hidden = false; video.srcObject = stream; await video.play(); scanning = true;
+  $("#scanner").hidden = false; video.srcObject = stream; await video.play().catch(() => {}); scanning = true;
   const supported = "BarcodeDetector" in window ? await BarcodeDetector.getSupportedFormats() : [];
-  if (native.every((f) => supported.includes(f))) {
-    const detector = new BarcodeDetector({formats: native});
+  if (formats.every((f) => supported.includes(f))) {
+    const detector = new BarcodeDetector({formats});
     const tick = async () => {
       if (!scanning) return;
       try { const [hit] = await detector.detect(video); if (hit) found(hit.rawValue); } catch {}
@@ -351,7 +823,7 @@ async function scan(input) {
       const hints = new Map([[ZXing.DecodeHintType.POSSIBLE_FORMATS, isProduct ? [F.EAN_13] : [F.CODE_128, F.QR_CODE]]]);
       reader = new ZXing.BrowserMultiFormatReader(hints, 250);
       reader.decodeFromStream(stream, video, (r) => { if (r && scanning) found(r.getText()); });
-    } catch { stopScan(); say("The scanner couldn't load. Type the code instead."); }
+    } catch { stopScan(); say("The scanner needs signal to load the first time. Type the code instead."); }
   }
 }
 
@@ -362,14 +834,24 @@ function stopScan() {
   $("#scanner").hidden = true;
 }
 $("#scan-stop").onclick = stopScan;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#scanner").hidden) stopScan(); });
 
+// ---------------------------------------------------------------- start
 (async () => {
+  render();
   try {
-    me = await api("api/me");
-    $("#title").textContent = me.warehouse_name;
+    me = await get("api/me");
+    $("#title").textContent = me.warehouse_name; document.title = me.warehouse_name;
     $("#who").textContent = me.name;
-    for (const s of me.stores) { const o = document.createElement("option"); o.value = o.textContent = s; $("#store").append(o); }
-  } catch (err) { say(err.message); }
+    for (const s of me.stores) { const o = document.createElement("option"); o.value = s; o.textContent = "Store " + s; $("#s-store").append(o); }
+    saved.set("wh-me", me);
+  } catch (e) {
+    const cached = saved.get("wh-me", null);
+    if (cached) { me = cached; $("#title").textContent = me.warehouse_name; $("#who").textContent = me.name;
+                  for (const s of me.stores) { const o = document.createElement("option"); o.value = s; o.textContent = "Store " + s; $("#s-store").append(o); } }
+    if (e.message !== "offline") say(e.message);
+  }
+  renderAction(); flush();
 })();
 </script>
 </body>

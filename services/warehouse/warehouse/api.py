@@ -14,6 +14,7 @@ from typing import List, Literal, Optional
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .db import Database, database_from_env
@@ -112,6 +113,7 @@ def create_app(settings: Optional[Settings] = None, db: Optional[Database] = Non
     inventory = inventory or HttpInventory(settings.inventory_url)
     wh = Warehouse(db, inventory, settings.warehouse_id)
     app = FastAPI(title="Smart Shopping - Warehouse Service")
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")  # the page's fonts
 
     def who(user: Optional[str] = Header(None, alias="X-Staff-User", include_in_schema=False)) -> str:
         name = user or settings.dev_user
